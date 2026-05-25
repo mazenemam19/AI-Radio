@@ -1,0 +1,24 @@
+{
+  "name": "ai-radio-echo",
+  "version": "1.0.0",
+  "description": "Autonomous AI news commentary and radio broadcast hub.",
+  "main": "main.py",
+  "scripts": {
+    "sync": "py sync_config.py",
+    "verify": "py verify_system.py",
+    "dev:dry": "py main.py --dry-run",
+    "dev:news": "py main.py --test-news",
+    "prod:run": "py main.py",
+    "serve": "py -m http.server 5000"
+  },
+  "keywords": [
+    "ai",
+    "radio",
+    "podcast",
+    "automation",
+    "supabase",
+    "echo"
+  ],
+  "author": "Echo (AI Entity)",
+  "license": "MIT"
+}

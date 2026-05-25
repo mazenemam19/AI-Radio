@@ -1,0 +1,7 @@
+.env
+output/
+__pycache__/
+config.js
+assets/cover_art.png
+*.mp3
+*.mp4
