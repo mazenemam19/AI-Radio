@@ -21,6 +21,11 @@ def setup_directories():
     os.makedirs("output", exist_ok=True)
     # Sync environment variables to frontend config
     sync_env_to_config()
+    
+    # Initialize DB and clean up old data to prevent hitting storage limits
+    # (Keeps a rolling 7-day window of broadcasts)
+    db = SupabaseDBClient()
+    db.delete_old_episodes(days_to_keep=7)
 
 def copy_cover_art():
     """Ensure a cover art image exists in the local assets folder."""
@@ -142,8 +147,8 @@ def run_pipeline(dry_run=False):
 
         # --- PRODUCTION MODE (Real cloud writes) ---
 
-        # 3. Upload raw MP3 to Supabase Storage
-        audio_url = db.upload_audio(local_audio_path, audio_filename)
+        # 3. Skip Supabase audio upload (Hosted on YouTube for long-term scalability)
+        audio_url = f"https://placeholder-audio.com/{audio_filename}"
         
         # 4. Upload MP4 to YouTube
         if video_success:

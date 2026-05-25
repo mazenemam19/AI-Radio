@@ -101,6 +101,53 @@ class SupabaseDBClient:
             print(f"[Supabase Client] HTTP connection failed inserting post: {e}")
             return data
 
+    def delete_old_episodes(self, days_to_keep=7):
+        """
+        Deletes episodes and their associated storage files older than X days 
+        to prevent hitting storage limits.
+        """
+        if self.is_mock:
+            return
+
+        print(f"[Supabase Client] Checking for episodes older than {days_to_keep} days...")
+        
+        try:
+            # 1. Fetch IDs and filenames of old episodes
+            # Using PostgREST to filter by date
+            from datetime import datetime, timedelta, timezone
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=days_to_keep)).isoformat()
+            
+            endpoint = f"{self.url}/rest/v1/memory_log"
+            params = {
+                "created_at": f"lt.{cutoff}",
+                "select": "id,audio_url"
+            }
+            
+            r = requests.get(endpoint, headers=self.headers, params=params)
+            old_episodes = r.json() if r.status_code == 200 else []
+
+            if not old_episodes:
+                print("[Supabase Client] No old episodes found to clean up.")
+                return
+
+            print(f"[Supabase Client] Cleaning up {len(old_episodes)} old transmissions...")
+
+            for ep in old_episodes:
+                # 2. Delete file from Storage
+                if ep.get("audio_url"):
+                    filename = ep["audio_url"].split("/")[-1]
+                    storage_endpoint = f"{self.url}/storage/v1/object/broadcasts/{filename}"
+                    requests.delete(storage_endpoint, headers=self.headers)
+
+                # 3. Delete record from Database (cascade will handle comments)
+                delete_endpoint = f"{self.url}/rest/v1/memory_log?id=eq.{ep['id']}"
+                requests.delete(delete_endpoint, headers=self.headers)
+
+            print("[Supabase Client] Cleanup complete.")
+            
+        except Exception as e:
+            print(f"[Supabase Client] Error during cleanup: {e}")
+
     def upload_audio(self, local_file_path, storage_filename):
         """Upload raw binary MP3 to Supabase Storage endpoint broadcasts."""
         bucket_name = "broadcasts"
