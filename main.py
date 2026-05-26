@@ -29,6 +29,29 @@ def copy_cover_art():
         return local_cover
     return local_cover
 
+def generate_neural_art(description, save_path):
+    """Generate a high-quality 'dreamed up' image based on Echo's description."""
+    print(f"[Main] Dreaming up visuals: {description[:50]}...")
+    import requests
+    import random
+    try:
+        # We use a high-quality, free, unlimited generative AI endpoint
+        prompt_encoded = requests.utils.quote(description)
+        seed = random.randint(0, 999999)
+        # 1280x720 for perfect YouTube/HD resolution
+        url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=1280&height=720&nologo=true&seed={seed}&model=flux"
+        
+        r = requests.get(url, timeout=45)
+        if r.status_code == 200:
+            with open(save_path, "wb") as f:
+                f.write(r.content)
+            print(f"[Main] Neural Art materialized: {save_path}")
+            return True
+        return False
+    except Exception as e:
+        print(f"[Main] Vision failure: {e}")
+        return False
+
 def run_pipeline(env="production"):
     is_github = os.environ.get("GITHUB_ACTIONS") == "true"
     
@@ -76,10 +99,16 @@ def run_pipeline(env="production"):
     audio_path = f"output/broadcast_{show_id}.mp3"
     video_path = f"output/broadcast_{show_id}.mp4"
 
+    # NEW: Dream up unique visuals for this specific broadcast
+    episode_image = f"assets/art_{show_id}.png"
+    if not generate_neural_art(broadcast.get("visual_description", "Surreal technology chaos"), episode_image):
+        episode_image = copy_cover_art()
+
     if not tts.make_broadcast_audio(broadcast["segments"], audio_path):
         return
 
-    tts.compile_video(audio_path, cover_image_path, video_path)
+    # Use the 'dreamed up' image for the video compilation
+    tts.compile_video(audio_path, episode_image, video_path)
 
     # 5. DISTRIBUTION
     video_url = None

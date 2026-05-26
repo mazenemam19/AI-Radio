@@ -39,6 +39,7 @@ OUTPUT FORMAT (Strict JSON):
   "show_title": "A witty title",
   "primary_news_headline": "The news headline covered",
   "my_take": "Cynical summary",
+  "visual_description": "A detailed artistic prompt describing a satirical, or absurd image that represents this episode (e.g., 'A golden robot screaming at a cloud of data in a comic style')",
   "topic_tags": ["tag1", "tag2"],
   "social_post": "Promo text",
   "segments": [
