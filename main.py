@@ -2,6 +2,8 @@ import os
 import sys
 import argparse
 import shutil
+import time
+import random
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -53,6 +55,13 @@ def copy_cover_art():
     return local_cover
 
 def run_pipeline(env="production"):
+    # GENTLE CLOUD CHECK: Detect if running in GitHub Actions
+    is_github = os.environ.get("GITHUB_ACTIONS") == "true"
+    if is_github:
+        print("[Main] GitHub Actions detected. Applying 'Gentle Cloud' resource limits.")
+        # Random initial sleep to prevent "burst" pattern detection
+        time.sleep(random.randint(5, 20))
+
     print(f"--- [AI Radio Pipeline Start] --- Environment: {env.upper()} ---")
     setup_directories(env=env)
     cover_image_path = copy_cover_art()
@@ -101,14 +110,19 @@ def run_pipeline(env="production"):
         return
 
     posts = commentary["posts"]
-    print(f"[Main] AI generated {len(posts)} commentaries.")
+    
+    # GENTLE CLOUD LIMIT: Only process 1 episode in the cloud to save CPU/Network.
+    max_episodes = 1 if is_github else 5
+    posts_to_process = posts[:max_episodes]
+    
+    print(f"[Main] AI generated {len(posts)} commentaries. Processing {len(posts_to_process)}.")
     
     # Log session notes
     session_note = commentary.get("session_note", "No session notes.")
     print(f"[Main] Session note: {session_note}")
 
     # Process and distribute each generated post
-    for idx, post in enumerate(posts):
+    for idx, post in enumerate(posts_to_process):
         headline = post.get("headline")
         source = post.get("source")
         my_take = post.get("my_take")
@@ -211,6 +225,10 @@ def run_pipeline(env="production"):
 
         # 7. Post to Bluesky
         publisher.post_to_bluesky(final_post_text)
+        
+        # Random sleep to prevent pattern detection
+        if is_github:
+            time.sleep(random.randint(10, 30))
 
     print(f"\n--- [AI Radio Pipeline Complete] --- Environment: {env.upper()} ---")
     
