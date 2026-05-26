@@ -85,12 +85,6 @@ class NewsFetcher:
 
         return items
 
-    def fetch_guardian_api(self):
-        """Fetch tech/world/science stories from official Guardian API (if key exists)."""
-        if not self.guardian_key:
-            print("[News Fetcher] Guardian API Key missing. Skipping official API fetch.")
-            return []
-
         items = []
         try:
             print("[News Fetcher] Querying Guardian API...")
@@ -124,7 +118,6 @@ class NewsFetcher:
         raw_items = []
         raw_items.extend(self.fetch_rss_feeds())
         raw_items.extend(self.fetch_hackernews())
-        raw_items.extend(self.fetch_guardian_api())
 
         unique_items = []
         seen_headlines = set()
@@ -152,11 +145,11 @@ class NewsFetcher:
                 continue
 
             # 2. Topic similarity check (Keyword Overlap)
-            # If 3 or more significant words match a previous story, it's likely the same topic
+            # Threshold lowered to 2: If 2 or more significant words match, it's a duplicate.
             is_duplicate_topic = False
             for prev_keywords in history_keywords:
                 overlap = item_keywords.intersection(prev_keywords)
-                if len(overlap) >= 3:
+                if len(overlap) >= 2:
                     print(f"[News Fetcher] [SKIP] Topic already covered (Overlap: {overlap}): {headline}")
                     is_duplicate_topic = True
                     break

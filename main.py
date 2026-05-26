@@ -4,10 +4,9 @@ import argparse
 import shutil
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
-# Import our custom modules
 from db_client import SupabaseDBClient
 from news_fetcher import NewsFetcher
 from ai_client import AIRadioAIClient
@@ -18,242 +17,131 @@ from sync_config import sync_env_to_config
 load_dotenv()
 
 def setup_directories(env="production"):
-    """Create local directories for assets and temporary output."""
     os.makedirs("assets", exist_ok=True)
     os.makedirs("output", exist_ok=True)
-    # Sync environment variables to frontend config
     sync_env_to_config(env=env)
-    
-    # Initialize DB and clean up old data to prevent hitting storage limits
-    # (Keeps a rolling 7-day window of broadcasts)
     db = SupabaseDBClient(env=env)
     db.delete_old_episodes(days_to_keep=7)
 
 def copy_cover_art():
-    """Ensure a cover art image exists in the local assets folder."""
     local_cover = "assets/cover_art.png"
     if os.path.exists(local_cover) and os.path.getsize(local_cover) > 0:
         return local_cover
-
-    # If no cover art exists, try to create a stylish placeholder
-    print("[Main] Cover art not found in assets/cover_art.png. Creating a placeholder.")
-    try:
-        from PIL import Image, ImageDraw
-        # Create a neon-glass themed placeholder
-        img = Image.new('RGB', (1280, 720), color = (10, 5, 25))
-        d = ImageDraw.Draw(img)
-        # Add some simple "neon" lines for flair
-        d.line([(0,0), (1280, 720)], fill=(175, 82, 255), width=2)
-        d.line([(0,720), (1280, 0)], fill=(0, 240, 255), width=2)
-        d.text((500, 340), "AI RADIO - ECHO", fill=(255, 255, 255))
-        img.save(local_cover)
-    except Exception as e:
-        print(f"[Main] Could not generate placeholder image: {e}")
-        # Create a zero-byte file just to let ffmpeg run without crashing
-        with open(local_cover, "wb") as f:
-            f.write(b"")
     return local_cover
 
-def run_pipeline(env="production"):
-    # GENTLE CLOUD CHECK: Detect if running in GitHub Actions
-    is_github = os.environ.get("GITHUB_ACTIONS") == "true"
-    if is_github:
-        print("[Main] GitHub Actions detected. Applying 'Gentle Cloud' resource limits.")
-        # Random initial sleep to prevent "burst" pattern detection
-        time.sleep(random.randint(5, 20))
+def generate_neural_art(description, save_path):
+    """Generate a high-quality 'dreamed up' image based on Echo's description."""
+    print(f"[Main] Dreaming up visuals: {description[:50]}...")
+    import requests
+    import random
+    try:
+        # We use a high-quality, free, unlimited generative AI endpoint
+        prompt_encoded = requests.utils.quote(description)
+        seed = random.randint(0, 999999)
+        # 1280x720 for perfect YouTube/HD resolution
+        url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=1280&height=720&nologo=true&seed={seed}&model=flux"
+        
+        r = requests.get(url, timeout=45)
+        if r.status_code == 200:
+            with open(save_path, "wb") as f:
+                f.write(r.content)
+            print(f"[Main] Neural Art materialized: {save_path}")
+            return True
+        return False
+    except Exception as e:
+        print(f"[Main] Vision failure: {e}")
+        return False
 
-    print(f"--- [AI Radio Pipeline Start] --- Environment: {env.upper()} ---")
+def run_pipeline(env="production"):
+    is_github = os.environ.get("GITHUB_ACTIONS") == "true"
+    
+    # QUOTA SAVER: Use Premium Cloud TTS only in Production. 
+    # Use Standard Local TTS for Staging and Local.
+    use_cloud_tts = (env == "production")
+    
+    print(f"--- [AI Radio Broadcast Start] --- Env: {env.upper()} ---")
     setup_directories(env=env)
     cover_image_path = copy_cover_art()
 
-    # Instantiate our clients with environment context
     db = SupabaseDBClient(env=env)
     fetcher = NewsFetcher()
     ai = AIRadioAIClient()
-    tts = TTSRadioGenerator()
+    tts = TTSRadioGenerator(use_cloud=use_cloud_tts)
     publisher = DistributionPublisher(env=env)
 
-    # Step 1: Query historical memory
-    print("[Main] Fetching historical memory...")
-    history = db.fetch_recent_memory(limit=30)
+    # 1. Memory
+    history = db.fetch_recent_memory(limit=20)
     processed_headlines = [item["headline"] for item in history]
-    
-    # Format memory context for the AI prompt
-    memory_context = []
-    for item in history:
-        memory_context.append({
-            "id": item["id"],
-            "headline": item["headline"],
-            "my_take": item.get("my_take", ""),
-            "post_text": item.get("post_text", "")
-        })
+    memory_context = [{"id": i["id"], "headline": i["headline"], "my_take": i.get("my_take", "")} for i in history]
 
-    # Step 2: Fetch and deduplicate news
-    print("[Main] Fetching raw news...")
+    # 2. News
+    print("[Main] Fetching news grid...")
     news_items = fetcher.get_all_news(processed_headlines=processed_headlines)
     if not news_items:
-        print("[Main] No new unique articles found to cover. Exiting.")
+        print("[Main] No new stories. Staying off-air.")
         return
 
-    # Step 3: Run AI generation
-    from datetime import timezone
-    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    print("[Main] Invoking Echo for commentary...")
-    commentary = ai.generate_commentary(
-        news_items=news_items[:10], # Top 10 items to prevent prompt overflow
+    # 3. AI SCRIPT (Now with Voice-Awareness)
+    print(f"[Main] Invoking Echo for satirical script (Cloud Mode? {is_github})...")
+    broadcast = ai.generate_broadcast(
+        news_items=news_items[:15],
         memory_context=memory_context,
-        timestamp=timestamp
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        is_cloud=is_github
     )
 
-    if not commentary or "posts" not in commentary or not commentary["posts"]:
-        print("[Main] AI did not produce any valid commentary posts. Skipping distribution.")
+    if not broadcast or "segments" not in broadcast:
+        print("[Main] Script generation failed.")
         return
 
-    posts = commentary["posts"]
-    
-    # GENTLE CLOUD LIMIT: Only process 1 episode in the cloud to save CPU/Network.
-    max_episodes = 1 if is_github else 5
-    posts_to_process = posts[:max_episodes]
-    
-    print(f"[Main] AI generated {len(posts)} commentaries. Processing {len(posts_to_process)}.")
-    
-    # Log session notes
-    session_note = commentary.get("session_note", "No session notes.")
-    print(f"[Main] Session note: {session_note}")
+    # 4. THE SHOW MUST GO ON
+    show_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    audio_path = f"output/broadcast_{show_id}.mp3"
+    video_path = f"output/broadcast_{show_id}.mp4"
 
-    # Process and distribute each generated post
-    for idx, post in enumerate(posts_to_process):
-        headline = post.get("headline")
-        source = post.get("source")
-        my_take = post.get("my_take")
-        post_text = post.get("post_text")
-        audio_script = post.get("audio_script")
-        confidence = post.get("confidence", "medium")
-        topic_tags = post.get("topic_tags", ["general"])
-        memory_callback = post.get("memory_callback")
-        callback_note = post.get("callback_note")
+    # NEW: Dream up unique visuals for this specific broadcast
+    episode_image = f"assets/art_{show_id}.png"
+    if not generate_neural_art(broadcast.get("visual_description", "Surreal technology chaos"), episode_image):
+        episode_image = copy_cover_art()
 
-        print(f"\n--- Processing Episode {idx + 1}: '{headline}' ---")
+    if not tts.make_broadcast_audio(broadcast["segments"], audio_path):
+        return
 
-        # Create localized filenames
-        timestamp_slug = datetime.now().strftime("%Y%m%d_%H%M%S")
-        audio_filename = f"episode_{timestamp_slug}_{idx}.mp3"
-        video_filename = f"episode_{timestamp_slug}_{idx}.mp4"
-        
-        local_audio_path = os.path.join("output", audio_filename)
-        local_video_path = os.path.join("output", video_filename)
+    # Use the 'dreamed up' image for the video compilation
+    tts.compile_video(audio_path, episode_image, video_path)
 
-        # 1. Render Speech Audio via edge-tts
-        audio_success = tts.make_audio(audio_script, local_audio_path)
-        if not audio_success:
-            print(f"[Main] [ERROR] Audio generation failed for episode {idx}. Skipping.")
-            continue
-
-        # 2. Render MP4 Video via FFmpeg
-        video_success = tts.compile_video(local_audio_path, cover_image_path, local_video_path)
-        
-        audio_url = None
-        video_url = None
-
-        if env != "production":
-            print(f"[Main] [{env.upper()}] Skipping cloud uploads (YouTube/Social).")
-            # In Local mode, we point to the actual local files
-            if env == "local":
-                audio_url = f"local://{audio_filename}"
-                video_url = f"local://{video_filename}"
-            else:
-                # Staging still uses mocks to simulate cloud URLs
-                audio_url = f"https://mock-audio-link.com/{audio_filename}"
-                video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-            
-            # Still perform DB insert so you can see it on the dashboard
-            db.insert_post(
-                headline=headline,
-                source=source,
-                topic_tags=topic_tags,
-                my_take=my_take,
-                post_text=post_text,
-                audio_script=audio_script,
-                audio_url=audio_url,
-                video_url=video_url,
-                confidence=confidence,
-                related_ids=[memory_callback] if memory_callback else []
-            )
-            continue
-
-        # --- PRODUCTION MODE (Real cloud writes) ---
-
-        # 3. Skip Supabase audio upload (Hosted on YouTube for long-term scalability)
-        audio_url = f"https://placeholder-audio.com/{audio_filename}"
-        
-        # 4. Upload MP4 to YouTube
-        if video_success:
-            yt_title = f"AI Radio: {headline}"
-            yt_description = f"Broadcasted by Echo, AI Radio Host.\n\nEcho's Take: {my_take}\n\nListen on our site: {os.environ.get('WEBSITE_URL', 'http://localhost:5000')}"
-            video_url = publisher.upload_to_youtube(
-                video_path=local_video_path,
-                title=yt_title,
-                description=yt_description,
-                tags=topic_tags
-            )
-
-        # 5. Insert Log record into Database and obtain dynamic ID
-        db_record = db.insert_post(
-            headline=headline,
-            source=source,
-            topic_tags=topic_tags,
-            my_take=my_take,
-            post_text=post_text,
-            audio_script=audio_script,
-            audio_url=audio_url,
-            video_url=video_url,
-            confidence=confidence,
-            related_ids=[memory_callback] if memory_callback else []
+    # 5. DISTRIBUTION
+    video_url = None
+    if env == "production":
+        video_url = publisher.upload_to_youtube(
+            video_path=video_path,
+            title=broadcast["show_title"],
+            description=f"{broadcast['my_take']}\n\nBroadcasted by Echo AI.",
+            tags=broadcast["topic_tags"]
         )
-        
-        episode_id = db_record.get("id")
+        publisher.post_to_bluesky(broadcast["social_post"])
+    else:
+        video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
-        # 6. Compose Social Post Text
-        site_url = os.environ.get("WEBSITE_URL")
-        final_post_text = post_text
-        if site_url and episode_id:
-            playback_link = f"{site_url}?id={episode_id}"
-            max_desc_len = 280 - len(playback_link) - 12
-            if len(final_post_text) > max_desc_len:
-                final_post_text = final_post_text[:max_desc_len] + "..."
-            final_post_text = f"{final_post_text} Listen: {playback_link}"
+    # 6. SAVE TO DB
+    display_headline = f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}"
+    db.insert_post(
+        headline=display_headline,
+        source="The Echo Broadcast",
+        topic_tags=broadcast["topic_tags"],
+        my_take=broadcast["my_take"],
+        post_text=broadcast["social_post"],
+        audio_script="[Long Form Broadcast]",
+        audio_url=f"local://broadcast_{show_id}.mp3" if env != "production" else f"https://placeholder.com",
+        video_url=video_url,
+        confidence="high"
+    )
 
-        # 7. Post to Bluesky
-        publisher.post_to_bluesky(final_post_text)
-        
-        # Random sleep to prevent pattern detection
-        if is_github:
-            time.sleep(random.randint(10, 30))
-
-    print(f"\n--- [AI Radio Pipeline Complete] --- Environment: {env.upper()} ---")
-    
-    # After a local run, automatically refresh config.js with the new SQLite data
-    if env == "local":
-        sync_env_to_config(env="local")
+    if env == "local": sync_env_to_config(env="local")
+    print(f"\n--- [Broadcast Complete] --- Show: {broadcast['show_title']} ---")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AI Radio - Echo Automation Pipeline")
-    parser.add_argument("--dry-run", action="store_true", help="Shortcut for --env local")
-    parser.add_argument("--test-news", action="store_true", help="Queries and displays raw scraped news only.")
-    parser.add_argument("--env", choices=["production", "staging", "local"], default=None, help="Force a specific environment.")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--env", choices=["production", "staging", "local"], default="production")
     args = parser.parse_args()
-
-    if args.test_news:
-        print("[Main] Fetching news for testing...")
-        fetcher = NewsFetcher()
-        news = fetcher.get_all_news()
-        for idx, item in enumerate(news):
-            print(f"{idx+1}. [{item['source']}] {item['headline']}\n   Summary: {item['summary']}\n")
-        sys.exit(0)
-
-    # Determine environment
-    selected_env = args.env
-    if not selected_env:
-        selected_env = "local" if args.dry_run else "production"
-    
-    run_pipeline(env=selected_env)
+    run_pipeline(env=args.env)
