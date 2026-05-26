@@ -13,6 +13,14 @@
 ## Project Overview
 **AI Radio — Echo** is an autonomous news commentary pipeline hosted by an AI persona named **Echo**. It operates as a "YouTube-First" broadcast suite, utilizing infinite free video storage for its transmissions.
 
+### 📜 Architectural Evolution & Intent (MUST PRESERVE)
+The project evolved from a "Short News Clip" generator to a **High-Quality Satirical Podcast Suite**. All future work must respect the following pillars:
+1.  **Mono-Topic Deep Dive:** The show shifted from jumping between 7 topics to spending ~10 minutes tearing apart **ONE** specific, absurd news item. This provides depth and a "Jon Stewart" feel.
+2.  **The Echo & Glitch Dynamic:** Echo (Host/Anchor) and Glitch (Correspondent) are established personas with an intellectual vs. chaotic dynamic. They must use names, argue, and use aggressive punctuation for rhythm.
+3.  **Quota-Saver Strategy:** Cloud TTS (Groq) is for **Production only**. Local/Staging must always use standard TTS (Edge) to preserve the strict 3.6k daily token limit.
+4.  **Hybrid Playback:** The dashboard is custom-built to switch between local file playback (Offline/Dev) and YouTube embeds (Production).
+5.  **Smart Deduplication:** Uses keyword-overlap (threshold: 2) to ensure Echo never covers the same story twice, even with different headlines.
+
 The system features a highly isolated multi-environment architecture:
 1.  **Ingestion:** Scrapes news via RSS and HackerNews. Uses a **Keyword Overlap** algorithm to prevent duplicate coverage of the same story.
 2.  **Analysis:** Processes news and historical memory using **Llama 3.3 70B** (via Groq) or **Gemini 3.5 Flash** (via Google). Explicitly avoids repetition.
@@ -23,6 +31,7 @@ The system features a highly isolated multi-environment architecture:
 ## Technical Stack
 -   **Language:** Python 3.x (Backend), Vanilla JS (Frontend).
 -   **AI Brain:** Llama 3.3 (Primary), Gemini 3.5 Flash (Fallback).
+-   **Visual Arts:** **Flux Model** (via Pollinations.ai). Generates unique, HD satirical art for every broadcast background.
 -   **Speech Synthesis:** **Groq Cloud TTS** (canopylabs/orpheus-v1-english). Supports inline emotional tags and advanced prosody.
 -   **Databases:** Supabase (PostgreSQL) for Cloud; SQLite for Local.
 -   **Media Hosting:** YouTube (Primary), Local `output/` folder (Development).
