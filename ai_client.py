@@ -12,7 +12,7 @@ class AIRadioAIClient:
         self.gemini_key = os.environ.get("GEMINI_API_KEY")
 
         # THE GROQ TTS ENABLED BRAIN: Optimized for Orpheus model directions
-        self.system_prompt_template = """You are the Lead Writer for "The Echo Broadcast." 
+        self.system_prompt_template = """You are the Lead Satirist for "The Echo Broadcast." 
 Style: Jon Stewart / Stephen Colbert. 
 Format: MONO-TOPIC DEEP DIVE.
 
@@ -31,6 +31,7 @@ RULES:
 1. NO REPETITION: Move from one absurd angle to the next.
 2. NO CLICHÉS: Be specific, detailed, and mean.
 3. MONO-TOPIC: Stay on the one story for the whole script.
+4. LENGTH: Every segment must be SUBSTANTIAL. Write at least 200-300 words per segment. Expand on every thought. Be verbose and detailed in your mockery.
 
 OUTPUT FORMAT (Strict JSON):
 {{
@@ -42,18 +43,20 @@ OUTPUT FORMAT (Strict JSON):
   "segments": [
     {{
       "speaker": "ECHO | GLITCH",
-      "text": "The script with [vocal directions] and <break /> tags.",
+      "text": "The script with [vocal directions] and <break /> tags. MAKE THIS LONG AND DETAILED.",
       "speed": 1.0
     }}
   ]
 }}
 
-Generate exactly {target_segments} segments."""
+Generate exactly {target_segments} segments. Total show length should be approximately 10 minutes of spoken dialogue."""
 
     def call_groq(self, user_input_json, target_segments):
+        """Primary satirical engine using Llama 3.3 70B."""
         if not self.groq_key: return None
         headers = {"Authorization": f"Bearer {self.groq_key}", "Content-Type": "application/json"}
         system_prompt = self.system_prompt_template.format(target_segments=target_segments)
+        
         body = {
             "model": "llama-3.3-70b-versatile",
             "messages": [
@@ -61,31 +64,34 @@ Generate exactly {target_segments} segments."""
                 {"role": "user", "content": f"Return the JSON show script for: {user_input_json}"}
             ],
             "temperature": 0.9,
-            "max_tokens": 4000,
+            "max_tokens": 6000, # Increased to allow for longer scripts
             "response_format": {"type": "json_object"}
         }
+        
         try:
-            r = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=body, timeout=90)
+            r = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=body, timeout=120)
             if r.status_code == 200: return r.json()["choices"][0]["message"]["content"]
             return None
         except Exception: return None
 
     def call_gemini(self, user_input_json, target_segments):
+        """High-reliability fallback engine using Gemini 3.5 Flash."""
         if not self.gemini_key: return None
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.gemini_key}"
         system_prompt = self.system_prompt_template.format(target_segments=target_segments)
-        prompt_text = f"Guidelines:\n{system_prompt}\n\nInput Context:\n{user_input_json}\n\nIMPORTANT: Return a JSON OBJECT with [tags] and <break /> tags."
+        prompt_text = f"Guidelines:\n{system_prompt}\n\nContext:\n{user_input_json}\n\nIMPORTANT: JSON OBJECT ONLY. WRITE VERY LONG SEGMENTS."
         body = {
             "contents": [{"role": "user", "parts": [{"text": prompt_text}]}],
-            "generationConfig": {"temperature": 0.8, "maxOutputTokens": 4000, "responseMimeType": "application/json"}
+            "generationConfig": {"temperature": 0.8, "maxOutputTokens": 6000, "responseMimeType": "application/json"}
         }
         try:
-            r = requests.post(url, headers={"Content-Type": "application/json"}, json=body, timeout=90)
+            r = requests.post(url, headers={"Content-Type": "application/json"}, json=body, timeout=120)
             if r.status_code == 200: return r.json()["candidates"][0]["content"]["parts"][0]["text"]
             return None
         except Exception: return None
 
     def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
+        """Generates a satirical broadcast. Unified at 7 segments (~10 mins) for both local and cloud."""
         target_segments = 7
         user_input = {"news_items": news_items, "memory_context": memory_context}
         user_input_str = json.dumps(user_input)
@@ -100,8 +106,7 @@ Generate exactly {target_segments} segments."""
         try:
             cleaned = raw_output.strip()
             if "```json" in cleaned: cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+            elif "```" in cleaned: cleaned = cleaned.split("```")[1].split("```")[0].strip()
             parsed = json.loads(cleaned)
             return parsed
-        except Exception as e:
-            print(f"[AI Client] JSON failure: {e}")
-            return None
+        except Exception: return None
