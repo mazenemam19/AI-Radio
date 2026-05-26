@@ -2,7 +2,7 @@
 output/
 __pycache__/
 config.js
-assets/cover_art.png
+assets/*
 *.mp3
 *.mp4
 *.pyc

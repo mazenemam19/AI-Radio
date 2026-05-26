@@ -3,80 +3,136 @@ import re
 import asyncio
 import subprocess
 import shutil
+import time
+import requests
 import edge_tts
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class TTSRadioGenerator:
-    def __init__(self, voice="en-US-GuyNeural"):
-        self.voice = voice
+    def __init__(self, echo_voice="daniel", glitch_voice="hannah", use_cloud=True):
+        self.echo_voice = echo_voice
+        self.glitch_voice = glitch_voice
+        self.use_cloud = use_cloud # If False, skip Groq and go straight to Edge
+        self.api_key = os.environ.get("GROQ_API_KEY")
+        self.api_url = "https://api.groq.com/openai/v1/audio/speech"
+        self.model = "canopylabs/orpheus-v1-english"
+        self.daily_char_limit = 14400 
 
-    def strip_cues(self, text):
-        """Strip TTS sound cues like [sigh] or [glitch chuckle] so the neural voice does not read them literally."""
-        # Replace brackets and everything inside them with a small pause or empty space
-        cleaned_text = re.sub(r'\[.*?\]', ' ', text)
-        # Collapse multiple spaces
-        cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
-        return cleaned_text
+    def strip_tags(self, text):
+        cleaned = re.sub(r'\[.*?\]', '', text)
+        cleaned = re.sub(r'<.*?>', '', cleaned)
+        return cleaned.strip()
 
-    async def generate_audio_async(self, script, output_path):
-        """Asynchronous audio generation using edge-tts."""
-        cleaned_script = self.strip_cues(script)
-        print(f"[TTS Generator] Rendering speech (voice: {self.voice}) to {output_path}...")
+    def chunk_text(self, text, max_chars=190):
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        chunks = []
+        current_chunk = ""
+        for s in sentences:
+            if len(current_chunk) + len(s) < max_chars:
+                current_chunk += (" " + s if current_chunk else s)
+            else:
+                if current_chunk: chunks.append(current_chunk.strip())
+                if len(s) >= max_chars:
+                    for i in range(0, len(s), max_chars): chunks.append(s[i:i+max_chars])
+                    current_chunk = ""
+                else: current_chunk = s
+        if current_chunk: chunks.append(current_chunk.strip())
+        return chunks
+
+    async def generate_edge_fallback(self, text, voice, path):
+        """Local engine using edge-tts."""
+        edge_voice = "en-US-GuyNeural" if "daniel" in voice else "en-US-JennyNeural"
+        # Edge-TTS is excellent at reading punctuation for rhythm
+        communicate = edge_tts.Communicate(self.strip_tags(text), edge_voice)
+        await communicate.save(path)
+
+    def generate_segment_audio(self, text, voice, path, speed=1.0):
+        """Generate audio with Quota-Saver logic."""
+        # IF QUOTA-SAVER ACTIVE: Skip Groq entirely
+        if not self.use_cloud or not self.api_key:
+            asyncio.run(self.generate_edge_fallback(text, voice, path))
+            return True
+            
+        chunks = self.chunk_text(text)
+        chunk_files = []
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         
-        communicate = edge_tts.Communicate(cleaned_script, self.voice)
-        await communicate.save(output_path)
-        print(f"[TTS Generator] Speech audio saved successfully: {output_path}")
-
-    def make_audio(self, script, output_path):
-        """Synchronous wrapper to run async audio generation."""
         try:
-            asyncio.run(self.generate_audio_async(script, output_path))
+            for c_idx, chunk_text in enumerate(chunks):
+                if c_idx > 0: time.sleep(8.0)
+                body = {"model": self.model, "input": chunk_text, "voice": voice, "response_format": "wav"}
+                
+                for attempt in range(3):
+                    r = requests.post(self.api_url, headers=headers, json=body, timeout=30)
+                    if r.status_code == 200:
+                        c_path = f"{path}_chunk_{c_idx}.wav"
+                        with open(c_path, "wb") as f: f.write(r.content)
+                        chunk_files.append(c_path)
+                        break
+                    elif r.status_code == 429:
+                        retry_after = r.headers.get("retry-after", "30")
+                        wait_seconds = int(retry_after)
+                        if wait_seconds > 60:
+                            print(f"[TTS] !!! QUOTA LIMIT !!! Switching to local backup.")
+                            raise Exception("Quota Limit")
+                        print(f"[TTS] Rate limit hit. Waiting {wait_seconds}s...")
+                        time.sleep(wait_seconds + 1)
+                    else:
+                        raise Exception(f"API Error {r.status_code}")
+
+            if chunk_files:
+                ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
+                list_path = f"{path}_list.txt"
+                with open(list_path, "w") as f:
+                    for cf in chunk_files: f.write(f"file '{os.path.abspath(tf)}'\n")
+                subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
+                for cf in chunk_files: os.remove(cf)
+                os.remove(list_path)
+                return True
+
+        except Exception:
+            asyncio.run(self.generate_edge_fallback(text, voice, path))
+            return True
+
+    def make_broadcast_audio(self, segments, output_path):
+        mode = "PREMIUM CLOUD" if self.use_cloud else "STANDARD LOCAL"
+        print(f"[TTS] --- STARTING {mode} MASTERING ---")
+        temp_files = []
+        try:
+            for idx, seg in enumerate(segments):
+                speaker = str(seg.get("speaker", "ECHO")).upper()
+                voice = self.echo_voice if speaker == "ECHO" else self.glitch_voice
+                temp_path = f"output/temp_seg_{idx}.mp3"
+                if self.generate_segment_audio(seg["text"], voice, temp_path):
+                    temp_files.append(temp_path)
+            
+            if not temp_files: return False
+            list_path = "output/concat_list.txt"
+            with open(list_path, "w") as f:
+                for tf in temp_files: f.write(f"file '{os.path.abspath(tf)}'\n")
+            
+            ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
+            subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c", "copy", output_path], check=True, capture_output=True)
+            for tf in temp_files: os.remove(tf)
+            os.remove(list_path)
+            print(f"[TTS] Broadcast Audio Mastered: {output_path}")
             return True
         except Exception as e:
-            print(f"[TTS Generator] Error generating audio: {e}")
+            print(f"[TTS] Mastering Error: {e}")
             return False
 
     def compile_video(self, audio_path, image_path, output_path):
-        """Compile MP3 and static image into an MP4 video using ffmpeg."""
-        ffmpeg_cmd = shutil.which("ffmpeg")
-        
-        # Fallback for common Windows installation path if not in PATH
-        if not ffmpeg_cmd:
-            windows_fallback = r"C:\ffmpeg\bin\ffmpeg.exe"
-            if os.path.exists(windows_fallback):
-                ffmpeg_cmd = windows_fallback
-            else:
-                print("[TTS Generator] [WARNING] ffmpeg is not installed or not in system PATH. Cannot compile video.")
-                return False
-
-        if not os.path.exists(audio_path) or not os.path.exists(image_path):
-            print(f"[TTS Generator] Missing assets to compile video: Audio exists? {os.path.exists(audio_path)}, Image exists? {os.path.exists(image_path)}")
-            return False
-
-        print(f"[TTS Generator] Compiling MP4 video via ffmpeg...")
-        # FFmpeg command: loops still image, merges audio, encodes to high-quality YouTube-compatible MP4
+        ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
         command = [
-            ffmpeg_cmd,
-            "-y",
-            "-loop", "1",
-            "-i", image_path,
-            "-i", audio_path,
-            "-c:v", "libx264",
-            "-tune", "stillimage",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-pix_fmt", "yuv420p",
-            "-shortest",
-            output_path
+            ffmpeg_cmd, "-y", "-loop", "1", "-i", image_path, "-i", audio_path,
+            "-c:v", "libx264", "-preset", "fast", "-tune", "stillimage",
+            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", "-shortest", output_path
         ]
-
         try:
-            # Run FFmpeg synchronously as a subprocess
-            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-            print(f"[TTS Generator] Video compiled successfully: {output_path}")
+            subprocess.run(command, check=True, capture_output=True)
             return True
-        except subprocess.CalledProcessError as e:
-            print(f"[TTS Generator] FFmpeg compilation failed: {e.stderr}")
-            return False
-        except Exception as ex:
-            print(f"[TTS Generator] Error running FFmpeg: {ex}")
+        except Exception as e:
+            print(f"[TTS] Video Error: {e}")
             return False
