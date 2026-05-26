@@ -11,41 +11,79 @@
 ### 1. Prerequisites
 - **Python 3.x**
 - **FFmpeg** (For video compilation)
-- **Supabase Account** (For database and audio storage)
+- **Supabase Account** (For cloud database storage)
 
 ### 2. Setup
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Sync environment variables to frontend
-npm run sync
+# Initial configuration sync
+npm run sync:prod
 ```
 
 ### 3. Configure
-Create a `.env` file in the root directory. See [GEMINI.md](./GEMINI.md) for the full list of required API keys and configuration settings.
+Create a `.env` file in the root directory. Use the template provided in the [Environment Configuration](#-environment-configuration-env) section below.
 
 ---
 
-## 🛠️ Command Center (npm aliases)
+## 🔑 Environment Configuration (.env)
 
-This project uses `package.json` to manage all operational tasks:
+The system requires several keys to operate.
 
-- `npm run dev:dry` — **Dry Run:** Test the AI pipeline locally without cloud uploads.
-- `npm run prod:run` — **Production:** Run the full pipeline (Supabase + YouTube + Socials).
-- `npm run serve` — **Start Hub:** Launch the neon-glass web dashboard at `http://localhost:5000`.
-- `npm run verify` — **System Check:** Run a comprehensive health check of all dependencies.
-- `npm run sync` — **Config Sync:** Push `.env` updates to the web frontend.
+### 🧠 AI Intelligence (Mandatory)
+- `GROQ_API_KEY`: Primary brain (Llama 3.3 70B). [Groq Console](https://console.groq.com/).
+- `GEMINI_API_KEY`: Fallback brain (Gemini 3.5 Flash). [Google AI Studio](https://aistudio.google.com/).
+
+### 🏠 Production Database (Mandatory)
+- `SUPABASE_URL`: Your Supabase Project URL.
+- `SUPABASE_KEY`: Your **Service Role** secret key (for backend writes).
+- `SUPABASE_ANON_KEY`: Your **Anon Public** key (for frontend reads).
+- `WEBSITE_URL`: Your hosted dashboard URL.
+
+### 🧪 Staging Database (Optional)
+- `STAGING_SUPABASE_URL`: Your Dev Supabase Project URL.
+- `STAGING_SUPABASE_KEY`: Your Dev Service Role key.
+- `STAGING_SUPABASE_ANON_KEY`: Your Dev Anon Public key.
+
+### 🦋 Social Distribution (Optional)
+- `BLUESKY_HANDLE` / `BLUESKY_PASSWORD`: Social posting credentials.
+- `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` / `YOUTUBE_REFRESH_TOKEN`: YouTube OAuth keys.
+
+---
+
+## 🛠️ Operational Workflows
+
+Echo supports three distinct environments. Follow the steps for your desired use case.
+
+### 🔴 Production (Live Broadcast)
+*Full automation. Real videos uploaded to YouTube, real social posts.*
+1. `npm run prod:run` — Scrapes news, generates video, uploads to YouTube & Prod DB.
+2. `npm run sync:prod` — Points your local dashboard to the Production data.
+3. `npm run serve` — View the live broadcast hub locally at `http://localhost:5000`.
+
+### 🟡 Staging (Cloud Sandbox)
+*High-fidelity testing. Uses a Dev Supabase DB but **mocks** YouTube/Socials.*
+1. `npm run dev:staging` — Runs the pipeline against your **Staging DB**.
+2. `npm run sync:staging` — Points your dashboard to the Staging data.
+3. `npm run serve` — View your test transmissions.
+   - **Note:** Since YouTube is skipped, you will see a **fallback video (Rick Astley)** on the dashboard. The real `.mp4` is saved in your local `output/` folder.
+
+### 🟢 Local (Offline Development)
+*Fastest testing. Uses a local SQLite file. **Zero cloud dependencies**.*
+1. `npm run dev:local` — Generates episodes and **automatically** refreshes the dashboard.
+2. `npm run serve` — View your local episodes at `http://localhost:5000`.
+   - **Note:** Use `npm run sync:local` only if you want to switch the dashboard from Prod/Staging back to Local mode without running the AI pipeline.
 
 ---
 
 ## 🧠 System Architecture
 
 - **Ingestion:** Scrapes news from RSS feeds and HackerNews.
-- **AI Brain:** Echo (AI Persona) generates scripts with memory callbacks to previous episodes.
+- **AI Brain:** Echo (AI Persona) generates scripts with memory callbacks.
 - **Speech:** `edge-tts` renders high-quality neural voices.
-- **Visuals:** `FFmpeg` compiles static-image video for YouTube distribution.
-- **Frontend:** A modern, "neon-glass" dashboard built with Vanilla JS and the Web Audio API.
+- **Visuals:** `FFmpeg` compiles static-image video for YouTube.
+- **Frontend:** "Neon-glass" dashboard built with Vanilla JS and YouTube IFrame API. Supports automated SQLite data injection for offline use.
 
 ---
 

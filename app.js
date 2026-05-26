@@ -1,76 +1,160 @@
-// Global Variables
+/**
+ * AI Radio — Echo Frontend
+ * Hybrid Player (YouTube + Local MP4 Support)
+ */
+
+// --- 1. GLOBAL STATE ---
 let episodes = [];
 let activeEpisode = null;
 let ytPlayer = null; 
 let visualizerAnimationId = null;
+let supabaseClient = null;
 
-// DOM Elements
-const activeTitle = document.getElementById("active-title");
-const activeSource = document.getElementById("active-source");
-const activeTake = document.getElementById("active-take");
-const activeDate = document.getElementById("active-date");
-const activeLikesLabel = document.getElementById("active-likes");
+let CURRENT_ENV = "production";
+let SUB_URL = "";
+let SUB_KEY = "";
 
-const btnPlayPause = document.getElementById("btn-play-pause");
-const playIcon = document.getElementById("play-icon");
-const pauseIcon = document.getElementById("pause-icon");
-
-const visualizerCanvas = document.getElementById("visualizer");
-const visualizerCtx = visualizerCanvas.getContext("2d");
-const visualizerPlaceholder = document.getElementById("visualizer-placeholder");
-
-// --- YOUTUBE IFRAME API SETUP ---
-window.onYouTubeIframeAPIReady = function() {
-  ytPlayer = new YT.Player('yt-player-frame', {
-    height: '100%',
-    width: '100%',
-    videoId: '', 
-    playerVars: {
-      'autoplay': 0,
-      'controls': 1,
-      'modestbranding': 1,
-      'rel': 0
-    },
-    events: {
-      'onStateChange': onPlayerStateChange
-    }
-  });
+// --- 2. DOM ELEMENTS ---
+const elements = {
+  activeTitle: document.getElementById("active-title"),
+  activeSource: document.getElementById("active-source"),
+  activeTake: document.getElementById("active-take"),
+  activeDate: document.getElementById("active-date"),
+  activeLikes: document.getElementById("active-likes"),
+  btnPlayPause: document.getElementById("btn-play-pause"),
+  playIcon: document.getElementById("play-icon"),
+  pauseIcon: document.getElementById("pause-icon"),
+  visualizer: document.getElementById("visualizer"),
+  visualizerPlaceholder: document.getElementById("visualizer-placeholder"),
+  episodesGrid: document.getElementById("episodes-grid"),
+  archiveSearch: document.getElementById("archive-search"),
+  commentsList: document.getElementById("comments-list"),
+  commentsCount: document.getElementById("comments-count"),
+  commentForm: document.getElementById("comment-form"),
+  commenterName: document.getElementById("commenter-name"),
+  commenterText: document.getElementById("commenter-text"),
+  localPlayer: document.getElementById("local-video-player"),
+  ytFrame: document.getElementById("yt-player-frame")
 };
 
-function onPlayerStateChange(event) {
-  if (event.data === YT.PlayerState.PLAYING) {
-    playIcon.classList.add("hidden");
-    pauseIcon.classList.remove("hidden");
-    visualizerPlaceholder.classList.add("hidden");
-    startNeuralPulse();
+// --- 3. INITIALIZATION ---
+
+function initApp() {
+  CURRENT_ENV = window.CONFIG?.APP_ENV || "production";
+  SUB_URL = window.CONFIG?.SUPABASE_URL || "";
+  SUB_KEY = window.CONFIG?.SUPABASE_ANON_KEY || "";
+
+  if (localStorage.getItem("AI_RADIO_SUB_URL")) SUB_URL = localStorage.getItem("AI_RADIO_SUB_URL");
+  if (localStorage.getItem("AI_RADIO_SUB_KEY")) SUB_KEY = localStorage.getItem("AI_RADIO_SUB_KEY");
+
+  console.log(`[Echo] --- INITIALIZING HYBRID APP ---`);
+  console.log(`[Echo] Mode: ${CURRENT_ENV.toUpperCase()}`);
+  
+  if (CURRENT_ENV === "local") {
+    loadTransmissions();
+    setupUIEventListeners();
   } else {
-    playIcon.classList.remove("hidden");
-    pauseIcon.classList.add("hidden");
-    stopNeuralPulse();
+    if (connectSupabase()) {
+      loadTransmissions();
+      setupUIEventListeners();
+    } else {
+      showConfigModal();
+    }
   }
 }
 
-// --- SELECT EPISODE ---
-async function selectEpisode(episode) {
-  activeEpisode = episode;
-  
-  // Update UI
-  activeTitle.innerText = episode.headline;
-  activeSource.innerText = `Source: ${episode.source || "Unknown Channel"}`;
-  activeTake.innerText = `"${episode.my_take || 'No observation note provided.'}"`;
-  
-  const dateObj = new Date(episode.created_at);
-  activeDate.innerText = dateObj.toLocaleString("en-US", {
-    month: "long", day: "numeric", year: "numeric"
+function connectSupabase() {
+  if (SUB_URL && SUB_KEY) {
+    try {
+      supabaseClient = window.supabase.createClient(SUB_URL, SUB_KEY);
+      return true;
+    } catch (e) { return false; }
+  }
+  return false;
+}
+
+function showConfigModal() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal glass"><h3>⚡ CONNECT SUPABASE</h3><p>Required for ${CURRENT_ENV} mode.</p><input type="text" id="setup-url" placeholder="URL" class="search-input glass" style="width:100%; margin-bottom:10px;"><input type="text" id="setup-key" placeholder="Key" class="search-input glass" style="width:100%; margin-bottom:20px;"><button class="btn btn-primary" id="btn-save-setup" style="width:100%">CONNECT</button></div>`;
+  document.body.appendChild(overlay);
+  document.getElementById("btn-save-setup").addEventListener("click", () => {
+    localStorage.setItem("AI_RADIO_SUB_URL", document.getElementById("setup-url").value.trim());
+    localStorage.setItem("AI_RADIO_SUB_KEY", document.getElementById("setup-key").value.trim());
+    location.reload();
   });
+}
 
-  activeLikesLabel.innerText = episode.likes || 0;
+// --- 4. DATA LOADING ---
 
-  // Load Video into YouTube Player
-  if (ytPlayer && episode.video_url) {
-    const videoId = extractVideoId(episode.video_url);
-    if (videoId) {
-      ytPlayer.cueVideoById(videoId);
+async function loadTransmissions() {
+  if (CURRENT_ENV === "local") {
+    console.log("[Echo] Data sync complete.");
+    episodes = window.CONFIG?.LOCAL_DATA || [];
+    
+    // Path Translation
+    episodes = episodes.map(ep => ({
+      ...ep,
+      audio_url: ep.audio_url?.replace("local://", "output/").replace("https://mock-audio-link.com/", "output/"),
+      video_url: ep.video_url?.replace("local://", "output/").replace("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    }));
+  } else {
+    try {
+      const { data, error } = await supabaseClient.from("memory_log").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      episodes = data || [];
+    } catch (err) {
+      elements.episodesGrid.innerHTML = `<div class="loading-state">⚠️ Sync failed.</div>`;
+      return;
+    }
+  }
+
+  renderEpisodesGrid(episodes);
+  if (episodes.length > 0) {
+    const urlId = new URLSearchParams(window.location.search).get("id");
+    selectEpisode(episodes.find(e => e.id == urlId) || episodes[0]);
+  } else {
+    elements.activeTitle.innerText = "No Transmissions Found";
+  }
+}
+
+// --- 5. UI LOGIC ---
+
+function selectEpisode(episode) {
+  activeEpisode = episode;
+  elements.activeTitle.innerText = episode.headline;
+  elements.activeSource.innerText = `Source: ${episode.source || "Unknown"}`;
+  elements.activeTake.innerText = `"${episode.my_take || 'Static observed.'}"`;
+  elements.activeDate.innerText = new Date(episode.created_at).toLocaleDateString();
+  elements.activeLikes.innerText = episode.likes || 0;
+
+  const isLocalFile = episode.video_url?.includes("output/");
+
+  if (isLocalFile) {
+    elements.ytFrame.classList.add("hidden");
+    elements.localPlayer.classList.remove("hidden");
+    elements.localPlayer.src = episode.video_url;
+    elements.localPlayer.load();
+    
+    elements.localPlayer.onplay = () => {
+      elements.playIcon.classList.add("hidden");
+      elements.pauseIcon.classList.remove("hidden");
+      elements.visualizerPlaceholder.classList.add("hidden");
+      startNeuralPulse();
+    };
+    elements.localPlayer.onpause = () => {
+      elements.playIcon.classList.remove("hidden");
+      elements.pauseIcon.classList.add("hidden");
+      stopNeuralPulse();
+    };
+  } else {
+    elements.localPlayer.classList.add("hidden");
+    elements.ytFrame.classList.remove("hidden");
+    elements.localPlayer.pause();
+    
+    if (ytPlayer && episode.video_url) {
+      const videoId = extractVideoId(episode.video_url);
+      if (videoId) ytPlayer.cueVideoById(videoId);
     }
   }
   
@@ -80,15 +164,47 @@ async function selectEpisode(episode) {
 }
 
 function extractVideoId(url) {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
+  const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// --- NEURAL PULSE VISUALIZER (Procedural Simulation) ---
+function renderEpisodesGrid(items) {
+  elements.episodesGrid.innerHTML = "";
+  items.forEach(ep => {
+    const card = document.createElement("div");
+    card.className = `episode-card glass ${activeEpisode?.id === ep.id ? "active-card" : ""}`;
+    card.innerHTML = `
+      <div class="archive-card-meta"><div class="tag-row">${(ep.topic_tags || ["General"]).map(t=>`<span class="tag">${t}</span>`).join("")}</div></div>
+      <h3 class="archive-card-title">${ep.headline}</h3>
+      <div class="archive-card-footer"><span>${new Date(ep.created_at).toLocaleDateString()}</span><span class="play-badge">▶ PLAY</span></div>
+    `;
+    card.addEventListener("click", () => {
+      selectEpisode(ep);
+      document.querySelector(".now-playing-section").scrollIntoView({ behavior: "smooth" });
+    });
+    elements.episodesGrid.appendChild(card);
+  });
+}
+
 function startNeuralPulse() {
   if (visualizerAnimationId) cancelAnimationFrame(visualizerAnimationId);
-  drawPulse();
+  function draw() {
+    visualizerAnimationId = requestAnimationFrame(draw);
+    const ctx = elements.visualizer.getContext("2d");
+    const { width, height } = elements.visualizer;
+    ctx.clearRect(0, 0, width, height);
+    const time = Date.now() * 0.002;
+    const bars = 32;
+    const barW = (width / bars) * 1.5;
+    for (let i = 0; i < bars; i++) {
+      const h = (Math.abs(Math.sin(i * 0.5 + time) * Math.cos(i * 0.2 - time * 0.5)) * height * 0.8) + 10;
+      const grad = ctx.createLinearGradient(0, height, 0, height - h);
+      grad.addColorStop(0, "#af52ff"); grad.addColorStop(1, "#00f0ff");
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.roundRect(i * barW, height - h, barW - 4, h, [4, 4, 0, 0]); ctx.fill();
+    }
+  }
+  draw();
 }
 
 function stopNeuralPulse() {
@@ -96,171 +212,64 @@ function stopNeuralPulse() {
   visualizerAnimationId = null;
 }
 
-function drawPulse() {
-  visualizerAnimationId = requestAnimationFrame(drawPulse);
-  
-  const width = visualizerCanvas.width;
-  const height = visualizerCanvas.height;
-  visualizerCtx.clearRect(0, 0, width, height);
-
-  const time = Date.now() * 0.002;
-  const bars = 32;
-  const barWidth = (width / bars) * 1.5;
-
-  for (let i = 0; i < bars; i++) {
-    const noise = Math.sin(i * 0.5 + time) * Math.cos(i * 0.2 - time * 0.5);
-    const barHeight = Math.abs(noise) * height * 0.8 + 10;
-    const x = i * barWidth;
-    const gradient = visualizerCtx.createLinearGradient(0, height, 0, height - barHeight);
-    gradient.addColorStop(0, "#af52ff");
-    gradient.addColorStop(1, "#00f0ff");
-    visualizerCtx.fillStyle = gradient;
-    visualizerCtx.shadowBlur = 10;
-    visualizerCtx.shadowColor = "#00f0ff";
-    visualizerCtx.beginPath();
-    visualizerCtx.roundRect(x, height - barHeight, barWidth - 4, barHeight, [4, 4, 0, 0]);
-    visualizerCtx.fill();
-  }
-}
-
-// --- APP LIFECYCLE ---
-window.addEventListener("DOMContentLoaded", () => {
-  checkConfiguration();
-  setupUIEventListeners();
-});
-
-// --- FETCH TRANSMISSIONS ---
-async function loadTransmissions() {
-  if (!supabaseClient) return;
-  try {
-    const { data, error } = await supabaseClient
-      .from("memory_log")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    episodes = data || [];
-    renderEpisodesGrid(episodes);
-    const urlParams = new URLSearchParams(window.location.search);
-    const episodeId = urlParams.get("id");
-    if (episodeId && episodes.length > 0) {
-      const selected = episodes.find(e => e.id == episodeId);
-      if (selected) { selectEpisode(selected); return; }
-    }
-    if (episodes.length > 0) selectEpisode(episodes[0]);
-    else renderEmptyHub();
-  } catch (err) {
-    console.error("Error loading transmissions:", err);
-  }
-}
-
-// --- RENDER DYNAMIC CARD GRID ---
-function renderEpisodesGrid(items) {
-  if (!items || items.length === 0) {
-    episodesGrid.innerHTML = `<div class="loading-state"><p>No transmissions found.</p></div>`;
-    return;
-  }
-  episodesGrid.innerHTML = "";
-  items.forEach(ep => {
-    const card = document.createElement("div");
-    card.className = `episode-card glass ${activeEpisode && activeEpisode.id === ep.id ? "active-card" : ""}`;
-    const dateStr = new Date(ep.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const tagsHtml = (ep.topic_tags || ["General"]).map(t => `<span class="tag">${t}</span>`).join("");
-    card.innerHTML = `
-      <div class="archive-card-meta"><div class="tag-row">${tagsHtml}</div></div>
-      <h3 class="archive-card-title">${ep.headline}</h3>
-      <div class="archive-card-footer"><span>${dateStr}</span><span class="play-badge">▶ PLAY</span></div>
-    `;
-    card.addEventListener("click", () => {
-      selectEpisode(ep);
-      document.querySelector(".now-playing-section").scrollIntoView({ behavior: "smooth" });
-    });
-    episodesGrid.appendChild(card);
+// --- 6. YOUTUBE API ---
+window.onYouTubeIframeAPIReady = function() {
+  if (CURRENT_ENV === "local") return;
+  const origin = window.location.origin;
+  ytPlayer = new YT.Player('yt-player-frame', {
+    height: '100%', width: '100%', videoId: '',
+    playerVars: { 'autoplay': 0, 'modestbranding': 1, 'origin': origin, 'enablejsapi': 1 },
+    events: { 'onStateChange': (e) => {
+      if (e.data === YT.PlayerState.PLAYING) {
+        elements.playIcon.classList.add("hidden"); elements.pauseIcon.classList.remove("hidden");
+        elements.visualizerPlaceholder.classList.add("hidden"); startNeuralPulse();
+      } else {
+        elements.playIcon.classList.remove("hidden"); elements.pauseIcon.classList.add("hidden");
+        stopNeuralPulse();
+      }
+    }}
   });
-}
+};
 
-function renderEmptyHub() {
-  activeTitle.innerText = "No Transmissions Yet";
-  activeTake.innerText = '"Echo is currently offline."';
-}
-
-// --- SETUP EVENT LISTENERS ---
+// --- 7. EVENT LISTENERS ---
 function setupUIEventListeners() {
-  btnPlayPause.addEventListener("click", () => {
-    if (!ytPlayer) return;
-    const state = ytPlayer.getPlayerState();
-    if (state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
-    else ytPlayer.playVideo();
+  elements.btnPlayPause.addEventListener("click", () => {
+    const isLocalFile = activeEpisode?.video_url?.includes("output/");
+    if (isLocalFile) {
+      elements.localPlayer.paused ? elements.localPlayer.play() : elements.localPlayer.pause();
+    } else {
+      if (!ytPlayer) return;
+      ytPlayer.getPlayerState() === YT.PlayerState.PLAYING ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+    }
   });
 
-  archiveSearch.addEventListener("input", () => {
-    const query = archiveSearch.value.toLowerCase().trim();
-    if (!query) { renderEpisodesGrid(episodes); return; }
-    const filtered = episodes.filter(ep => ep.headline.toLowerCase().includes(query));
-    renderEpisodesGrid(filtered);
+  elements.archiveSearch.addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    renderEpisodesGrid(q ? episodes.filter(ep => ep.headline.toLowerCase().includes(q)) : episodes);
   });
-}
 
-// --- CONFIGURATION MANAGEMENT ---
-let SUPABASE_URL = window.CONFIG?.SUPABASE_URL || "";
-let SUPABASE_ANON_KEY = window.CONFIG?.SUPABASE_ANON_KEY || "";
-if (localStorage.getItem("AI_RADIO_SUB_URL")) SUPABASE_URL = localStorage.getItem("AI_RADIO_SUB_URL");
-if (localStorage.getItem("AI_RADIO_SUB_KEY")) SUPABASE_ANON_KEY = localStorage.getItem("AI_RADIO_SUB_KEY");
-let supabaseClient = null;
-
-function initSupabase() {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  elements.commentForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (CURRENT_ENV === "local") return alert("Comments disabled in Local Offline mode.");
+    const text = elements.commenterText.value.trim();
+    if (!text || !supabaseClient) return;
     try {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      return true;
-    } catch (e) { return false; }
-  }
-  return false;
-}
-
-function checkConfiguration() {
-  if (!initSupabase()) {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay";
-    overlay.innerHTML = `<div class="modal glass"><h3>⚡ CONNECT SUPABASE</h3><input type="text" id="setup-url" placeholder="URL"><input type="text" id="setup-key" placeholder="Anon Key"><button id="btn-save-setup">CONNECT</button></div>`;
-    document.body.appendChild(overlay);
-    document.getElementById("btn-save-setup").addEventListener("click", () => {
-      localStorage.setItem("AI_RADIO_SUB_URL", document.getElementById("setup-url").value.trim());
-      localStorage.setItem("AI_RADIO_SUB_KEY", document.getElementById("setup-key").value.trim());
-      location.reload();
-    });
-  } else { loadTransmissions(); }
-}
-
-// DOM Elements
-const commentsList = document.getElementById("comments-list");
-const commentsCountLabel = document.getElementById("comments-count");
-const commentForm = document.getElementById("comment-form");
-const commenterNameInput = document.getElementById("commenter-name");
-const commenterTextInput = document.getElementById("commenter-text");
-const episodesGrid = document.getElementById("episodes-grid");
-const archiveSearch = document.getElementById("archive-search");
-
-// --- LOAD COMMENTS ---
-async function loadComments(episodeId) {
-  if (!supabaseClient) return;
-  try {
-    const { data, error } = await supabaseClient.from("comments").select("*").eq("episode_id", episodeId).order("created_at", { ascending: true });
-    if (error) throw error;
-    renderComments(data || []);
-  } catch (err) {}
-}
-
-function renderComments(list) {
-  commentsCountLabel.innerText = `${list.length} comments`;
-  commentsList.innerHTML = list.length === 0 ? "<p>No comments.</p>" : "";
-  list.forEach(c => {
-    const bubble = document.createElement("div");
-    bubble.className = "comment-bubble";
-    bubble.innerHTML = `<span class="comment-author">${c.author_name}</span><p class="comment-text">${c.comment_text}</p>`;
-    commentsList.appendChild(bubble);
+      await supabaseClient.from("comments").insert({ episode_id: activeEpisode.id, author_name: elements.commenterName.value.trim() || "Human", comment_text: text });
+      elements.commenterText.value = ""; loadComments(activeEpisode.id);
+    } catch (err) { alert("Comment failed."); }
   });
 }
 
-async function incrementPlayCount(episodeId) {
-  if (supabaseClient) await supabaseClient.rpc("increment_plays", { row_id: episodeId });
+async function loadComments(id) {
+  if (CURRENT_ENV === "local" || !supabaseClient) return elements.commentsList.innerHTML = "<p>Comments restricted locally.</p>";
+  const { data } = await supabaseClient.from("comments").select("*").eq("episode_id", id).order("created_at", { ascending: true });
+  elements.commentsCount.innerText = `${data?.length || 0} comments`;
+  elements.commentsList.innerHTML = (data || []).map(c => `<div class="comment-bubble"><span class="comment-author">${c.author_name}</span><p class="comment-text">${c.comment_text}</p></div>`).join("");
 }
+
+async function incrementPlayCount(id) {
+  if (CURRENT_ENV !== "local" && supabaseClient) await supabaseClient.rpc("increment_plays", { row_id: id });
+}
+
+// --- 8. BOOTSTRAP ---
+initApp();

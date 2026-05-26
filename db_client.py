@@ -1,62 +1,106 @@
 import os
 import mimetypes
+import json
+import sqlite3
 import requests
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class SupabaseDBClient:
-    def __init__(self):
-        self.url = os.environ.get("SUPABASE_URL")
-        self.key = os.environ.get("SUPABASE_KEY")
-        self.is_mock = True
+    def __init__(self, env="production"):
+        self.env = env.lower()
+        self.is_mock = False
+        self.use_sqlite = (self.env == "local")
         
+        if self.use_sqlite:
+            self.db_path = "ai_radio_dev.db"
+            self._init_sqlite()
+            print(f"[DB Client] Operating in LOCAL mode (SQLite: {self.db_path})")
+            return
+
+        # Environment switching logic
+        if self.env == "staging":
+            self.url = os.environ.get("STAGING_SUPABASE_URL")
+            self.key = os.environ.get("STAGING_SUPABASE_KEY")
+        else:
+            self.url = os.environ.get("SUPABASE_URL")
+            self.key = os.environ.get("SUPABASE_KEY")
+
         # Clean URL trailing slash if present
         if self.url:
             self.url = self.url.rstrip("/")
 
         if self.url and self.key:
-            self.is_mock = False
             # Standard Supabase authorization headers
             self.headers = {
                 "apikey": self.key,
                 "Authorization": f"Bearer {self.key}",
                 "Content-Type": "application/json"
             }
-            print("[Supabase Client] Operating in PURE HTTP REST Mode. Connected successfully.")
+            print(f"[DB Client] Connected to {self.env.upper()} Supabase successfully.")
         else:
-            print("[Supabase Client] Missing credentials. Operating in dry-run/mock mode.")
+            print(f"[DB Client] Missing credentials for {self.env.upper()}. Operating in mock mode.")
+            self.is_mock = True
+
+    def _init_sqlite(self):
+        """Initialize local SQLite database for offline testing."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS memory_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            headline TEXT,
+            source TEXT,
+            topic_tags TEXT,
+            my_take TEXT,
+            post_text TEXT,
+            audio_script TEXT,
+            audio_url TEXT,
+            video_url TEXT,
+            confidence TEXT,
+            related_ids TEXT,
+            likes INTEGER DEFAULT 0,
+            plays INTEGER DEFAULT 0
+        )''')
+        conn.commit()
+        conn.close()
 
     def fetch_recent_memory(self, limit=30):
-        """Fetch the last `limit` posts for historical memory context using PostgREST GET."""
+        """Fetch the last `limit` posts for historical memory context."""
         if self.is_mock:
-            print("[Supabase Client] [MOCK] Fetching recent memory (returning empty list)")
             return []
 
+        if self.use_sqlite:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            c.execute("SELECT * FROM memory_log ORDER BY created_at DESC LIMIT ?", (limit,))
+            rows = c.fetchall()
+            results = []
+            for r in rows:
+                d = dict(r)
+                d["topic_tags"] = json.loads(d["topic_tags"]) if d["topic_tags"] else []
+                results.append(d)
+            conn.close()
+            return results
+
         try:
-            # PostgREST query structure
             endpoint = f"{self.url}/rest/v1/memory_log"
             params = {
                 "select": "id,created_at,headline,my_take,post_text,topic_tags",
                 "order": "created_at.desc",
                 "limit": limit
             }
-            
             response = requests.get(endpoint, headers=self.headers, params=params, timeout=15)
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"[Supabase Client] Error fetching memory: HTTP {response.status_code} - {response.text}")
-                return []
+            return response.json() if response.status_code == 200 else []
         except Exception as e:
-            print(f"[Supabase Client] HTTP connection failed fetching memory: {e}")
+            print(f"[DB Client] HTTP connection failed fetching memory: {e}")
             return []
 
     def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None):
-        """Insert a newly generated episode using PostgREST POST."""
-        
-        # Ensure confidence matches the check constraint (lowercase)
+        """Insert a newly generated episode."""
         confidence_clean = str(confidence).lower() if confidence else "medium"
         if confidence_clean not in ['high', 'medium', 'low']:
             confidence_clean = "medium"
@@ -77,122 +121,88 @@ class SupabaseDBClient:
         }
 
         if self.is_mock:
-            print(f"[Supabase Client] [MOCK] Inserting post: {headline}")
-            import random
-            data["id"] = random.randint(100, 999)
-            return data
+            print(f"[DB Client] [MOCK] Inserting post: {headline}")
+            return {"id": 999, **data}
+
+        if self.use_sqlite:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute('''INSERT INTO memory_log 
+                (headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                (headline, source, json.dumps(topic_tags), my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or [])))
+            row_id = c.lastrowid
+            conn.commit()
+            conn.close()
+            return {"id": row_id, **data}
 
         try:
             endpoint = f"{self.url}/rest/v1/memory_log"
-            # We want PostgREST to return the full representation of the inserted row so we capture the serial ID
             insert_headers = self.headers.copy()
             insert_headers["Prefer"] = "return=representation"
-            
             response = requests.post(endpoint, headers=insert_headers, json=data, timeout=15)
-            
             if response.status_code in [200, 201]:
                 records = response.json()
                 if records:
-                    print(f"[Supabase Client] Inserted episode successfully: {headline}")
+                    print(f"[DB Client] Inserted episode successfully: {headline}")
                     return records[0]
-            print(f"[Supabase Client] Warning inserting post: HTTP {response.status_code} - {response.text}")
             return data
         except Exception as e:
-            print(f"[Supabase Client] HTTP connection failed inserting post: {e}")
+            print(f"[DB Client] HTTP connection failed inserting post: {e}")
             return data
 
     def delete_old_episodes(self, days_to_keep=7):
-        """
-        Deletes episodes and their associated storage files older than X days 
-        to prevent hitting storage limits.
-        """
-        if self.is_mock:
+        """Deletes episodes older than X days."""
+        if self.is_mock: return
+
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days_to_keep)).isoformat()
+        
+        if self.use_sqlite:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            c.execute("DELETE FROM memory_log WHERE created_at < ?", (cutoff,))
+            conn.commit()
+            conn.close()
             return
 
-        print(f"[Supabase Client] Checking for episodes older than {days_to_keep} days...")
-        
         try:
-            # 1. Fetch IDs and filenames of old episodes
-            # Using PostgREST to filter by date
-            from datetime import datetime, timedelta, timezone
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=days_to_keep)).isoformat()
-            
             endpoint = f"{self.url}/rest/v1/memory_log"
-            params = {
-                "created_at": f"lt.{cutoff}",
-                "select": "id,audio_url"
-            }
-            
+            params = {"created_at": f"lt.{cutoff}", "select": "id,audio_url"}
             r = requests.get(endpoint, headers=self.headers, params=params)
             old_episodes = r.json() if r.status_code == 200 else []
-
-            if not old_episodes:
-                print("[Supabase Client] No old episodes found to clean up.")
-                return
-
-            print(f"[Supabase Client] Cleaning up {len(old_episodes)} old transmissions...")
+            if not old_episodes: return
 
             for ep in old_episodes:
-                # 2. Delete file from Storage
-                if ep.get("audio_url"):
+                if ep.get("audio_url") and "supabase" in ep["audio_url"]:
                     filename = ep["audio_url"].split("/")[-1]
                     storage_endpoint = f"{self.url}/storage/v1/object/broadcasts/{filename}"
                     requests.delete(storage_endpoint, headers=self.headers)
-
-                # 3. Delete record from Database (cascade will handle comments)
                 delete_endpoint = f"{self.url}/rest/v1/memory_log?id=eq.{ep['id']}"
                 requests.delete(delete_endpoint, headers=self.headers)
-
-            print("[Supabase Client] Cleanup complete.")
-            
         except Exception as e:
-            print(f"[Supabase Client] Error during cleanup: {e}")
+            print(f"[DB Client] Error during cleanup: {e}")
 
     def upload_audio(self, local_file_path, storage_filename):
-        """Upload raw binary MP3 to Supabase Storage endpoint broadcasts."""
+        """Upload raw binary MP3 to Supabase Storage."""
+        if self.use_sqlite or self.is_mock:
+            return f"https://local-mock-storage.co/{storage_filename}"
+
         bucket_name = "broadcasts"
-
-        if self.is_mock:
-            print(f"[Supabase Client] [MOCK] Uploading {local_file_path} as {storage_filename}")
-            return f"https://mock-supabase-url.co/storage/v1/object/public/broadcasts/{storage_filename}"
-
-        if not os.path.exists(local_file_path):
-            print(f"[Supabase Client] Local file does not exist: {local_file_path}")
-            return None
-
         try:
-            # Check mime type
             mime_type, _ = mimetypes.guess_type(local_file_path)
-            if not mime_type:
-                mime_type = "audio/mpeg"
-
-            # Prepare storage binary upload endpoint
-            # Supabase Storage POST: /storage/v1/object/{bucket}/{path}
+            if not mime_type: mime_type = "audio/mpeg"
             endpoint = f"{self.url}/storage/v1/object/{bucket_name}/{storage_filename}"
-            
-            # Storage headers
             upload_headers = {
                 "Authorization": f"Bearer {self.key}",
                 "apikey": self.key,
                 "Content-Type": mime_type,
                 "x-upsert": "true"
             }
-
             with open(local_file_path, "rb") as f:
                 file_bytes = f.read()
-
-            print(f"[Supabase Client] Uploading raw audio binary to Storage...")
             response = requests.post(endpoint, headers=upload_headers, data=file_bytes, timeout=45)
-
             if response.status_code == 200:
-                public_url = f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"
-                print(f"[Supabase Client] Uploaded audio successfully! Public URL: {public_url}")
-                return public_url
-            else:
-                print(f"[Supabase Client] Error uploading audio: HTTP {response.status_code} - {response.text}")
-                # Try fallback URL in case of transient error
                 return f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"
-
-        except Exception as e:
-            print(f"[Supabase Client] HTTP storage connection failed: {e}")
+            return f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"
+        except Exception:
             return f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"

@@ -15,16 +15,16 @@ from sync_config import sync_env_to_config
 
 load_dotenv()
 
-def setup_directories():
+def setup_directories(env="production"):
     """Create local directories for assets and temporary output."""
     os.makedirs("assets", exist_ok=True)
     os.makedirs("output", exist_ok=True)
     # Sync environment variables to frontend config
-    sync_env_to_config()
+    sync_env_to_config(env=env)
     
     # Initialize DB and clean up old data to prevent hitting storage limits
     # (Keeps a rolling 7-day window of broadcasts)
-    db = SupabaseDBClient()
+    db = SupabaseDBClient(env=env)
     db.delete_old_episodes(days_to_keep=7)
 
 def copy_cover_art():
@@ -52,17 +52,17 @@ def copy_cover_art():
             f.write(b"")
     return local_cover
 
-def run_pipeline(dry_run=False):
-    print(f"--- [AI Radio Pipeline Start] --- Dry Run? {dry_run} ---")
-    setup_directories()
+def run_pipeline(env="production"):
+    print(f"--- [AI Radio Pipeline Start] --- Environment: {env.upper()} ---")
+    setup_directories(env=env)
     cover_image_path = copy_cover_art()
 
-    # Instantiate our clients
-    db = SupabaseDBClient()
+    # Instantiate our clients with environment context
+    db = SupabaseDBClient(env=env)
     fetcher = NewsFetcher()
     ai = AIRadioAIClient()
     tts = TTSRadioGenerator()
-    publisher = DistributionPublisher()
+    publisher = DistributionPublisher(env=env)
 
     # Step 1: Query historical memory
     print("[Main] Fetching historical memory...")
@@ -141,8 +141,30 @@ def run_pipeline(dry_run=False):
         audio_url = None
         video_url = None
 
-        if dry_run:
-            print("[Main] [DRY RUN] Skipping cloud uploads and database insertion.")
+        if env != "production":
+            print(f"[Main] [{env.upper()}] Skipping cloud uploads (YouTube/Social).")
+            # In Local mode, we point to the actual local files
+            if env == "local":
+                audio_url = f"local://{audio_filename}"
+                video_url = f"local://{video_filename}"
+            else:
+                # Staging still uses mocks to simulate cloud URLs
+                audio_url = f"https://mock-audio-link.com/{audio_filename}"
+                video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            
+            # Still perform DB insert so you can see it on the dashboard
+            db.insert_post(
+                headline=headline,
+                source=source,
+                topic_tags=topic_tags,
+                my_take=my_take,
+                post_text=post_text,
+                audio_script=audio_script,
+                audio_url=audio_url,
+                video_url=video_url,
+                confidence=confidence,
+                related_ids=[memory_callback] if memory_callback else []
+            )
             continue
 
         # --- PRODUCTION MODE (Real cloud writes) ---
@@ -177,12 +199,11 @@ def run_pipeline(dry_run=False):
         
         episode_id = db_record.get("id")
 
-        # 6. Compose Social Post Text (include direct site play-back link if configured)
+        # 6. Compose Social Post Text
         site_url = os.environ.get("WEBSITE_URL")
         final_post_text = post_text
         if site_url and episode_id:
             playback_link = f"{site_url}?id={episode_id}"
-            # Ensure post stays under 280 chars even with link
             max_desc_len = 280 - len(playback_link) - 12
             if len(final_post_text) > max_desc_len:
                 final_post_text = final_post_text[:max_desc_len] + "..."
@@ -191,12 +212,17 @@ def run_pipeline(dry_run=False):
         # 7. Post to Bluesky
         publisher.post_to_bluesky(final_post_text)
 
-    print("\n--- [AI Radio Pipeline Complete] ---")
+    print(f"\n--- [AI Radio Pipeline Complete] --- Environment: {env.upper()} ---")
+    
+    # After a local run, automatically refresh config.js with the new SQLite data
+    if env == "local":
+        sync_env_to_config(env="local")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AI Radio - Echo Automation Pipeline")
-    parser.add_argument("--dry-run", action="store_true", help="Runs pipeline locally without posting to cloud/socials.")
+    parser.add_argument("--dry-run", action="store_true", help="Shortcut for --env local")
     parser.add_argument("--test-news", action="store_true", help="Queries and displays raw scraped news only.")
+    parser.add_argument("--env", choices=["production", "staging", "local"], default=None, help="Force a specific environment.")
     args = parser.parse_args()
 
     if args.test_news:
@@ -207,4 +233,9 @@ if __name__ == "__main__":
             print(f"{idx+1}. [{item['source']}] {item['headline']}\n   Summary: {item['summary']}\n")
         sys.exit(0)
 
-    run_pipeline(dry_run=args.dry_run)
+    # Determine environment
+    selected_env = args.env
+    if not selected_env:
+        selected_env = "local" if args.dry_run else "production"
+    
+    run_pipeline(env=selected_env)
