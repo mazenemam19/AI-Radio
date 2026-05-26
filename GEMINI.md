@@ -1,5 +1,12 @@
 # AI Radio — Echo (Instructional Context)
 
+# ⚠️ CORE MANDATES — READ BEFORE ACTING
+1.  **STRICT NO REFACTORING:** NEVER refactor, rewrite, or "clean up" existing code.
+2.  **PRESERVE LOGIC & STRUCTURE:** Do not change variable names, function signatures, class structures, or the existing logic flow unless it is the DIRECT cause of a functional bug.
+3.  **SURGICAL EDITS ONLY:** Every change MUST be minimal, targeted, and strictly relevant to the immediate task or fix.
+4.  **RESPECT ARCHITECTURE:** Adhere to the existing architectural patterns (Multi-Environment, Hybrid Player, Groq TTS) without modification.
+5.  **NO "CLEAN CODE" BYPASS:** "Clean code" is NOT an excuse to bypass these mandates. Stability and predictability are the highest priorities.
+
 ## Project Overview
 **AI Radio — Echo** is an autonomous news commentary pipeline hosted by an AI persona named **Echo**. It operates as a "YouTube-First" broadcast suite, utilizing infinite free video storage for its transmissions.
 
