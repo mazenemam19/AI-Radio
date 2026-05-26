@@ -88,6 +88,8 @@ function showConfigModal() {
 // --- 4. DATA LOADING ---
 
 async function loadTransmissions() {
+  console.log(`[Echo] Attempting to load transmissions. Env: ${CURRENT_ENV}`);
+
   if (CURRENT_ENV === "local") {
     console.log("[Echo] Data sync complete.");
     episodes = window.CONFIG?.LOCAL_DATA || [];
@@ -128,12 +130,23 @@ function selectEpisode(episode) {
   elements.activeDate.innerText = new Date(episode.created_at).toLocaleDateString();
   elements.activeLikes.innerText = episode.likes || 0;
 
-  const isLocalFile = episode.video_url?.includes("output/");
+  // IMPROVED LOCAL DETECTION: Look for "output/" anywhere in the URL
+  const isLocalFile = episode.video_url?.includes("output/") || episode.audio_url?.includes("output/");
 
   if (isLocalFile) {
+    console.log("[Echo] Switching to Local HTML5 Player.");
     elements.ytFrame.classList.add("hidden");
     elements.localPlayer.classList.remove("hidden");
-    elements.localPlayer.src = episode.video_url;
+    
+    // If it's a local video URL, use it. If it's a local audio URL but YouTube video link, use the video path.
+    let playSource = episode.video_url;
+    if (playSource.includes("youtube.com")) {
+       // Extract filename from audio_url and assume .mp4 exists
+       const filename = episode.audio_url.split("/").pop().replace(".mp3", ".mp4");
+       playSource = "output/" + filename;
+    }
+
+    elements.localPlayer.src = playSource;
     elements.localPlayer.load();
     
     elements.localPlayer.onplay = () => {
@@ -148,6 +161,7 @@ function selectEpisode(episode) {
       stopNeuralPulse();
     };
   } else {
+    console.log("[Echo] Switching to YouTube IFrame Player.");
     elements.localPlayer.classList.add("hidden");
     elements.ytFrame.classList.remove("hidden");
     elements.localPlayer.pause();
@@ -234,7 +248,7 @@ window.onYouTubeIframeAPIReady = function() {
 // --- 7. EVENT LISTENERS ---
 function setupUIEventListeners() {
   elements.btnPlayPause.addEventListener("click", () => {
-    const isLocalFile = activeEpisode?.video_url?.includes("output/");
+    const isLocalFile = activeEpisode?.video_url?.includes("output/") || activeEpisode?.audio_url?.includes("output/");
     if (isLocalFile) {
       elements.localPlayer.paused ? elements.localPlayer.play() : elements.localPlayer.pause();
     } else {
