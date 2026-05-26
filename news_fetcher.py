@@ -85,12 +85,6 @@ class NewsFetcher:
 
         return items
 
-    def fetch_guardian_api(self):
-        """Fetch tech/world/science stories from official Guardian API (if key exists)."""
-        if not self.guardian_key:
-            print("[News Fetcher] Guardian API Key missing. Skipping official API fetch.")
-            return []
-
         items = []
         try:
             print("[News Fetcher] Querying Guardian API...")
@@ -124,7 +118,6 @@ class NewsFetcher:
         raw_items = []
         raw_items.extend(self.fetch_rss_feeds())
         raw_items.extend(self.fetch_hackernews())
-        raw_items.extend(self.fetch_guardian_api())
 
         unique_items = []
         seen_headlines = set()
