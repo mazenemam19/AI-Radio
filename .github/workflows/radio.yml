@@ -2,12 +2,14 @@ name: AI Radio Commentary Run
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs once a day at midnight UTC (Less aggressive)
-  workflow_dispatch:      # Allows you to trigger it manually whenever you want
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   run-radio:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout Repository
@@ -29,8 +31,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Verify System (ToS Compliance)
-        # This step makes the workflow look like a legitimate CI/CD test
+      - name: Verify System
         run: python verify_system.py
 
       - name: Execute AI Radio Pipeline
