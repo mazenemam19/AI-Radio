@@ -41,10 +41,18 @@ def run_pipeline(env="production"):
     tts = TTSRadioGenerator()
     publisher = DistributionPublisher(env=env)
 
-    # 1. Memory
+    # 1. Memory (Richer context to prevent repetition)
     history = db.fetch_recent_memory(limit=20)
     processed_headlines = [item["headline"] for item in history]
-    memory_context = [{"id": i["id"], "headline": i["headline"]} for i in history]
+    
+    # We send the full history to AI so it knows exactly what jokes/takes were already used
+    memory_context = []
+    for item in history:
+        memory_context.append({
+            "id": item["id"],
+            "headline": item["headline"],
+            "my_take": item.get("my_take", "")
+        })
 
     # 2. News
     print("[Main] Fetching news grid...")
@@ -71,11 +79,9 @@ def run_pipeline(env="production"):
     audio_path = f"output/broadcast_{show_id}.mp3"
     video_path = f"output/broadcast_{show_id}.mp4"
 
-    # Render long-form audio with multiple voices
     if not tts.make_broadcast_audio(broadcast["segments"], audio_path):
         return
 
-    # Compile video
     tts.compile_video(audio_path, cover_image_path, video_path)
 
     # 5. DISTRIBUTION
@@ -89,11 +95,14 @@ def run_pipeline(env="production"):
         )
         publisher.post_to_bluesky(broadcast["social_post"])
     else:
-        video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # Rick Astley for Staging/Local
+        video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # Rick Astley
 
     # 6. SAVE TO DB
+    # We save a combination of Show Title and Primary Headline so the scraper can see it!
+    display_headline = f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}"
+    
     db.insert_post(
-        headline=broadcast["show_title"],
+        headline=display_headline,
         source="The Echo Broadcast",
         topic_tags=broadcast["topic_tags"],
         my_take=broadcast["my_take"],

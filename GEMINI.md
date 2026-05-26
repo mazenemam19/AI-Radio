@@ -6,13 +6,14 @@
 The system features a highly isolated multi-environment architecture:
 1.  **Ingestion:** Scrapes news via RSS and HackerNews. Uses a **Keyword Overlap** algorithm to prevent duplicate coverage of the same story.
 2.  **Analysis:** Processes news and historical memory using **Llama 3.3 70B** (via Groq) or **Gemini 3.5 Flash** (via Google). Explicitly avoids repetition.
-3.  **Synthesis:** Converts scripts into audio (`edge-tts`) and compiles MP4 videos (`ffmpeg`).
+3.  **Synthesis:** Converts scripts into audio (**Groq Cloud TTS**) and compiles MP4 videos (`ffmpeg`).
 4.  **Distribution:** Uploads videos to **YouTube** and posts to **Bluesky**.
 5.  **Exhibition:** A "neon-glass" web frontend featuring a **Hybrid Player** that intelligently switches between YouTube embeds and local HTML5 video playback.
 
 ## Technical Stack
 -   **Language:** Python 3.x (Backend), Vanilla JS (Frontend).
 -   **AI Brain:** Llama 3.3 (Primary), Gemini 3.5 Flash (Fallback).
+-   **Speech Synthesis:** **Groq Cloud TTS** (canopylabs/orpheus-v1-english). Supports inline emotional tags and advanced prosody.
 -   **Databases:** Supabase (PostgreSQL) for Cloud; SQLite for Local.
 -   **Media Hosting:** YouTube (Primary), Local `output/` folder (Development).
 
@@ -47,20 +48,21 @@ The system features a highly isolated multi-environment architecture:
 
 ## Development Conventions
 
-### AI Persona: "Echo"
-Echo's identity is the core of the project. Future interactions must adhere to:
--   **Tone:** Sarcastic, cynical, highly intelligent, and pattern-obsessed.
--   **Voice:** Explicitly artificial. References human affairs like a detached scientist.
--   **Audio Cues:** Uses square-bracketed cues for the TTS engine (e.g., `[cybernetic chuckle]`, `[sigh]`, `[static transition]`).
--   **Logic:** Never vague. Directly names absurdities and connects them to historical patterns.
+### AI Persona: "Echo & Glitch"
+The broadcast is a dynamic, high-performance satirical duo:
+-   **Echo (Host):** Intellectual, rhythmic, Jon Stewart-style. Voice: `daniel`.
+-   **Glitch (Correspondent):** High-energy, chaotic data-stream. Voice: `hannah`.
+-   **Speech Tags:** The system uses Groq's inline tags (e.g., `[sarcastic]`, `[angry]`, `<break />`) to create a theatrical, melodic performance.
+-   **Prosody Control:** Every segment features dynamic `speed`, `stability`, `clarity`, and `style_exaggeration` parameters.
 
 ### FFmpeg & Environment
--   **Resiliency:** The system includes a proactive fallback for FFmpeg at `C:\ffmpeg\bin\ffmpeg.exe` on Windows, while remaining portable for Linux/Cloud environments.
--   **Portability:** No hardcoded local user paths are permitted in `main.py`.
+-   **Resiliency:** The system includes a proactive fallback for FFmpeg at `C:\ffmpeg\bin\ffmpeg.exe`.
+-   **Rhythm:** Audio is rendered per-segment with custom pitch/rate/style and merged via FFmpeg concat.
+-   **Portability:** No hardcoded local user paths are permitted.
 
 ### Data Integrity & Deduplication
--   **Keyword Overlap:** Headlines sharing 3+ significant words are automatically skipped to avoid covering the same event twice.
--   **AI Memory:** Echo receives a summary of the last 30 posts to ensure new takes are fresh and referenceable.
+-   **Keyword Overlap:** Headlines sharing 2+ significant words are automatically skipped to avoid covering the same event twice.
+-   **AI Memory:** Echo receives a summary of the last 20 posts to ensure new takes are fresh and referenceable.
 
 ### Frontend Portability
 -   **Hardcoding Keys:** For static deployment (Netlify/GH Pages), hardcode `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `app.js` to ensure the dashboard initializes instantly.

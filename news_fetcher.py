@@ -152,11 +152,11 @@ class NewsFetcher:
                 continue
 
             # 2. Topic similarity check (Keyword Overlap)
-            # If 3 or more significant words match a previous story, it's likely the same topic
+            # Threshold lowered to 2: If 2 or more significant words match, it's a duplicate.
             is_duplicate_topic = False
             for prev_keywords in history_keywords:
                 overlap = item_keywords.intersection(prev_keywords)
-                if len(overlap) >= 3:
+                if len(overlap) >= 2:
                     print(f"[News Fetcher] [SKIP] Topic already covered (Overlap: {overlap}): {headline}")
                     is_duplicate_topic = True
                     break
