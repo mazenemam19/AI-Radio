@@ -31,6 +31,11 @@ def copy_cover_art():
 
 def run_pipeline(env="production"):
     is_github = os.environ.get("GITHUB_ACTIONS") == "true"
+    
+    # QUOTA SAVER: Use Premium Cloud TTS only in Production. 
+    # Use Standard Local TTS for Staging and Local.
+    use_cloud_tts = (env == "production")
+    
     print(f"--- [AI Radio Broadcast Start] --- Env: {env.upper()} ---")
     setup_directories(env=env)
     cover_image_path = copy_cover_art()
@@ -38,21 +43,13 @@ def run_pipeline(env="production"):
     db = SupabaseDBClient(env=env)
     fetcher = NewsFetcher()
     ai = AIRadioAIClient()
-    tts = TTSRadioGenerator()
+    tts = TTSRadioGenerator(use_cloud=use_cloud_tts)
     publisher = DistributionPublisher(env=env)
 
-    # 1. Memory (Richer context to prevent repetition)
+    # 1. Memory
     history = db.fetch_recent_memory(limit=20)
     processed_headlines = [item["headline"] for item in history]
-    
-    # We send the full history to AI so it knows exactly what jokes/takes were already used
-    memory_context = []
-    for item in history:
-        memory_context.append({
-            "id": item["id"],
-            "headline": item["headline"],
-            "my_take": item.get("my_take", "")
-        })
+    memory_context = [{"id": i["id"], "headline": i["headline"], "my_take": i.get("my_take", "")} for i in history]
 
     # 2. News
     print("[Main] Fetching news grid...")
@@ -61,8 +58,8 @@ def run_pipeline(env="production"):
         print("[Main] No new stories. Staying off-air.")
         return
 
-    # 3. AI SATIRICAL SCRIPT
-    print("[Main] Invoking Echo for satirical script...")
+    # 3. AI SCRIPT (Now with Voice-Awareness)
+    print(f"[Main] Invoking Echo for satirical script (Cloud Mode? {is_github})...")
     broadcast = ai.generate_broadcast(
         news_items=news_items[:15],
         memory_context=memory_context,
@@ -74,7 +71,7 @@ def run_pipeline(env="production"):
         print("[Main] Script generation failed.")
         return
 
-    # 4. THE SHOW MUST GO ON (Performance)
+    # 4. THE SHOW MUST GO ON
     show_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     audio_path = f"output/broadcast_{show_id}.mp3"
     video_path = f"output/broadcast_{show_id}.mp4"
@@ -95,12 +92,10 @@ def run_pipeline(env="production"):
         )
         publisher.post_to_bluesky(broadcast["social_post"])
     else:
-        video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # Rick Astley
+        video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
     # 6. SAVE TO DB
-    # We save a combination of Show Title and Primary Headline so the scraper can see it!
     display_headline = f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}"
-    
     db.insert_post(
         headline=display_headline,
         source="The Echo Broadcast",

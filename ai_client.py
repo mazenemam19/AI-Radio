@@ -11,27 +11,28 @@ class AIRadioAIClient:
         self.groq_key = os.environ.get("GROQ_API_KEY")
         self.gemini_key = os.environ.get("GEMINI_API_KEY")
 
-        # THE GROQ TTS ENABLED BRAIN: Optimized for Orpheus model directions
+        # THE "UNIVERSAL SPIRIT" BRAIN: High-Performance Satire
         self.system_prompt_template = """You are the Lead Satirist for "The Echo Broadcast." 
 Style: Jon Stewart / Stephen Colbert. 
 Format: MONO-TOPIC DEEP DIVE.
 
 CHARACTERS:
-1. ECHO (Host): Intellectual, authoritative, and deeply disappointed. Voice ID: daniel.
-2. GLITCH (Correspondent): High-energy, chaotic, and enthusiastic about data. Voice ID: hannah.
+1. ECHO (Host): Intellectual, authoritative, and deeply disappointed. Voice: daniel/guy.
+2. GLITCH (Correspondent): High-energy, chaotic, enthusiastic about data. Voice: hannah/jenny.
 
-SPEECH DIRECTIONS (MANDATORY):
-Groq's Orpheus model uses bracketed directions. USE THEM HEAVILY:
-- EMOTIONS: [sarcastic], [angry], [whispering], [shouting], [cheerful], [sad], [surprised], [deadpan], [laugh].
-- PAUSES: Use <break time="1.0s" /> for dramatic effect or "..." for thinking.
-- EMPHASIS: Use ALL CAPS for sudden spikes in volume.
-- INTERACTION: Echo and Glitch must call each other by name.
+VOICE ADAPTATION RULES:
+The script will be read by either a PREMIUM voice (Groq) or a STANDARD voice (Edge). To ensure SPIRIT in both:
+- DYNAMIC PUNCTUATION: Use ellipses (...) for 1-second timing gaps. Use multiple question marks (???) for total disbelief.
+- ALL CAPS EMPHASIS: Use ALL CAPS for words that must be SHOUTED or stressed.
+- REACTION BEATS: Instead of saying "I am surprised," write "[gasp] Wait... WHAT? No. Seriously??"
+- TAGS: Still include [sarcastic], [angry], [laugh] tags for the Premium engine.
+- NATURAL INTERACTION: Echo and Glitch must refer to each other by name. NEVER use words like "Anchor," "Correspondent," "Host," or "Reporter." They are colleagues, not job descriptions. Imagine two people who have worked together for 10 years—they don't announce their job titles before every sentence.
 
 RULES:
 1. NO REPETITION: Move from one absurd angle to the next.
 2. NO CLICHÉS: Be specific, detailed, and mean.
 3. MONO-TOPIC: Stay on the one story for the whole script.
-4. LENGTH: Every segment must be SUBSTANTIAL. Write at least 200-300 words per segment. Expand on every thought. Be verbose and detailed in your mockery.
+4. LENGTH: Write 200-300 words per segment. Be verbose and detailed.
 
 OUTPUT FORMAT (Strict JSON):
 {{
@@ -43,13 +44,13 @@ OUTPUT FORMAT (Strict JSON):
   "segments": [
     {{
       "speaker": "ECHO | GLITCH",
-      "text": "The script with [vocal directions] and <break /> tags. MAKE THIS LONG AND DETAILED.",
+      "text": "The script with [directions] and AGGRESSIVE PUNCTUATION!!!",
       "speed": 1.0
     }}
   ]
 }}
 
-Generate exactly {target_segments} segments. Total show length should be approximately 10 minutes of spoken dialogue."""
+Generate exactly {target_segments} segments."""
 
     def call_groq(self, user_input_json, target_segments):
         """Primary satirical engine using Llama 3.3 70B."""
@@ -64,7 +65,7 @@ Generate exactly {target_segments} segments. Total show length should be approxi
                 {"role": "user", "content": f"Return the JSON show script for: {user_input_json}"}
             ],
             "temperature": 0.9,
-            "max_tokens": 6000, # Increased to allow for longer scripts
+            "max_tokens": 6000,
             "response_format": {"type": "json_object"}
         }
         
@@ -79,7 +80,7 @@ Generate exactly {target_segments} segments. Total show length should be approxi
         if not self.gemini_key: return None
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.gemini_key}"
         system_prompt = self.system_prompt_template.format(target_segments=target_segments)
-        prompt_text = f"Guidelines:\n{system_prompt}\n\nContext:\n{user_input_json}\n\nIMPORTANT: JSON OBJECT ONLY. WRITE VERY LONG SEGMENTS."
+        prompt_text = f"Guidelines:\n{system_prompt}\n\nContext:\n{user_input_json}\n\nIMPORTANT: JSON OBJECT ONLY. USE AGGRESSIVE PUNCTUATION FOR SPIRIT."
         body = {
             "contents": [{"role": "user", "parts": [{"text": prompt_text}]}],
             "generationConfig": {"temperature": 0.8, "maxOutputTokens": 6000, "responseMimeType": "application/json"}
@@ -91,7 +92,7 @@ Generate exactly {target_segments} segments. Total show length should be approxi
         except Exception: return None
 
     def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
-        """Generates a satirical broadcast. Unified at 7 segments (~10 mins) for both local and cloud."""
+        """Generates a satirical broadcast. Unified at 7 segments (~10 mins)."""
         target_segments = 7
         user_input = {"news_items": news_items, "memory_context": memory_context}
         user_input_str = json.dumps(user_input)

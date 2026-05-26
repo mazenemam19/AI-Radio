@@ -6,6 +6,9 @@
 3.  **SURGICAL EDITS ONLY:** Every change MUST be minimal, targeted, and strictly relevant to the immediate task or fix.
 4.  **RESPECT ARCHITECTURE:** Adhere to the existing architectural patterns (Multi-Environment, Hybrid Player, Groq TTS) without modification.
 5.  **NO "CLEAN CODE" BYPASS:** "Clean code" is NOT an excuse to bypass these mandates. Stability and predictability are the highest priorities.
+6.  **NO OVERWRITING:** NEVER use `write_file` on an existing file. Always use the `replace` tool to ensure transparency and prevent accidental refactoring.
+7.  **ADDITION-ONLY BIAS:** When adding features, insert them as isolated blocks. Do not touch, "harmonize," or beautify the surrounding established code.
+8.  **MANDATE CHECKPOINT:** Re-read these mandates before every single tool call. Structural stability and token efficiency are the absolute priority.
 
 ## Project Overview
 **AI Radio — Echo** is an autonomous news commentary pipeline hosted by an AI persona named **Echo**. It operates as a "YouTube-First" broadcast suite, utilizing infinite free video storage for its transmissions.

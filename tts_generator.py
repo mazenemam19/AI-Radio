@@ -11,9 +11,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class TTSRadioGenerator:
-    def __init__(self, echo_voice="daniel", glitch_voice="hannah"):
+    def __init__(self, echo_voice="daniel", glitch_voice="hannah", use_cloud=True):
         self.echo_voice = echo_voice
         self.glitch_voice = glitch_voice
+        self.use_cloud = use_cloud # If False, skip Groq and go straight to Edge
         self.api_key = os.environ.get("GROQ_API_KEY")
         self.api_url = "https://api.groq.com/openai/v1/audio/speech"
         self.model = "canopylabs/orpheus-v1-english"
@@ -41,22 +42,26 @@ class TTSRadioGenerator:
         return chunks
 
     async def generate_edge_fallback(self, text, voice, path):
+        """Local engine using edge-tts."""
         edge_voice = "en-US-GuyNeural" if "daniel" in voice else "en-US-JennyNeural"
+        # Edge-TTS is excellent at reading punctuation for rhythm
         communicate = edge_tts.Communicate(self.strip_tags(text), edge_voice)
         await communicate.save(path)
 
-    def generate_segment_audio(self, text, voice, path):
-        """Generate audio with 'Fast-Exit' rate limit protection."""
-        if not self.api_key: return False
+    def generate_segment_audio(self, text, voice, path, speed=1.0):
+        """Generate audio with Quota-Saver logic."""
+        # IF QUOTA-SAVER ACTIVE: Skip Groq entirely
+        if not self.use_cloud or not self.api_key:
+            asyncio.run(self.generate_edge_fallback(text, voice, path))
+            return True
+            
         chunks = self.chunk_text(text)
         chunk_files = []
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         
         try:
             for c_idx, chunk_text in enumerate(chunks):
-                # PACING
                 if c_idx > 0: time.sleep(8.0)
-                
                 body = {"model": self.model, "input": chunk_text, "voice": voice, "response_format": "wav"}
                 
                 for attempt in range(3):
@@ -69,15 +74,10 @@ class TTSRadioGenerator:
                     elif r.status_code == 429:
                         retry_after = r.headers.get("retry-after", "30")
                         wait_seconds = int(retry_after)
-                        
-                        # FAST EXIT: If wait is more than 60s, it's likely a daily/quota limit.
-                        # Don't hang the script for an hour; just switch to backup.
                         if wait_seconds > 60:
-                            print(f"[TTS] !!! DAILY QUOTA REACHED !!! Groq wants a {wait_seconds}s wait.")
-                            print(f"[TTS] Aborting Cloud rendering and switching to local backup.")
-                            raise Exception("Daily Quota Exceeded")
-                        
-                        print(f"[TTS] Rate limit hit. Waiting {wait_seconds}s (Attempt {attempt+1}/3)...")
+                            print(f"[TTS] !!! QUOTA LIMIT !!! Switching to local backup.")
+                            raise Exception("Quota Limit")
+                        print(f"[TTS] Rate limit hit. Waiting {wait_seconds}s...")
                         time.sleep(wait_seconds + 1)
                     else:
                         raise Exception(f"API Error {r.status_code}")
@@ -86,32 +86,25 @@ class TTSRadioGenerator:
                 ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
                 list_path = f"{path}_list.txt"
                 with open(list_path, "w") as f:
-                    for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
+                    for cf in chunk_files: f.write(f"file '{os.path.abspath(tf)}'\n")
                 subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
                 for cf in chunk_files: os.remove(cf)
                 os.remove(list_path)
                 return True
 
-        except Exception as e:
-            print(f"[TTS] Persistence failed: {e}. Using edge-tts backup for this segment.")
-            for cf in chunk_files: 
-                if os.path.exists(cf): os.remove(cf)
+        except Exception:
             asyncio.run(self.generate_edge_fallback(text, voice, path))
             return True
 
     def make_broadcast_audio(self, segments, output_path):
-        total_chars = sum(len(s.get("text", "")) for s in segments)
-        print(f"[TTS] --- STARTING BROADCAST MASTERING ---")
-        print(f"[TTS] Show Characters: {total_chars} / {self.daily_char_limit} allowance.")
-
+        mode = "PREMIUM CLOUD" if self.use_cloud else "STANDARD LOCAL"
+        print(f"[TTS] --- STARTING {mode} MASTERING ---")
         temp_files = []
         try:
             for idx, seg in enumerate(segments):
                 speaker = str(seg.get("speaker", "ECHO")).upper()
                 voice = self.echo_voice if speaker == "ECHO" else self.glitch_voice
                 temp_path = f"output/temp_seg_{idx}.mp3"
-                
-                print(f"[TTS] Processing Segment {idx+1}/{len(segments)} ({speaker})...")
                 if self.generate_segment_audio(seg["text"], voice, temp_path):
                     temp_files.append(temp_path)
             
