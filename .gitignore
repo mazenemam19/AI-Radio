@@ -5,3 +5,5 @@ config.js
 assets/cover_art.png
 *.mp3
 *.mp4
+*.pyc
+ai_radio_dev.db

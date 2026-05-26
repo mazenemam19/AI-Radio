@@ -129,15 +129,39 @@ class NewsFetcher:
         unique_items = []
         seen_headlines = set()
 
+        def get_keywords(text):
+            """Simple extraction of significant words for similarity checking."""
+            words = text.lower().split()
+            # Ignore common small words
+            stop_words = {'the', 'and', 'for', 'was', 'with', 'that', 'this', 'after', 'from', 'says', 'warns', 'in', 'on', 'at'}
+            return {w for w in words if len(w) > 3 and w not in stop_words}
+
+        # Pre-calculate keywords for history
+        history_keywords = [get_keywords(h) for h in processed_headlines]
+
         for item in raw_items:
             headline = item["headline"]
             headline_lower = headline.lower().strip()
+            item_keywords = get_keywords(headline_lower)
             
-            # Skip if already posted historically OR seen in this batch
+            # 1. Exact match check
             if headline_lower in processed_set:
-                print(f"[News Fetcher] [SKIP] Already covered historically: {headline}")
+                print(f"[News Fetcher] [SKIP] Exact headline match in history: {headline}")
                 continue
             if headline_lower in seen_headlines:
+                continue
+
+            # 2. Topic similarity check (Keyword Overlap)
+            # If 3 or more significant words match a previous story, it's likely the same topic
+            is_duplicate_topic = False
+            for prev_keywords in history_keywords:
+                overlap = item_keywords.intersection(prev_keywords)
+                if len(overlap) >= 3:
+                    print(f"[News Fetcher] [SKIP] Topic already covered (Overlap: {overlap}): {headline}")
+                    is_duplicate_topic = True
+                    break
+            
+            if is_duplicate_topic:
                 continue
                 
             seen_headlines.add(headline_lower)

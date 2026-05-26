@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class DistributionPublisher:
-    def __init__(self):
+    def __init__(self, env="production"):
+        self.env = env.lower()
         self.bsky_handle = os.environ.get("BLUESKY_HANDLE")
         self.bsky_password = os.environ.get("BLUESKY_PASSWORD")
         
@@ -20,9 +21,8 @@ class DistributionPublisher:
 
     def post_to_bluesky(self, text):
         """Post a text observation (max 280 chars) to Bluesky."""
-        if not self.bsky_handle or not self.bsky_password:
-            print("[Publisher] [MOCK] Bluesky credentials missing. Mocking post.")
-            print(f"[Publisher] [MOCK] Text would be: '{text}'")
+        if self.env != "production" or not self.bsky_handle or not self.bsky_password:
+            print(f"[Publisher] [{self.env.upper()}] Mocking Bluesky post: {text[:50]}...")
             return {"uri": "at://mock-did/app.bsky.feed.post/mock-rkey", "cid": "mock-cid"}
 
         try:
@@ -39,10 +39,9 @@ class DistributionPublisher:
 
     def upload_to_youtube(self, video_path, title, description, tags=None):
         """Upload a compiled MP4 video to YouTube using OAuth 2.0 Refresh Token flow."""
-        if not self.yt_refresh_token or not self.yt_client_id or not self.yt_client_secret:
-            print("[Publisher] [MOCK] YouTube OAuth credentials missing. Mocking video upload.")
-            print(f"[Publisher] [MOCK] Video would be: '{video_path}' with Title: '{title}'")
-            return "https://www.youtube.com/watch?v=dQw4w9WgXcQ"  # Return standard YouTube template
+        if self.env != "production" or not self.yt_refresh_token or not self.yt_client_id or not self.yt_client_secret:
+            print(f"[Publisher] [{self.env.upper()}] Mocking YouTube upload: {title}")
+            return "https://www.youtube.com/watch?v=dQw4w9WgXcQ" 
 
         if not os.path.exists(video_path):
             print(f"[Publisher] Video file does not exist: {video_path}")

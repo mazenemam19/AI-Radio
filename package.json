@@ -4,12 +4,16 @@
   "description": "Autonomous AI news commentary and radio broadcast hub.",
   "main": "main.py",
   "scripts": {
-    "sync": "py sync_config.py",
-    "verify": "py verify_system.py",
+    "sync:prod": "py sync_config.py --env production",
+    "sync:staging": "py sync_config.py --env staging",
+    "sync:local": "py sync_config.py --env local",
+    "dev:local": "py main.py --env local",
+    "dev:staging": "py main.py --env staging",
     "dev:dry": "py main.py --dry-run",
     "dev:news": "py main.py --test-news",
-    "prod:run": "py main.py",
-    "serve": "py -m http.server 5000"
+    "prod:run": "py main.py --env production",
+    "serve": "py -m http.server 5000",
+    "verify": "py verify_system.py"
   },
   "keywords": [
     "ai",
