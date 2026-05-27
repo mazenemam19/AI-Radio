@@ -7,3 +7,4 @@ assets/*
 *.mp4
 *.pyc
 ai_radio_dev.db
+.gemini/ralph/*

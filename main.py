@@ -4,6 +4,7 @@ import argparse
 import shutil
 import time
 import random
+import json
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -110,6 +111,10 @@ def run_pipeline(env="production", dry_run=False):
     # Use the 'dreamed up' image for the video compilation
     tts.compile_video(audio_path, episode_image, video_path)
 
+    # Calculate exact duration
+    duration = tts.get_audio_duration(audio_path)
+    print(f"[Main] Broadcast duration: {duration} seconds.")
+
     # 5. DISTRIBUTION
     video_url = None
     if env == "production" and not dry_run:
@@ -125,25 +130,33 @@ def run_pipeline(env="production", dry_run=False):
 
     # 6. SAVE TO DB
     if not dry_run:
-        display_headline = f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}"
+        # Save the show title to 'headline' (for dashboard) and original headline to 'original_headline' (for deduplication)
+        full_script = json.dumps(broadcast["segments"])
         db.insert_post(
-            headline=display_headline,
+            headline=f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}",
+            original_headline=broadcast.get('primary_news_headline', 'Daily Broadcast'),
             source="The Echo Broadcast",
             topic_tags=broadcast["topic_tags"],
             my_take=broadcast["my_take"],
             post_text=broadcast["social_post"],
-            audio_script="[Long Form Broadcast]",
+            audio_script=full_script,
             audio_url=f"local://broadcast_{show_id}.mp3" if env != "production" else f"https://placeholder.com",
             video_url=video_url,
-            confidence="high"
+            confidence="high",
+            broadcast_duration=duration
         )
-
     if env == "local": sync_env_to_config(env="local")
     print(f"\n--- [Broadcast Complete] --- Show: {broadcast['show_title']} ---")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", choices=["production", "staging", "local"], default="production")
+    parser.add_argument("--env", choices=["production", "staging", "local"], default=None)
     parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run mode without publishing")
     args = parser.parse_args()
-    run_pipeline(env=args.env, dry_run=args.dry_run)
+
+    # Determine environment
+    selected_env = args.env
+    if not selected_env:
+        selected_env = "local" if args.dry_run else "production"
+    
+    run_pipeline(env=selected_env, dry_run=args.dry_run)
