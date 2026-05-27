@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Radio — Echo's Transmissions Hub</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -42,8 +43,8 @@
             <p class="episode-take" id="active-take">"Echo is preparing your analytical dose of sardonic observation."</p>
           </div>
 
-          <div class="video-container">
-            <div id="yt-player-frame"></div>
+          <div id="yt-container" class="video-container">
+            <div id="yt-player-frame" style="width:100%; height:100%;"></div>
             <video id="local-video-player" class="hidden" controls style="width:100%; height:100%; border-radius:8px;"></video>
           </div>
 

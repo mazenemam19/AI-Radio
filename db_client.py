@@ -100,13 +100,14 @@ class SupabaseDBClient:
             return []
 
     def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None):
-        """Insert a newly generated episode."""
+        # Ensure confidence matches the check constraint (lowercase)
         confidence_clean = str(confidence).lower() if confidence else "medium"
         if confidence_clean not in ['high', 'medium', 'low']:
             confidence_clean = "medium"
 
         data = {
             "headline": headline,
+            "original_headline": headline,
             "source": source,
             "topic_tags": topic_tags,
             "my_take": my_take,

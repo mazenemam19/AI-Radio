@@ -82,7 +82,7 @@ def run_pipeline(env="production", dry_run=False):
         return
 
     # 3. AI SCRIPT (Now with Voice-Awareness)
-    print(f"[Main] Invoking Echo for satirical script (Cloud Mode? {is_github})...")
+    print(f"[Main] Invoking Echo for satirical script...")
     broadcast = ai.generate_broadcast(
         news_items=news_items[:15],
         memory_context=memory_context,

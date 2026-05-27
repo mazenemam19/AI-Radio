@@ -145,7 +145,7 @@ class NewsFetcher:
                 continue
 
             # 2. Topic similarity check (Keyword Overlap)
-            # Threshold lowered to 2: If 2 or more significant words match, it's a duplicate.
+            # Threshold: If 2 or more significant words match, it's a duplicate topic.
             is_duplicate_topic = False
             for prev_keywords in history_keywords:
                 overlap = item_keywords.intersection(prev_keywords)
