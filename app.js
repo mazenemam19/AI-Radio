@@ -135,7 +135,7 @@ function selectEpisode(episode) {
 
   if (isLocalFile) {
     console.log("[Echo] Switching to Local HTML5 Player.");
-    elements.ytFrame.classList.add("hidden");
+    elements.ytContainer.classList.add("hidden");
     elements.localPlayer.classList.remove("hidden");
     
     let playSource = episode.video_url;
@@ -161,7 +161,7 @@ function selectEpisode(episode) {
   } else {
     console.log("[Echo] Switching to YouTube IFrame Player.");
     elements.localPlayer.classList.add("hidden");
-    elements.ytFrame.classList.remove("hidden");
+    elements.ytContainer.classList.remove("hidden");
     elements.localPlayer.pause();
     
     if (ytPlayer && episode.video_url) {
