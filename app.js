@@ -135,7 +135,7 @@ function selectEpisode(episode) {
 
   if (isLocalFile) {
     console.log("[Echo] Switching to Local HTML5 Player.");
-    elements.ytContainer.classList.add("hidden");
+    elements.ytFrame.classList.add("hidden");
     elements.localPlayer.classList.remove("hidden");
     
     let playSource = episode.video_url;
@@ -161,7 +161,7 @@ function selectEpisode(episode) {
   } else {
     console.log("[Echo] Switching to YouTube IFrame Player.");
     elements.localPlayer.classList.add("hidden");
-    elements.ytContainer.classList.remove("hidden");
+    elements.ytFrame.classList.remove("hidden");
     elements.localPlayer.pause();
     
     if (ytPlayer && episode.video_url) {
@@ -250,7 +250,8 @@ window.onYouTubeIframeAPIReady = function () {
         ytPlayerReady = true;
         console.log("[Echo] YouTube Player API Methods Fully Loaded.");
 
-        // If an episode was chosen during the initialization race, load it now
+        elements.ytFrame = document.getElementById('yt-player-frame');
+
         if (activeEpisode && activeEpisode.video_url) {
           const isLocalFile = activeEpisode.video_url?.includes("output/") || activeEpisode.audio_url?.includes("output/");
           const videoId = extractVideoId(activeEpisode.video_url);
