@@ -14,7 +14,7 @@ class TTSRadioGenerator:
     def __init__(self, echo_voice="daniel", glitch_voice="hannah", use_cloud=True):
         self.echo_voice = echo_voice
         self.glitch_voice = glitch_voice
-        self.use_cloud = use_cloud # If False, skip Groq and go straight to Edge
+        self.use_cloud = use_cloud 
         self.api_key = os.environ.get("GROQ_API_KEY")
         self.api_url = "https://api.groq.com/openai/v1/audio/speech"
         self.model = "canopylabs/orpheus-v1-english"
@@ -42,19 +42,16 @@ class TTSRadioGenerator:
         return chunks
 
     async def generate_edge_fallback(self, text, voice, path):
-        """Local engine using edge-tts."""
         edge_voice = "en-US-GuyNeural" if "daniel" in voice else "en-US-JennyNeural"
-        # Edge-TTS is excellent at reading punctuation for rhythm
         communicate = edge_tts.Communicate(self.strip_tags(text), edge_voice)
         await communicate.save(path)
 
-    def generate_segment_audio(self, text, voice, path, speed=1.0):
-        """Generate audio with Quota-Saver logic."""
-        # IF QUOTA-SAVER ACTIVE: Skip Groq entirely
+    def generate_segment_audio(self, text, voice, path):
+        # QUOTA-SAVER: Proactively skip Groq if not in cloud mode
         if not self.use_cloud or not self.api_key:
             asyncio.run(self.generate_edge_fallback(text, voice, path))
             return True
-            
+
         chunks = self.chunk_text(text)
         chunk_files = []
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
@@ -63,7 +60,6 @@ class TTSRadioGenerator:
             for c_idx, chunk_text in enumerate(chunks):
                 if c_idx > 0: time.sleep(8.0)
                 body = {"model": self.model, "input": chunk_text, "voice": voice, "response_format": "wav"}
-                
                 for attempt in range(3):
                     r = requests.post(self.api_url, headers=headers, json=body, timeout=30)
                     if r.status_code == 200:
@@ -77,7 +73,6 @@ class TTSRadioGenerator:
                         if wait_seconds > 60:
                             print(f"[TTS] !!! QUOTA LIMIT !!! Switching to local backup.")
                             raise Exception("Quota Limit")
-                        print(f"[TTS] Rate limit hit. Waiting {wait_seconds}s...")
                         time.sleep(wait_seconds + 1)
                     else:
                         raise Exception(f"API Error {r.status_code}")
@@ -91,7 +86,6 @@ class TTSRadioGenerator:
                 for cf in chunk_files: os.remove(cf)
                 os.remove(list_path)
                 return True
-
         except Exception:
             asyncio.run(self.generate_edge_fallback(text, voice, path))
             return True
@@ -128,6 +122,18 @@ class TTSRadioGenerator:
         except Exception as e:
             print(f"[TTS] Mastering Error: {e}")
             return False
+
+    def get_audio_duration(self, audio_path):
+        ffmpeg_cmd = shutil.which("ffprobe") or r"C:\ffmpeg\bin\ffprobe.exe"
+        try:
+            result = subprocess.run(
+                [ffmpeg_cmd, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
+                check=True, capture_output=True, text=True
+            )
+            return int(float(result.stdout.strip()))
+        except Exception as e:
+            print(f"[TTS] Duration probe error: {e}")
+            return 0
 
     def compile_video(self, audio_path, image_path, output_path):
         ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"

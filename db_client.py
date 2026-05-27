@@ -45,7 +45,7 @@ class SupabaseDBClient:
             self.is_mock = True
 
     def _init_sqlite(self):
-        """Initialize local SQLite database for offline testing."""
+        """Initialize local SQLite database for offline testing and handle migrations."""
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS memory_log (
@@ -62,8 +62,19 @@ class SupabaseDBClient:
             confidence TEXT,
             related_ids TEXT,
             likes INTEGER DEFAULT 0,
-            plays INTEGER DEFAULT 0
+            plays INTEGER DEFAULT 0,
+            original_headline TEXT,
+            broadcast_duration INTEGER DEFAULT 0
         )''')
+        
+        # Check for new columns and migrate if needed
+        c.execute("PRAGMA table_info(memory_log)")
+        cols = [info[1] for info in c.fetchall()]
+        if "original_headline" not in cols:
+            c.execute("ALTER TABLE memory_log ADD COLUMN original_headline TEXT")
+        if "broadcast_duration" not in cols:
+            c.execute("ALTER TABLE memory_log ADD COLUMN broadcast_duration INTEGER DEFAULT 0")
+            
         conn.commit()
         conn.close()
 
@@ -99,15 +110,13 @@ class SupabaseDBClient:
             print(f"[DB Client] HTTP connection failed fetching memory: {e}")
             return []
 
-    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None):
-        # Ensure confidence matches the check constraint (lowercase)
+    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None, broadcast_duration=0, original_headline=None):
         confidence_clean = str(confidence).lower() if confidence else "medium"
-        if confidence_clean not in ['high', 'medium', 'low']:
-            confidence_clean = "medium"
+        if confidence_clean not in ['high', 'medium', 'low']: confidence_clean = "medium"
 
         data = {
             "headline": headline,
-            "original_headline": headline,
+            "original_headline": original_headline or headline,
             "source": source,
             "topic_tags": topic_tags,
             "my_take": my_take,
@@ -117,21 +126,22 @@ class SupabaseDBClient:
             "video_url": video_url,
             "confidence": confidence_clean,
             "related_ids": related_ids or [],
+            "broadcast_duration": broadcast_duration,
             "likes": 0,
             "plays": 0
         }
 
         if self.is_mock:
-            print(f"[DB Client] [MOCK] Inserting post: {headline}")
             return {"id": 999, **data}
 
         if self.use_sqlite:
+            # SQLite schema is strictly controlled, we require these columns
             conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
             c.execute('''INSERT INTO memory_log 
-                (headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                (headline, source, json.dumps(topic_tags), my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or [])))
+                (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                (headline, original_headline or headline, source, json.dumps(topic_tags), my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration))
             row_id = c.lastrowid
             conn.commit()
             conn.close()
@@ -141,7 +151,11 @@ class SupabaseDBClient:
             endpoint = f"{self.url}/rest/v1/memory_log"
             insert_headers = self.headers.copy()
             insert_headers["Prefer"] = "return=representation"
-            response = requests.post(endpoint, headers=insert_headers, json=data, timeout=15)
+            # Allow new columns in the payload for Supabase parity
+            allow_keys = ['headline', 'source', 'topic_tags', 'my_take', 'post_text', 'audio_script', 'audio_url', 'video_url', 'confidence', 'related_ids', 'original_headline', 'broadcast_duration']
+            payload = {k: v for k, v in data.items() if k in allow_keys}
+            
+            response = requests.post(endpoint, headers=insert_headers, json=payload, timeout=15)
             if response.status_code in [200, 201]:
                 records = response.json()
                 if records:
