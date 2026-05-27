@@ -52,14 +52,14 @@ def generate_neural_art(description, save_path):
         print(f"[Main] Vision failure: {e}")
         return False
 
-def run_pipeline(env="production"):
+def run_pipeline(env="production", dry_run=False):
     is_github = os.environ.get("GITHUB_ACTIONS") == "true"
     
     # QUOTA SAVER: Use Premium Cloud TTS only in Production. 
     # Use Standard Local TTS for Staging and Local.
     use_cloud_tts = (env == "production")
     
-    print(f"--- [AI Radio Broadcast Start] --- Env: {env.upper()} ---")
+    print(f"--- [AI Radio Broadcast Start] --- Env: {env.upper()} --- Dry Run: {dry_run} ---")
     setup_directories(env=env)
     cover_image_path = copy_cover_art()
 
@@ -112,7 +112,7 @@ def run_pipeline(env="production"):
 
     # 5. DISTRIBUTION
     video_url = None
-    if env == "production":
+    if env == "production" and not dry_run:
         video_url = publisher.upload_to_youtube(
             video_path=video_path,
             title=broadcast["show_title"],
@@ -124,18 +124,19 @@ def run_pipeline(env="production"):
         video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
     # 6. SAVE TO DB
-    display_headline = f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}"
-    db.insert_post(
-        headline=display_headline,
-        source="The Echo Broadcast",
-        topic_tags=broadcast["topic_tags"],
-        my_take=broadcast["my_take"],
-        post_text=broadcast["social_post"],
-        audio_script="[Long Form Broadcast]",
-        audio_url=f"local://broadcast_{show_id}.mp3" if env != "production" else f"https://placeholder.com",
-        video_url=video_url,
-        confidence="high"
-    )
+    if not dry_run:
+        display_headline = f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}"
+        db.insert_post(
+            headline=display_headline,
+            source="The Echo Broadcast",
+            topic_tags=broadcast["topic_tags"],
+            my_take=broadcast["my_take"],
+            post_text=broadcast["social_post"],
+            audio_script="[Long Form Broadcast]",
+            audio_url=f"local://broadcast_{show_id}.mp3" if env != "production" else f"https://placeholder.com",
+            video_url=video_url,
+            confidence="high"
+        )
 
     if env == "local": sync_env_to_config(env="local")
     print(f"\n--- [Broadcast Complete] --- Show: {broadcast['show_title']} ---")
@@ -143,5 +144,6 @@ def run_pipeline(env="production"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", choices=["production", "staging", "local"], default="production")
+    parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run mode without publishing")
     args = parser.parse_args()
-    run_pipeline(env=args.env)
+    run_pipeline(env=args.env, dry_run=args.dry_run)

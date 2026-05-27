@@ -86,7 +86,7 @@ class TTSRadioGenerator:
                 ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
                 list_path = f"{path}_list.txt"
                 with open(list_path, "w") as f:
-                    for cf in chunk_files: f.write(f"file '{os.path.abspath(tf)}'\n")
+                    for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
                 subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
                 for cf in chunk_files: os.remove(cf)
                 os.remove(list_path)
@@ -95,6 +95,12 @@ class TTSRadioGenerator:
         except Exception:
             asyncio.run(self.generate_edge_fallback(text, voice, path))
             return True
+
+    def make_audio(self, text, output_path):
+        """Generate audio from simple text input (used for testing and simple cases)."""
+        print(f"[TTS] Generating audio: {output_path}")
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        return self.generate_segment_audio(text, self.echo_voice, output_path)
 
     def make_broadcast_audio(self, segments, output_path):
         mode = "PREMIUM CLOUD" if self.use_cloud else "STANDARD LOCAL"

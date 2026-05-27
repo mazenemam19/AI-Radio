@@ -37,7 +37,7 @@ def test_imports():
 def test_tts_generation():
     """Verify that edge-tts speech synthesis works locally."""
     from tts_generator import TTSRadioGenerator
-    generator = TTSRadioGenerator()
+    generator = TTSRadioGenerator(use_cloud=False)
     test_script = "Echo here. Confirming that neural broadcast functions are online. [chuckle]"
     test_output = "output/test_verify.mp3"
     
@@ -53,7 +53,7 @@ def test_tts_generation():
 def test_ffmpeg_video_compiler():
     """Verify that FFmpeg successfully compiles a static image and MP3 into an MP4."""
     from tts_generator import TTSRadioGenerator
-    generator = TTSRadioGenerator()
+    generator = TTSRadioGenerator(use_cloud=False)
     
     test_audio = "output/test_verify.mp3"
     test_image = "assets/cover_art.png"
@@ -102,37 +102,24 @@ def test_pipeline_dry_run():
     
     return result.returncode == 0
 
-def main_test_runner():
-    print("=========================================")
-    print("   AI RADIO INTEGRATION & VERIFICATION   ")
-    print("=========================================")
+if __name__ == "__main__":
+    print("\n=========================================" )
+    print("[SYSTEM VERIFICATION]")
+    print("=========================================\n")
     
-    tests = [
-        ("Import and Syntax Check", test_imports),
-        ("Keyless TTS Synthesis Test", test_tts_generation),
-        ("FFmpeg MP4 Compilation Test", test_ffmpeg_video_compiler),
-        ("End-to-End Pipeline Dry-Run", test_pipeline_dry_run)
-    ]
+    results = []
+    results.append(run_test("Import and Syntax Check", test_imports))
+    results.append(run_test("Keyless TTS Synthesis Test", test_tts_generation))
+    results.append(run_test("FFmpeg MP4 Compilation Test", test_ffmpeg_video_compiler))
+    results.append(run_test("End-to-End Pipeline Dry-Run", test_pipeline_dry_run))
     
-    all_passed = True
-    passed_count = 0
-    
-    for title, func in tests:
-        if run_test(title, func):
-            passed_count += 1
-        else:
-            all_passed = False
-            
     print("\n=========================================")
-    print(f"VERIFICATION STATUS: {passed_count}/{len(tests)} TESTS PASSED")
-    print("=========================================")
+    print(f"VERIFICATION STATUS: {sum(results)}/{len(results)} TESTS PASSED")
+    print("=========================================\n")
     
-    if all_passed:
-        print("[Verify] SUCCESS: All modules operate perfectly.")
-        sys.exit(0)
-    else:
+    if not all(results):
         print("[Verify] WARNING: Some verification items failed. Check error logs.")
         sys.exit(1)
-
-if __name__ == "__main__":
-    main_test_runner()
+    else:
+        print("[Verify] All systems nominal. Ready for broadcast.")
+        sys.exit(0)
