@@ -108,18 +108,20 @@
     const ts = Date.now();
     const loadScript = (src) => new Promise((resolve) => {
       const s = document.createElement('script');
-      s.src = `${src}${src.includes('?') ? '&' : '?'}v=${ts}`;
+      // Only append cache-buster (v=timestamp) to local files, not external URLs
+      s.src = src.startsWith('http') ? src : `${src}${src.includes('?') ? '&' : '?'}v=${ts}`;
       s.onload = resolve;
       document.body.appendChild(s);
     });
 
     async function boot() {
       await loadScript('config.js');
-      // Only load YouTube API if not in local mode
+
+      await loadScript('app.js');
+
       if (window.CONFIG?.APP_ENV !== 'local') {
         await loadScript('https://www.youtube.com/iframe_api');
       }
-      await loadScript('app.js');
     }
     boot();
   </script>
