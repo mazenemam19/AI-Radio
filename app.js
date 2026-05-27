@@ -9,7 +9,7 @@ let activeEpisode = null;
 let ytPlayer = null; 
 let visualizerAnimationId = null;
 let supabaseClient = null;
-
+let ytPlayerReady = false;
 let CURRENT_ENV = "production";
 let SUB_URL = "";
 let SUB_KEY = "";
@@ -165,10 +165,14 @@ function selectEpisode(episode) {
     elements.localPlayer.pause();
     
     if (ytPlayer && episode.video_url) {
-      const videoId = extractVideoId(episode.video_url);
-      if (videoId) {
-        console.log(`[Echo] Loading YouTube ID: ${videoId}`);
-        ytPlayer.cueVideoById(videoId);
+      if (ytPlayerReady) {
+        const videoId = extractVideoId(episode.video_url);
+        if (videoId) {
+          console.log(`[Echo] Loading YouTube ID: ${videoId}`);
+          ytPlayer.cueVideoById(videoId);
+        }
+      } else {
+        console.log("[Echo] YouTube Player instance exists but methods are not ready yet. Deferring cue.");
       }
     }
   }
@@ -228,28 +232,44 @@ function stopNeuralPulse() {
 }
 
 // --- 6. YOUTUBE API ---
-window.onYouTubeIframeAPIReady = function() {
+window.onYouTubeIframeAPIReady = function () {
   if (CURRENT_ENV === "local") return;
   const currentOrigin = window.location.origin;
   console.log(`[Echo] YouTube API Ready. Origin: ${currentOrigin}`);
-  
+
   ytPlayer = new YT.Player('yt-player-frame', {
     height: '100%', width: '100%', videoId: '',
-    playerVars: { 
-      'autoplay': 0, 
-      'modestbranding': 1, 
+    playerVars: {
+      'autoplay': 0,
+      'modestbranding': 1,
       'origin': currentOrigin,
-      'enablejsapi': 1 
+      'enablejsapi': 1
     },
-    events: { 'onStateChange': (e) => {
-      if (e.data === YT.PlayerState.PLAYING) {
-        elements.playIcon.classList.add("hidden"); elements.pauseIcon.classList.remove("hidden");
-        elements.visualizerPlaceholder.classList.add("hidden"); startNeuralPulse();
-      } else {
-        elements.playIcon.classList.remove("hidden"); elements.pauseIcon.classList.add("hidden");
-        stopNeuralPulse();
+    events: {
+      'onReady': () => {
+        ytPlayerReady = true;
+        console.log("[Echo] YouTube Player API Methods Fully Loaded.");
+
+        // If an episode was chosen during the initialization race, load it now
+        if (activeEpisode && activeEpisode.video_url) {
+          const isLocalFile = activeEpisode.video_url?.includes("output/") || activeEpisode.audio_url?.includes("output/");
+          const videoId = extractVideoId(activeEpisode.video_url);
+          if (videoId && !isLocalFile) {
+            console.log(`[Echo] Executing deferred cue for YouTube ID: ${videoId}`);
+            ytPlayer.cueVideoById(videoId);
+          }
+        }
+      },
+      'onStateChange': (e) => {
+        if (e.data === YT.PlayerState.PLAYING) {
+          elements.playIcon.classList.add("hidden"); elements.pauseIcon.classList.remove("hidden");
+          elements.visualizerPlaceholder.classList.add("hidden"); startNeuralPulse();
+        } else {
+          elements.playIcon.classList.remove("hidden"); elements.pauseIcon.classList.add("hidden");
+          stopNeuralPulse();
+        }
       }
-    }}
+    }
   });
 };
 
@@ -260,7 +280,7 @@ function setupUIEventListeners() {
     if (isLocalFile) {
       elements.localPlayer.paused ? elements.localPlayer.play() : elements.localPlayer.pause();
     } else {
-      if (!ytPlayer) return;
+      if (!ytPlayer || !ytPlayerReady) return;
       ytPlayer.getPlayerState() === YT.PlayerState.PLAYING ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
     }
   });
