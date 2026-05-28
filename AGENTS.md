@@ -11,11 +11,15 @@ The project evolved from a "Short News Clip" generator to a **High-Quality Satir
 5.  **Smart Deduplication:** Uses keyword-overlap (threshold: 2) to ensure Echo never covers the same story twice, even with different headlines.
 
 ## 🏗️ TECHNICAL STACK
--   **AI Brain:** Llama 3.3 70B (Primary), Gemini 3.5 Flash (Fallback).
+-   **AI Brain:** Llama 3.3 70B (**Production Only**), Llama 3.1 8B (**Local/Staging**), Gemini 3.5 Flash (Fallback).
 -   **Visual Arts:** **Flux Model** (via Pollinations.ai). Generates unique HD visuals for every background.
 -   **Speech Synthesis:** **Groq Cloud TTS** (canopylabs/orpheus-v1-english). Supports inline emotional tags.
 -   **Databases:** Supabase (PostgreSQL) for Cloud; SQLite (`ai_radio_dev.db`) for Local.
 -   **Media Hosting:** YouTube (Primary), Local `output/` folder (Development).
+
+## 🛡️ CRITICAL MANDATES
+1. **Model Isolation:** `llama-3.3-70b-versatile` is strictly prohibited for Local development. It must only be used in Production to preserve the 100K daily token quota.
+2. **Duration Compliance:** Every broadcast must be at least 700 seconds. Local testing uses the 8B model with a trimmed payload to verify pipeline integrity while meeting this threshold.
 
 ## 🌍 MULTI-ENVIRONMENT FIREWALL
 

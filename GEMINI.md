@@ -41,6 +41,7 @@ Do not combine the plan with the tool execution; print the plan first, then exec
 2. **NEVER modify `verify_system.py` thresholds, remove test cases, or add skip conditions to make a failing test pass.** A failing test means the CODE is wrong, not the test.
 3. If a test legitimately needs updating (e.g. threshold changed by explicit user decision), state why before touching it.
 4. If `verify` cannot run (missing deps, no network), say so explicitly — do not silently skip it.
+5. Any new feature or function must have a corresponding test in `verify_system.py`
 
 Violation of these phases or attempting to alter code outside the planned target lines will compromise system stability and result in immediate task failure. Re-verify these constraints constantly.
 
