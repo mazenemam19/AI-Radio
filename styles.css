@@ -254,53 +254,6 @@ body {
   margin-top: 8px;
 }
 
-/* --- FREQUENCY AUDIO VISUALIZER --- */
-.visualizer-container {
-  width: 100%;
-  height: 120px;
-  background: rgba(8, 5, 20, 0.7);
-  border: 1.5px solid rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.8);
-}
-
-#visualizer {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.visualizer-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: rgba(8, 5, 20, 0.5);
-  pointer-events: none;
-}
-
-.visualizer-overlay span {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-  letter-spacing: 2px;
-}
-
-.video-container {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  margin: 20px 0;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #000;
-  border: 1px solid var(--card-border);
-}
 
 /* --- CUSTOM PLAYER CONTROLS --- */
 .player-controls {
