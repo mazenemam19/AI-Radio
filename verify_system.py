@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Output Quality Thresholds ─────────────────────────────────────────────────
-MIN_BROADCAST_DURATION = 480   # 8 minutes — flag anything shorter
+MIN_BROADCAST_DURATION = 700   # 11.6 minutes — absolute minimum for a 12+ segment show
 MIN_SEGMENT_COUNT      = 10    # fewer than 10 segments = truncated script
 MIN_AUDIO_SIZE_BYTES   = 100_000  # <100KB = almost certainly silent/broken
 
@@ -420,6 +420,192 @@ def test_environment_firewall():
     return True
 
 
+# ── New: Model Isolation and Environment Logic ───────────────────────────────
+
+def test_production_model_isolation():
+    """
+    STRICT RULE: llama-3.3-70b-versatile is for Production ONLY.
+    This test verifies that Local mode NEVER routes to the 70B model.
+    """
+    from ai_client import AIRadioAIClient
+    import json
+
+    client = AIRadioAIClient()
+    captured_model = []
+
+    # Mock call_groq to capture the model name
+    original_call_groq = client.call_groq
+    def mock_call_groq(payload, segments, model="llama-3.3-70b-versatile", max_tokens=6000, mandate=""):
+        captured_model.append(model)
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test"}]})
+    
+    client.call_groq = mock_call_groq
+    client.call_gemini = lambda *args, **kwargs: json.dumps({"segments": [{"speaker": "ECHO", "text": "Test"}]})
+
+    try:
+        # Test Local
+        client.generate_broadcast([], [], "ts", is_cloud=False)
+        if captured_model and captured_model[0] == "llama-3.3-70b-versatile":
+            print("[Verify] CRITICAL FAILURE: 70B model routed to Local environment!")
+            return False
+        
+        print(f"[Verify] Model isolation: OK (Local used {captured_model[0] if captured_model else 'Gemini'})")
+        return True
+    finally:
+        client.call_groq = original_call_groq
+
+def test_ai_client_environment_logic():
+    """
+    Validates that ai_client correctly trims payloads and routes models
+    based on the environment (Local vs Cloud).
+    """
+    from ai_client import AIRadioAIClient
+    import json
+
+    client = AIRadioAIClient()
+    
+    captured_args = []
+    
+    # Mock API callers
+    def mock_call_groq(user_input_json, target_segments, model, max_tokens, mandate=""):
+        captured_args.append({'payload': json.loads(user_input_json), 'model': model, 'max_tokens': max_tokens, 'engine': 'groq'})
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 100, "speed": 1.0} for _ in range(25)]})
+
+    def mock_call_gemini(user_input_json, target_segments, mandate=""):
+        captured_args.append({'payload': json.loads(user_input_json), 'mandate': mandate, 'engine': 'gemini'})
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 100, "speed": 1.0} for _ in range(25)]})
+
+    client.call_groq = mock_call_groq
+    client.call_gemini = mock_call_gemini
+
+    sample_news = [{"headline": f"H{i}", "source": "S"} for i in range(15)]
+    sample_memory = [{"headline": f"M{i}", "my_take": "T"} for i in range(10)]
+    
+    try:
+        # 1. Test Local Environment
+        print("[Verify] Testing Local logic (Payload Trimming + Gemini Primary)...")
+        captured_args.clear()
+        client.generate_broadcast(sample_news, sample_memory, "ts", is_cloud=False)
+        
+        local_call = captured_args[0]
+        if local_call['engine'] != 'gemini':
+            print(f"[Verify] FAILURE: Local mode did not use Gemini as primary engine.")
+            return False
+
+        news_len = len(local_call['payload']['news_items'])
+        mem_len = len(local_call['payload']['memory_context'])
+        
+        if news_len != 3 or mem_len != 1:
+            print(f"[Verify] FAILURE: Local payload not trimmed correctly (News: {news_len}, Mem: {mem_len})")
+            return False
+            
+        print("[Verify] Local environment logic: OK")
+
+        # 2. Test Cloud Environment
+        print("[Verify] Testing Cloud logic (Full Payload + 70B Model)...")
+        captured_args.clear()
+        client.generate_broadcast(sample_news, sample_memory, "ts", is_cloud=True)
+        
+        cloud_call = captured_args[0]
+        if cloud_call['engine'] != 'groq' or cloud_call['model'] != "llama-3.3-70b-versatile":
+            print(f"[Verify] FAILURE: Cloud mode did not use Groq 70B primary engine.")
+            return False
+
+        news_len = len(cloud_call['payload']['news_items'])
+        mem_len = len(cloud_call['payload']['memory_context'])
+        
+        if news_len != 15 or mem_len != 10:
+            print(f"[Verify] FAILURE: Cloud payload trimmed unexpectedly (News: {news_len}, Mem: {mem_len})")
+            return False
+            
+        print("[Verify] Cloud environment logic: OK")
+        return True
+
+    finally:
+        pass
+
+def test_ai_client_environment_routing():
+    """
+    Validates that AIRadioAIClient trims payloads accurately and routes 
+    to the correct models/engines depending on the environment flag.
+    """
+    from ai_client import AIRadioAIClient
+    import json
+
+    client = AIRadioAIClient()
+    captured_groq_calls = []
+    captured_gemini_calls = []
+
+    # Generate a valid mock response with 25 segments to satisfy internal quality validations cleanly
+    mock_valid_script = json.dumps({
+        "show_title": "Test",
+        "primary_news_headline": "Test",
+        "my_take": "Test",
+        "visual_description": "Test",
+        "topic_tags": ["test"],
+        "social_post": "Test",
+        "segments": [{"speaker": "ECHO", "text": "Word " * 160, "speed": 1.0} for _ in range(25)]
+    })
+
+    # Mock the low-level API callers to inspect what gets passed to them
+    def mock_call_groq(user_input_json, target_segments, model, max_tokens, mandate=""):
+        captured_groq_calls.append({'payload': json.loads(user_input_json), 'model': model, 'max_tokens': max_tokens})
+        return mock_valid_script
+
+    def mock_call_gemini(user_input_json, target_segments, mandate=""):
+        captured_gemini_calls.append({'payload': json.loads(user_input_json), 'mandate': mandate})
+        return mock_valid_script
+
+    client.call_groq = mock_call_groq
+    client.call_gemini = mock_call_gemini
+
+    # Generate a mock oversized context (10 news items, 8 memory items)
+    sample_news = [{"headline": f"News {i}", "source": "Source"} for i in range(10)]
+    sample_memory = [{"headline": f"Mem {i}", "my_take": "Take"} for i in range(8)]
+
+    try:
+        # 1. Verify Local Execution Mode
+        print("[Verify] Checking Local routing & trimming rules...")
+        captured_groq_calls.clear()
+        captured_gemini_calls.clear()
+        client.generate_broadcast(sample_news, sample_memory, "timestamp", is_cloud=False)
+        
+        if not captured_gemini_calls:
+            print("[Verify] FAILURE: Local mode did not route to Gemini primary engine.")
+            return False
+        
+        local_payload = captured_gemini_calls[0]['payload']
+        if len(local_payload['news_items']) != 3 or len(local_payload['memory_context']) != 1:
+            print("[Verify] FAILURE: Local payload trimming broken. "
+                  f"Got news: {len(local_payload['news_items'])}, memory: {len(local_payload['memory_context'])}")
+            return False
+
+        # 2. Verify Cloud Execution Mode
+        print("[Verify] Checking Cloud routing & full payload rules...")
+        captured_groq_calls.clear()
+        captured_gemini_calls.clear()
+        client.generate_broadcast(sample_news, sample_memory, "timestamp", is_cloud=True)
+        
+        if not captured_groq_calls:
+            print("[Verify] FAILURE: Cloud mode did not route to Groq primary engine.")
+            return False
+            
+        cloud_call = captured_groq_calls[0]
+        if cloud_call['model'] != "llama-3.3-70b-versatile" or cloud_call['max_tokens'] != 6000:
+            print(f"[Verify] FAILURE: Cloud model routing mismatch. Got model: {cloud_call['model']}")
+            return False
+            
+        cloud_payload = cloud_call['payload']
+        if len(cloud_payload['news_items']) != 10 or len(cloud_payload['memory_context']) != 8:
+            print("[Verify] FAILURE: Cloud payload was unexpectedly mutated or trimmed.")
+            return False
+
+        print("[Verify] AI Client Environment Routing: OK")
+        return True
+    except Exception as e:
+        print(f"[Verify] Exception occurred during routing test: {e}")
+        return False
+
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -437,6 +623,9 @@ if __name__ == "__main__":
     results.append(run_test("Broadcast Output Contract",                  test_broadcast_output_contract))
     results.append(run_test("News Fetcher Output + Deduplication",        test_news_fetcher_deduplication))
     results.append(run_test("Environment Firewall",                       test_environment_firewall))
+    results.append(run_test("Model Isolation Check",                       test_production_model_isolation))
+    results.append(run_test("AI Environment Logic (Trimming/Routing)",    test_ai_client_environment_logic))
+    results.append(run_test("AI Client Environment Routing",              test_ai_client_environment_routing))
 
     passed = sum(results)
     total  = len(results)

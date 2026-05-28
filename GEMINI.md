@@ -2,7 +2,25 @@
 
 ## **Technical Specs Index**
 For detailed logic of specific features, refer to the modular specifications in the specs/ directory:
+
+### 📖 THE BIBLE
+**CRITICAL MANDATE:** You MUST read [./specs/ARCHITECTURE.md](./specs/ARCHITECTURE.md) before starting any task flow. You MUST update it immediately after finishing tests if any structural or behavioral logic has changed.
+
+@./specs/ARCHITECTURE.md
 @./specs/SYSTEM.md
+
+## **Project Definitions (Conductor)**
+@./conductor/product.md
+@./conductor/product-guidelines.md
+@./conductor/tech-stack.md
+
+## **Code Style Guides**
+@./conductor/code_styleguides/general.md
+@./conductor/code_styleguides/python.md
+@./conductor/code_styleguides/javascript.md
+@./conductor/code_styleguides/html-css.md
+
+## **Feature Index**
 @./specs/features/001-hybrid-player.md
 @./specs/features/002-neural-art.md
 @./specs/features/003-satirical-performance.md
@@ -41,6 +59,7 @@ Do not combine the plan with the tool execution; print the plan first, then exec
 2. **NEVER modify `verify_system.py` thresholds, remove test cases, or add skip conditions to make a failing test pass.** A failing test means the CODE is wrong, not the test.
 3. If a test legitimately needs updating (e.g. threshold changed by explicit user decision), state why before touching it.
 4. If `verify` cannot run (missing deps, no network), say so explicitly — do not silently skip it.
+5. Any new feature or function must have a corresponding test in `verify_system.py`
 
 Violation of these phases or attempting to alter code outside the planned target lines will compromise system stability and result in immediate task failure. Re-verify these constraints constantly.
 
