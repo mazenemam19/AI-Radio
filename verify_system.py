@@ -104,10 +104,11 @@ def test_pipeline_dry_run():
     - Audio file is not suspiciously small (silent/broken)
     - Broadcast duration meets the minimum threshold
     """
-    print("[Verify] Spawning main.py --dry-run ...")
+    print("[Verify] Spawning main.py --dry-run --env local ...")
     files_before = set(glob.glob("output/broadcast_*.mp3"))
 
-    cmd = [sys.executable, "main.py", "--dry-run"]
+    # Force --env local even in CI/CD to save Groq 70B tokens for real broadcasts
+    cmd = [sys.executable, "main.py", "--dry-run", "--env", "local"]
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     print("\n--- Subprocess Output ---")
