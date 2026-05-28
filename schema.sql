@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS memory_log (
   confidence TEXT CHECK (confidence IN ('high', 'medium', 'low')),
   related_ids INTEGER[],
   likes INTEGER DEFAULT 0,
-  plays INTEGER DEFAULT 0
+  plays INTEGER DEFAULT 0,
+  original_headline TEXT,
+  broadcast_duration INTEGER DEFAULT 0
 );
 
 -- Comments Table
