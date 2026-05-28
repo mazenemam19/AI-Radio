@@ -21,6 +21,7 @@ Current active modules documented in `specs/features/`:
 - [004: Deduplication Logic](./features/004-deduplication-logic.md)
 - [005: AI Scripting & Depth](./features/005-ai-scripting-depth.md)
 - [006: UI Refinements](./features/006-ui-refinements.md)
+- [007: Environment Branching](./features/007-environment-branching.md)
 
 ## ⚠️ Platform & Maintenance Caveats (DEFERRED)
 - **YouTube Token Expiration:** If the YouTube broadcast stops in 7 days, it is due to the Google Cloud "Testing" status. 

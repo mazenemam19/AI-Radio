@@ -10,28 +10,8 @@ The project evolved from a "Short News Clip" generator to a **High-Quality Satir
 4.  **Hybrid Playback:** The dashboard is custom-built to switch between local file playback (Offline/Dev) and YouTube embeds (Production).
 5.  **Smart Deduplication:** Uses keyword-overlap (threshold: 2) to ensure Echo never covers the same story twice, even with different headlines.
 
-## 🏗️ TECHNICAL STACK
--   **AI Brain:** Llama 3.3 70B (Primary), Gemini 3.5 Flash (Fallback).
--   **Visual Arts:** **Flux Model** (via Pollinations.ai). Generates unique HD visuals for every background.
--   **Speech Synthesis:** **Groq Cloud TTS** (canopylabs/orpheus-v1-english). Supports inline emotional tags.
--   **Databases:** Supabase (PostgreSQL) for Cloud; SQLite (`ai_radio_dev.db`) for Local.
--   **Media Hosting:** YouTube (Primary), Local `output/` folder (Development).
-
-## 🌍 MULTI-ENVIRONMENT FIREWALL
-
-| Environment | Database | Media Hosting | Socials | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| **Production** | Prod Supabase | YouTube Upload | Real Posts | Live Broadcasts. |
-| **Staging** | Dev Supabase | Mock (Rick Astley) | Mocked | Dashboard & logic testing. |
-| **Local** | SQLite | Local Files | Mocked | Rapid, offline AI/Video testing. |
-
-## 🛠️ OPERATIONAL COMMANDS
-- `npm run dev:local` — Runs local broadcast. **Automatic sync** to dashboard included.
-- `npm run dev:staging` — Runs sandbox broadcast using Dev Supabase.
-- `npm run prod:run` — Runs live broadcast (YouTube + Socials).
-- `npm run sync:prod/staging/local` — Manually point dashboard to environment data.
-- `npm run verify` — Comprehensive health check and CI simulation.
-- `npm run serve` — Launch the dashboard at `http://localhost:5000`.
+## 🛠️ AGENT WORKFLOW & COMMANDS
+@./conductor/workflow.md
 
 ## 🎭 PERSONA: ECHO & GLITCH
 The broadcast is a dynamic, high-performance satirical duo:
