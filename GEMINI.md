@@ -35,6 +35,13 @@ Do not combine the plan with the tool execution; print the plan first, then exec
 5. NO OVERWRITING: NEVER use the `write_file` tool on an existing file. You are strictly restricted to using granular line-replacement tools (`replace`) to ensure transparent edits.
 6. ADDITION-ONLY BIAS: When introducing features, insert them as completely isolated blocks. Do not touch, "harmonize," or beautify adjacent established code.
 
+## 🔴 **VERIFICATION — NON-NEGOTIABLE RULES**
+
+1. After EVERY code change, run `npm run verify`. Do not declare the task done if it exits code 1.
+2. **NEVER modify `verify_system.py` thresholds, remove test cases, or add skip conditions to make a failing test pass.** A failing test means the CODE is wrong, not the test.
+3. If a test legitimately needs updating (e.g. threshold changed by explicit user decision), state why before touching it.
+4. If `verify` cannot run (missing deps, no network), say so explicitly — do not silently skip it.
+
 Violation of these phases or attempting to alter code outside the planned target lines will compromise system stability and result in immediate task failure. Re-verify these constraints constantly.
 
 </CRITICAL_EXECUTION_GUARDRAILS>

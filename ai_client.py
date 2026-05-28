@@ -206,6 +206,90 @@ class AIRadioAIClient:
                 return None
 
     def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
+        """Generates a satirical broadcast. Target: 12 segments (~8-10 mins) for all environments.
+        Retries once if the returned segment count is below the minimum threshold."""
+        target_segments = 12
+        MIN_SEGMENTS = 10  # Minimum acceptable — below this the episode is too short to publish
+
+        user_input = {"news_items": news_items, "memory_context": memory_context}
+        user_input_str = json.dumps(user_input)
+
+        def _call_primary(attempt=1):
+            """Call the preferred engine based on environment."""
+            if is_cloud:
+                print(f"[AI Client] (Attempt {attempt}) Directing to Groq...")
+                return self.call_groq(user_input_str, target_segments)
+            else:
+                print(f"[AI Client] (Attempt {attempt}) Local env — directing to Gemini...")
+                return self.call_gemini(user_input_str, target_segments)
+
+        def _call_fallback():
+            """Call the other engine as fallback."""
+            if is_cloud:
+                print("[AI Client] Groq insufficient — falling back to Gemini...")
+                return self.call_gemini(user_input_str, target_segments)
+            else:
+                print("[AI Client] Gemini insufficient — falling back to Groq (quota warning)...")
+                return self.call_groq(user_input_str, target_segments)
+
+        def _parse(raw_output):
+            """Parse and heal raw LLM output into a broadcast dict."""
+            if not raw_output:
+                return None
+            cleaned = raw_output.strip()
+            try:
+                if "```json" in cleaned:
+                    cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+                elif "```" in cleaned:
+                    cleaned = cleaned.split("```")[1].split("```")[0].strip()
+                try:
+                    return json.loads(cleaned)
+                except json.JSONDecodeError:
+                    healed = self.heal_truncated_json(cleaned)
+                    return json.loads(healed)
+            except Exception as e:
+                print(f"[AI Client] Standard parse failed: {e}. Attempting repair...")
+                repaired = self.attempt_json_repair(cleaned)
+                if repaired:
+                    print("[AI Client] Script recovered after repair.")
+                    return repaired
+                print(f"[AI Client] Problematic output snippet: {cleaned[:500]}...")
+                return None
+
+        def _is_sufficient(broadcast):
+            if not broadcast or "segments" not in broadcast:
+                return False
+            count = len(broadcast["segments"])
+            if count < MIN_SEGMENTS:
+                print(f"[AI Client] WARNING: Only {count}/{target_segments} segments. Minimum is {MIN_SEGMENTS}.")
+                return False
+            # Word count check — catches short segments before wasting TTS time
+            total_words = sum(len(seg.get("text", "").split()) for seg in broadcast["segments"])
+            avg_words = total_words // count
+            MIN_AVG_WORDS_PER_SEGMENT = 100  # ~40s per segment at normal speech rate
+            if avg_words < MIN_AVG_WORDS_PER_SEGMENT:
+                print(f"[AI Client] WARNING: Avg {avg_words} words/segment — below {MIN_AVG_WORDS_PER_SEGMENT}. "
+                    f"Segments too thin, retrying for denser script.")
+                return False
+            print(f"[AI Client] Script quality OK: {count} segments, ~{avg_words} words/segment.")
+            return True
+
+        # --- Attempt 1: primary engine ---
+        broadcast = _parse(_call_primary(attempt=1))
+
+        if not _is_sufficient(broadcast):
+            print(f"[AI Client] Attempt 1 insufficient. Retrying with fallback engine...")
+            broadcast = _parse(_call_fallback())
+
+            if not _is_sufficient(broadcast):
+                seg_count = len(broadcast["segments"]) if broadcast and "segments" in broadcast else 0
+                print(f"[AI Client] CRITICAL: Both engines returned insufficient scripts "
+                      f"({seg_count}/{target_segments} segments). Aborting broadcast.")
+                return None
+
+        seg_count = len(broadcast["segments"])
+        print(f"[AI Client] Script accepted: {seg_count} segments.")
+        return broadcast
         """Generates a satirical broadcast. Target: 12 segments (~8-10 mins) for all environments."""
         target_segments = 12
         user_input = {"news_items": news_items, "memory_context": memory_context}

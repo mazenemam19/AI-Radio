@@ -115,6 +115,11 @@ def run_pipeline(env="production", dry_run=False):
     duration = tts.get_audio_duration(audio_path)
     print(f"[Main] Broadcast duration: {duration} seconds.")
 
+    MIN_BROADCAST_DURATION = 480
+    if duration < MIN_BROADCAST_DURATION:
+        print(f"[Main] ABORT: Duration {duration}s below minimum {MIN_BROADCAST_DURATION}s. Discarding episode.")
+        return
+
     # 5. DISTRIBUTION
     video_url = None
     if env == "production" and not dry_run:
