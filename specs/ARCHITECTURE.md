@@ -10,29 +10,30 @@ graph TD
         HN[HackerNews API] --> NF
         NF -->|Deduplication: Keyword Overlap| DB[(SQLite / Supabase)]
     end
+%% AI Core
+subgraph Brain [2. AI Satirical Engine]
+    DB -->|Context & Past Jokes| AC[ai_client.py]
+    AC --> REAL_SWITCH{is_real_run?}
 
-    %% AI Core
-    subgraph Brain [2. AI Satirical Engine]
-        DB -->|Context & Past Jokes| AC[ai_client.py]
-        
-        AC --> CI_CHECK{Is GitHub Actions?}
-        
-        CI_CHECK -->|Yes / Cloud| PROD_LOGIC[Full Context: 15 News / 10 Mem]
-        PROD_LOGIC --> L70[Llama 3.3 70B: Versatile]
-        
-        CI_CHECK -->|No / Local| LOCAL_LOGIC[Trimmed Context: 3 News / 1 Mem]
-        LOCAL_LOGIC --> G35[Gemini 3.5 Flash: Quota-Saver]
-        
-        L70 & G35 -->|Raw Output| HEAL[JSON Healer / String Repair]
-    end
+    REAL_SWITCH -->|Yes / Live| PROD_LOGIC[Full Context: 15 News / 10 Mem]
+    PROD_LOGIC --> L70[Llama 3.3 70B: Versatile]
 
-    %% Media Generation
-    subgraph Mastering [3. Media Mastering]
-        HEAL -->|Cleaned Script| TTS[tts_generator.py]
-        
-        TTS --> TTS_ENV{env == 'production'?}
-        TTS_ENV -->|Yes| GROQ_TTS[Groq Cloud: Orpheus]
-        TTS_ENV -->|No| EDGE_TTS[Microsoft Edge: Local]
+    REAL_SWITCH -->|No / Test| LOCAL_LOGIC[Trimmed Context: 3 News / 1 Mem]
+    LOCAL_LOGIC --> G35[Gemini 3.5 Flash: Quota-Saver]
+
+    L70 & G35 -->|Raw Output| HEAL[JSON Healer / String Repair]
+end
+
+%% Media Generation
+subgraph Mastering [3. Media Mastering]
+    HEAL -->|Cleaned Script| TTS[tts_generator.py]
+    TTS --> TTS_SWITCH{is_real_run?}
+
+    TTS_SWITCH -->|Yes| GROQ_TTS[Groq Cloud: Orpheus]
+    GROQ_TTS -->|429 Rate Limit| EDGE_TTS
+
+    TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
+
         
         GROQ_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
         
@@ -70,8 +71,8 @@ graph TD
     style Brain fill:#1a1a1a,stroke:#7000ff,color:#fff
     style Mastering fill:#1a1a1a,stroke:#ff00ea,color:#fff
     style Grid fill:#1a1a1a,stroke:#00ff40,color:#fff
-    style CI_CHECK fill:#333,stroke:#fff
-    style TTS_ENV fill:#333,stroke:#fff
+    style REAL_SWITCH fill:#333,stroke:#fff
+    style TTS_SWITCH fill:#333,stroke:#fff
     style DIST_ENV fill:#333,stroke:#fff
     style DUR fill:#ff0000,stroke:#fff
 ```

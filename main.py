@@ -54,13 +54,14 @@ def generate_neural_art(description, save_path):
         return False
 
 def run_pipeline(env="production", dry_run=False):
-    is_github = os.environ.get("GITHUB_ACTIONS") == "true"
+    # 0. THE MASTER SWITCH: Determine if this is a final performance or just a test/dev run
+    is_ci_env = os.environ.get("GITHUB_ACTIONS") == "true"
+    is_real_run = (env == "production" and not dry_run and is_ci_env)
     
-    # QUOTA SAVER: Use Premium Cloud TTS only in Production. 
-    # Use Standard Local TTS for Staging and Local.
-    use_cloud_tts = (env == "production")
+    # QUOTA SAVER: Use Premium Cloud TTS only for real broadcasts.
+    use_cloud_tts = is_real_run
     
-    print(f"--- [AI Radio Broadcast Start] --- Env: {env.upper()} --- Dry Run: {dry_run} ---")
+    print(f"--- [AI Radio Broadcast Start] --- Env: {env.upper()} --- Real Run: {is_real_run} --- Dry Run: {dry_run} ---")
     setup_directories(env=env)
     cover_image_path = copy_cover_art()
 
@@ -88,7 +89,7 @@ def run_pipeline(env="production", dry_run=False):
         news_items=news_items[:15],
         memory_context=memory_context,
         timestamp=datetime.now(timezone.utc).isoformat(),
-        is_cloud=is_github
+        is_cloud=is_real_run
     )
 
     if not broadcast or "segments" not in broadcast:
