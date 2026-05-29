@@ -98,11 +98,6 @@ def run_pipeline(env="production", dry_run=False):
 
     # Extract flags
     healer_used = broadcast.pop("_healer_used", False)
-    is_emergency = broadcast.pop("_is_emergency", False)
-
-    if is_emergency:
-        print("[Main] ABORT: Emergency fallback script detected. Engine failure confirmed.")
-        return False
 
     # 4. THE SHOW MUST GO ON
     show_id = datetime.now().strftime("%Y%m%d_%H%M%S")
