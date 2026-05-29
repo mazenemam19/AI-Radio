@@ -7,6 +7,7 @@ import re
 import glob
 import requests
 import sqlite3
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -83,6 +84,44 @@ def test_tts_connectivity():
     os.makedirs("output", exist_ok=True)
     success = generator.make_audio("System healthy.", test_output)
     return success and os.path.exists(test_output)
+
+def test_ffmpeg_video_compiler():
+    """Health check for FFmpeg. Takes ~5 seconds."""
+    from tts_generator import TTSRadioGenerator
+    generator = TTSRadioGenerator(use_cloud=False)
+    
+    # 1. Independent audio generation
+    test_audio = "output/health_check_compiler.mp3"
+    generator.make_audio("Echo here. Health check for video compiler.", test_audio)
+        
+    # 2. Independent image generation (No corruption of production assets)
+    test_image = "output/health_check_cover.png"
+    test_video = "output/health_check_video.mp4"
+    os.makedirs("output", exist_ok=True)
+    
+    if not os.path.exists(test_image):
+        try:
+            from PIL import Image
+            Image.new('RGB', (640, 360), color=(40, 20, 60)).save(test_image)
+        except Exception:
+            # Fallback to a valid 1x1 black PNG byte string if PIL is missing
+            # This ensures FFmpeg can actually decode the file.
+            print("[Verify] PIL missing, creating minimal valid PNG for FFmpeg test...")
+            valid_png_bin = bytes.fromhex(
+                "89504E470D0A1A0A0000000D49484452000000010000000108000000003A7E920B0000000A4944415408D76360000000020001E221BC330000000049454E44AE426082"
+            )
+            with open(test_image, "wb") as f:
+                f.write(valid_png_bin)
+
+    if os.path.exists(test_video):
+        os.remove(test_video)
+        
+    if not shutil.which("ffmpeg") and not os.path.exists("C:\\ffmpeg\\bin\\ffmpeg.exe"):
+        print("[Verify] FFmpeg not found. Skipping compilation health check.")
+        return True
+        
+    success = generator.compile_video(test_audio, test_image, test_video)
+    return success and os.path.exists(test_video) and os.path.getsize(test_video) > 0
 
 def test_database_schema_sync():
     """
@@ -242,16 +281,58 @@ def test_ai_client_payload_trimming():
     
     return n_count == 3 and m_count == 1
 
-def test_ai_routing_logic():
-    """Verifies internal model routing logic using mocks."""
+def test_ai_client_environment_routing():
+    """
+    Validates that AIRadioAIClient trims payloads accurately and routes 
+    to the correct models/engines depending on the environment flag.
+    Deep inspection version.
+    """
     from ai_client import AIRadioAIClient
     client = AIRadioAIClient()
-    client.call_groq = lambda *a, **k: json.dumps({"segments": [{"speaker":"ECHO", "text":"hi", "speed":1.0}]})
-    client.call_gemini = client.call_groq
-    
-    res_local = client.generate_broadcast([], [], "ts", is_cloud=False)
-    res_cloud = client.generate_broadcast([], [], "ts", is_cloud=True)
-    return res_local is not None and res_cloud is not None
+    captured_args = []
+
+    # Mock low-level API callers
+    def mock_call_groq(user_input_json, target_segments, model, max_tokens, mandate=""):
+        captured_args.append({'payload': json.loads(user_input_json), 'model': model, 'engine': 'groq'})
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(25)]})
+
+    def mock_call_gemini(user_input_json, target_segments, mandate=""):
+        captured_args.append({'payload': json.loads(user_input_json), 'engine': 'gemini'})
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(25)]})
+
+    client.call_groq = mock_call_groq
+    client.call_gemini = mock_call_gemini
+
+    sample_news = [{"headline": f"H{i}", "source": "S"} for i in range(10)]
+    sample_memory = [{"headline": f"M{i}", "my_take": "T"} for i in range(10)]
+
+    try:
+        # 1. Verify Local Routing (Gemini + Trimmed)
+        captured_args.clear()
+        client.generate_broadcast(sample_news, sample_memory, "ts", is_cloud=False)
+        local_call = captured_args[0]
+        if local_call['engine'] != 'gemini':
+            print("[Verify] Local mode failed to route to Gemini.")
+            return False
+        if len(local_call['payload']['news_items']) != 3:
+            print("[Verify] Local mode failed to trim payload.")
+            return False
+
+        # 2. Verify Cloud Routing (Groq 70B + Full)
+        captured_args.clear()
+        client.generate_broadcast(sample_news, sample_memory, "ts", is_cloud=True)
+        cloud_call = captured_args[0]
+        if cloud_call['engine'] != 'groq' or cloud_call['model'] != "llama-3.3-70b-versatile":
+            print(f"[Verify] Cloud mode failed to route to Groq 70B. Got: {cloud_call.get('model')}")
+            return False
+        if len(cloud_call['payload']['news_items']) != 10:
+            print("[Verify] Cloud mode unexpectedly trimmed payload.")
+            return False
+
+        return True
+    except Exception as e:
+        print(f"[Verify] Routing test exception: {e}")
+        return False
 
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
@@ -265,6 +346,7 @@ if __name__ == "__main__":
     results.append(run_test("Environment Variables Check",    test_environment_vars))
     results.append(run_test("Binaries Availability",          test_binaries))
     results.append(run_test("Local TTS Connectivity",         test_tts_connectivity))
+    results.append(run_test("FFmpeg Video Compiler",          test_ffmpeg_video_compiler))
     results.append(run_test("Database Schema Sync",           test_database_schema_sync))
     results.append(run_test("News Fetcher Deduplication",     test_news_fetcher_deduplication))
     results.append(run_test("Environment Firewall",           test_environment_firewall))
@@ -272,7 +354,7 @@ if __name__ == "__main__":
     results.append(run_test("Broadcast Output Contract",      test_broadcast_output_contract))
     results.append(run_test("Model Isolation (Prod Guard)",   test_production_model_isolation))
     results.append(run_test("AI Payload Trimming (Mocked)",   test_ai_client_payload_trimming))
-    results.append(run_test("AI Routing Logic (Mocked)",      test_ai_routing_logic))
+    results.append(run_test("AI Routing & Logic (Thorough)",  test_ai_client_environment_routing))
 
     passed = sum(results)
     total  = len(results)
