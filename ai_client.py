@@ -428,6 +428,7 @@ class AIRadioAIClient:
             broadcast = _parse(raw_output, model)
             if _is_sufficient(broadcast):
                 broadcast["_is_emergency"] = False
+                broadcast["writer_model"] = model
                 print(f"[AI Client] SUCCESS: {model} delivered a valid script on attempt {attempt_num}.")
                 return broadcast
             

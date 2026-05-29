@@ -108,7 +108,7 @@ class TTSRadioGenerator:
                         subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
                         for cf in chunk_files: os.remove(cf)
                         os.remove(list_path)
-                        return True
+                        return provider # Success
 
                 elif provider == "google":
                     if not self.google_key:
@@ -149,11 +149,11 @@ class TTSRadioGenerator:
                         subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
                         for cf in chunk_files: os.remove(cf)
                         os.remove(list_path)
-                        return True
+                        return provider # Success
 
                 elif provider == "edge":
                     asyncio.run(self.generate_edge_fallback(text, voice, path))
-                    return True
+                    return provider # Success
 
             except Exception as e:
                 print(f"[TTS] Provider '{provider}' failed: {e}. Attempting next tier...")
@@ -172,6 +172,7 @@ class TTSRadioGenerator:
         mode = "PREMIUM CLOUD" if self.use_cloud else "STANDARD LOCAL"
         print(f"[TTS] --- STARTING {mode} MASTERING ---")
         temp_files = []
+        last_provider = None
         try:
             for idx, seg in enumerate(segments):
                 if idx > 0 and self.use_cloud:
@@ -179,8 +180,10 @@ class TTSRadioGenerator:
                 speaker = str(seg.get("speaker", "ECHO")).upper()
                 voice = self.echo_voice if speaker == "ECHO" else self.glitch_voice
                 temp_path = f"output/temp_seg_{idx}.mp3"
-                if self.generate_segment_audio(seg["text"], voice, temp_path):
+                provider = self.generate_segment_audio(seg["text"], voice, temp_path)
+                if provider:
                     temp_files.append(temp_path)
+                    last_provider = provider
             
             if not temp_files: return False
             list_path = "output/concat_list.txt"
@@ -191,8 +194,8 @@ class TTSRadioGenerator:
             subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c", "copy", output_path], check=True, capture_output=True)
             for tf in temp_files: os.remove(tf)
             os.remove(list_path)
-            print(f"[TTS] Broadcast Audio Mastered: {output_path}")
-            return True
+            print(f"[TTS] Broadcast Audio Mastered: {output_path} (Used: {last_provider})")
+            return last_provider
         except Exception as e:
             print(f"[TTS] Mastering Error: {e}")
             return False
