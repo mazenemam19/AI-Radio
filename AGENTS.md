@@ -6,32 +6,16 @@ This file is the authoritative operations manual for AI agents. Adherence to the
 The project evolved from a "Short News Clip" generator to a **High-Quality Satirical Podcast Suite**. All future work must respect the following pillars:
 1.  **Mono-Topic Deep Dive:** The show spends ~10 minutes tearing apart **ONE** specific, absurd news item. This provides depth and a "Jon Stewart" feel.
 2.  **The Echo & Glitch Dynamic:** Echo (Host) and Glitch (Correspondent) have an intellectual vs. chaotic dynamic. They must use names, argue, and use rhythmic punctuation.
-3.  **Quota-Saver Strategy:** Cloud TTS (Groq) is for **Production only**. Local/Staging must always use standard TTS (Edge) to preserve the strict 3.6k daily token limit.
-4.  **Hybrid Playback:** The dashboard is custom-built to switch between local file playback (Offline/Dev) and YouTube embeds (Production).
-5.  **Smart Deduplication:** Uses keyword-overlap (threshold: 2) to ensure Echo never covers the same story twice, even with different headlines.
+3.  **Strict Provider Isolation:** Testing and local development MUST NOT overlap with Production providers.
+    *   **Production (Premium):** Groq (70B/Orpheus) and Mistral/Google (Large/Pro). Implements a 6-tier resilient failover queue.
+    *   **Testing (Shielded):** Google (Flash) and Microsoft (Edge-TTS). Implements a 5-tier high-speed queue.
+4.  **Deep Observability:** AI logic must log raw output lengths, segment stats, and specific error codes (429, 413) to prevent blind patching.
+5.  **Fail-Fast Integrity:** No placeholder shows ("The Silent Treatment"). If AI quality fails, the pipeline MUST abort immediately to protect tokens and reputation.
+5.  **Hybrid Playback:** The dashboard is custom-built to switch between local file playback (Offline/Dev) and YouTube embeds (Production).
+6.  **Smart Deduplication:** Uses keyword-overlap (threshold: 2) to ensure Echo never covers the same story twice, even with different headlines.
 
-## 🏗️ TECHNICAL STACK
--   **AI Brain:** Llama 3.3 70B (Primary), Gemini 3.5 Flash (Fallback).
--   **Visual Arts:** **Flux Model** (via Pollinations.ai). Generates unique HD visuals for every background.
--   **Speech Synthesis:** **Groq Cloud TTS** (canopylabs/orpheus-v1-english). Supports inline emotional tags.
--   **Databases:** Supabase (PostgreSQL) for Cloud; SQLite (`ai_radio_dev.db`) for Local.
--   **Media Hosting:** YouTube (Primary), Local `output/` folder (Development).
-
-## 🌍 MULTI-ENVIRONMENT FIREWALL
-
-| Environment | Database | Media Hosting | Socials | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| **Production** | Prod Supabase | YouTube Upload | Real Posts | Live Broadcasts. |
-| **Staging** | Dev Supabase | Mock (Rick Astley) | Mocked | Dashboard & logic testing. |
-| **Local** | SQLite | Local Files | Mocked | Rapid, offline AI/Video testing. |
-
-## 🛠️ OPERATIONAL COMMANDS
-- `npm run dev:local` — Runs local broadcast. **Automatic sync** to dashboard included.
-- `npm run dev:staging` — Runs sandbox broadcast using Dev Supabase.
-- `npm run prod:run` — Runs live broadcast (YouTube + Socials).
-- `npm run sync:prod/staging/local` — Manually point dashboard to environment data.
-- `npm run verify` — Comprehensive health check and CI simulation.
-- `npm run serve` — Launch the dashboard at `http://localhost:5000`.
+## 🛠️ AGENT WORKFLOW & COMMANDS
+@./conductor/workflow.md
 
 ## 🎭 PERSONA: ECHO & GLITCH
 The broadcast is a dynamic, high-performance satirical duo:

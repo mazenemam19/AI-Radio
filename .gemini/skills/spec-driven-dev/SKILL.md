@@ -38,7 +38,10 @@ This skill is triggered when the user requests a new feature, a complex bug fix,
 ## ⚖️ High-Priority Constraints
 1.  **Strict No-Refactor:** If a variable name or structure is already working, it stays. 
 2.  **Persona Preservation:** Every script change must respect the **Echo & Glitch** dynamic (Intellectual vs. Chaotic, naming each other, rhythmic punctuation).
-3.  **Resource Safety:** Maintain the **Quota-Saver** strategy (Edge-TTS for local/staging, Groq for Production).
+3.  **Resource Safety:** Maintain the **Quota-Saver** strategy.
+    *   **Strict Provider Isolation:** Local/Testing code paths MUST NOT overlap with Production providers. 
+    *   Set B (Testing) must never hit Groq or Mistral APIs. Uses **Gemini 3.5 Flash / 3.1 Flash-Lite**.
+    *   Set A (Production) uses premium engines (70B, Orpheus).
 4.  **Token Efficiency:** Avoid high-volume rewrites. Surgical edits save context and tokens.
 
 ---

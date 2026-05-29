@@ -53,14 +53,15 @@ def generate_neural_art(description, save_path):
         print(f"[Main] Vision failure: {e}")
         return False
 
-def run_pipeline(env="production", dry_run=False):
-    is_github = os.environ.get("GITHUB_ACTIONS") == "true"
+def run_pipeline(env="production", dry_run=False, force_premium=False):
+    # 0. THE MASTER SWITCH: Determine if this is a final performance or just a test/dev run
+    is_ci_env = os.environ.get("GITHUB_ACTIONS") == "true"
+    is_real_run = (env == "production" and not dry_run and is_ci_env) or force_premium
     
-    # QUOTA SAVER: Use Premium Cloud TTS only in Production. 
-    # Use Standard Local TTS for Staging and Local.
-    use_cloud_tts = (env == "production")
+    # QUOTA SAVER: Use Premium Cloud TTS only for real broadcasts.
+    use_cloud_tts = is_real_run
     
-    print(f"--- [AI Radio Broadcast Start] --- Env: {env.upper()} --- Dry Run: {dry_run} ---")
+    print(f"--- [AI Radio Broadcast Start] --- Env: {env.upper()} --- Real Run: {is_real_run} --- Dry Run: {dry_run} ---")
     setup_directories(env=env)
     cover_image_path = copy_cover_art()
 
@@ -80,7 +81,7 @@ def run_pipeline(env="production", dry_run=False):
     news_items = fetcher.get_all_news(processed_headlines=processed_headlines)
     if not news_items:
         print("[Main] No new stories. Staying off-air.")
-        return
+        return True # Not an error, just no work
 
     # 3. AI SCRIPT (Now with Voice-Awareness)
     print(f"[Main] Invoking Echo for satirical script...")
@@ -88,12 +89,15 @@ def run_pipeline(env="production", dry_run=False):
         news_items=news_items[:15],
         memory_context=memory_context,
         timestamp=datetime.now(timezone.utc).isoformat(),
-        is_cloud=is_github
+        is_cloud=is_real_run
     )
 
     if not broadcast or "segments" not in broadcast:
         print("[Main] Script generation failed.")
-        return
+        return False
+
+    # Extract flags
+    healer_used = broadcast.pop("_healer_used", False)
 
     # 4. THE SHOW MUST GO ON
     show_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -104,19 +108,32 @@ def run_pipeline(env="production", dry_run=False):
     episode_image = f"assets/art_{show_id}.png"
     if not generate_neural_art(broadcast.get("visual_description", "Surreal technology chaos"), episode_image):
         episode_image = copy_cover_art()
+        if episode_image is None:
+            print("[Main] No background image available. Aborting.")
+            return False
 
     if not tts.make_broadcast_audio(broadcast["segments"], audio_path):
-        return
+        return False
 
     # Use the 'dreamed up' image for the video compilation
-    tts.compile_video(audio_path, episode_image, video_path)
+    if not tts.compile_video(audio_path, episode_image, video_path):
+        print("[Main] Video compilation failed. Aborting.")
+        return False
 
     # Calculate exact duration
     duration = tts.get_audio_duration(audio_path)
     print(f"[Main] Broadcast duration: {duration} seconds.")
 
+    # Duration Gate: Production requires 700s (~11.6m), Local/Test requires 250s
+    MIN_BROADCAST_DURATION = 700 if is_real_run else 250
+    if duration < MIN_BROADCAST_DURATION:
+        print(f"[Main] ABORT: Duration {duration}s below minimum {MIN_BROADCAST_DURATION}s. Discarding episode.")
+        return False
+
     # 5. DISTRIBUTION
     video_url = None
+    storage_filename = f"broadcast_{show_id}.mp3"
+    
     if env == "production" and not dry_run:
         video_url = publisher.upload_to_youtube(
             video_path=video_path,
@@ -125,12 +142,17 @@ def run_pipeline(env="production", dry_run=False):
             tags=broadcast["topic_tags"]
         )
         publisher.post_to_bluesky(broadcast["social_post"])
+        # Upload audio to production storage
+        final_audio_url = db.upload_audio(audio_path, storage_filename)
+    elif env == "staging" and not dry_run:
+        video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        final_audio_url = db.upload_audio(audio_path, storage_filename)
     else:
         video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        final_audio_url = f"local://{storage_filename}"
 
     # 6. SAVE TO DB
     if not dry_run:
-        # Save the show title to 'headline' (for dashboard) and original headline to 'original_headline' (for deduplication)
         full_script = json.dumps(broadcast["segments"])
         db.insert_post(
             headline=f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}",
@@ -140,18 +162,21 @@ def run_pipeline(env="production", dry_run=False):
             my_take=broadcast["my_take"],
             post_text=broadcast["social_post"],
             audio_script=full_script,
-            audio_url=f"local://broadcast_{show_id}.mp3" if env != "production" else f"https://placeholder.com",
+            audio_url=final_audio_url,
             video_url=video_url,
             confidence="high",
-            broadcast_duration=duration
+            broadcast_duration=duration,
+            healer_used=healer_used
         )
     if env == "local": sync_env_to_config(env="local")
     print(f"\n--- [Broadcast Complete] --- Show: {broadcast['show_title']} ---")
+    return True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", choices=["production", "staging", "local"], default=None)
     parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run mode without publishing")
+    parser.add_argument("--premium", action="store_true", help="Force production AI/TTS models even in local mode")
     args = parser.parse_args()
 
     # Determine environment
@@ -159,4 +184,5 @@ if __name__ == "__main__":
     if not selected_env:
         selected_env = "local" if args.dry_run else "production"
     
-    run_pipeline(env=selected_env, dry_run=args.dry_run)
+    success = run_pipeline(env=selected_env, dry_run=args.dry_run, force_premium=args.premium)
+    sys.exit(0 if success else 1)
