@@ -96,9 +96,10 @@ subgraph Mastering [3. Media Mastering]
 | Feature | Production (Cloud) | Staging (Cloud) | Local (Shielded) |
 | :--- | :--- | :--- | :--- |
 | **Trigger** | GitHub Actions | Manual CLI | Manual CLI |
-| **AI Brain** | Set A: Llama 70B / Mistral | Set B: Gemini 3.5 / 3.1 | Set B: Gemini 3.5 / 3.1 |
+| AI Brain | Set A: 6-Tier Resilient (Llama/Scout/Gemini/Qwen) | Set B: 5-Tier Fast (Gemini Flash) | Set B: 5-Tier Fast (Gemini Flash) |
 | **Context** | 15 News (T1) / 8 News (T2) | 3 News / 1 Memory | 3 News / 1 Memory |
-| **Speech** | Set A: Orpheus / Google | Set B: Edge-TTS | Set B: Edge-TTS |
+| **Speech** | Set A: 3-Tier (Orpheus / Google / Edge) | Set B: 1-Tier (Edge-TTS) | Set B: 1-Tier (Edge-TTS) |
+
 | **Database** | Supabase (Prod) | Supabase (Dev) | SQLite (Local) |
 | **Video** | YouTube Upload | Mock (Rick Astley) | Local File |
 | **Socials** | Bluesky Live | Mocked | Mocked |

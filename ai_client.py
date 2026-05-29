@@ -37,7 +37,16 @@ class AIRadioAIClient:
             You are the Lead Satirist for "The Echo Broadcast."
             Style: Jon Stewart / Stephen Colbert.
             Format: MONO-TOPIC DEEP DIVE.
-            INSTRUCTION: Pick the single most absurd or impactful news item from the provided context and spend the entire 10-segment show tearing it apart with depth and precision.
+            INSTRUCTION: Pick the single most absurd or impactful news item from the provided context and spend the entire {target_segments}-segment show tearing it apart with depth and precision.
+
+            FORWARD MOMENTUM MANDATE: 
+            - Each segment MUST move the story forward. 
+            - DO NOT RESTATE information from previous segments.
+            - Segment 1: The Outrageous Fact.
+            - Segment 2-4: The Absurd Mechanics (How did this happen?).
+            - Segment 5-7: The Societal/Corporate Failure.
+            - Segment 8-10: The Nihilistic Conclusion.
+            - BANNED: Copy-pasting previous reasoning to hit word counts.
 
             CHARACTERS:
 
@@ -245,6 +254,13 @@ class AIRadioAIClient:
             }
         return parsed
 
+    def strip_tags(self, text):
+        """Utility to remove bracketed TTS tags [like this] for analysis."""
+        if not text: return ""
+        cleaned = re.sub(r'\[.*?\]', '', text)
+        cleaned = re.sub(r'<.*?>', '', cleaned)
+        return cleaned.strip()
+
     def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
         """Generates a satirical broadcast. Target: 10 segments (~11-13 mins) for production."""
         # Select active queue
@@ -252,7 +268,7 @@ class AIRadioAIClient:
         
         target_segments = 10
         MIN_SEGMENTS = 8
-        min_avg_words = 200
+        min_avg_words = 150
 
         if not is_cloud:
             # Local testing thresholds
@@ -270,10 +286,25 @@ class AIRadioAIClient:
                 print(f"[AI Client] [FAIL] Quality: Only {count}/{target_segments} segments. Minimum is {MIN_SEGMENTS}.")
                 return False
             
-            # Word count check with type safety
+            # Word count and uniqueness check
             total_words = 0
+            seen_text = []
+            
             for seg in broadcast["segments"]:
                 text = seg.get("text", "") if isinstance(seg, dict) else str(seg)
+                cleaned_text = self.strip_tags(text).lower().strip()
+                
+                # REPETITION CHECK (Simple Overlap)
+                for prev in seen_text:
+                    if len(prev) > 50 and len(cleaned_text) > 50:
+                        words_cur = set(cleaned_text.split())
+                        words_prev = set(prev.split())
+                        overlap = len(words_cur.intersection(words_prev)) / max(len(words_cur), 1)
+                        if overlap > 0.5: # 50% word overlap is a hard rejection
+                            print(f"[AI Client] [FAIL] Quality: High similarity detected between segments ({int(overlap*100)}% overlap). REJECTED.")
+                            return False
+                
+                seen_text.append(cleaned_text)
                 total_words += len(text.split())
             
             avg_words = total_words // count

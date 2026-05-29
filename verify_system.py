@@ -344,6 +344,51 @@ def test_ai_client_environment_routing():
         print(f"[Verify] Routing test exception: {e}")
         return False
 
+def test_ai_step_down_logic():
+    """Regression: Verifies that context is reduced (noise reduction) on retries."""
+    from ai_client import AIRadioAIClient
+    client = AIRadioAIClient()
+    payloads = []
+    
+    def mock_call(*a, **k):
+        # Extract user_input_json from either positional or keyword args
+        json_data = k.get('user_input_json') or (a[0] if a else None)
+        if json_data:
+            payloads.append(json.loads(json_data))
+        return json.dumps({"segments": [{"speaker":"ECHO", "text":"too short", "speed":1.0}]})
+
+    client.call_groq = mock_call
+    client.call_gemini = mock_call
+    
+    sample_news = [{"headline": f"H{i}", "source": "S"} for i in range(15)]
+    client.generate_broadcast(sample_news, [], "ts", is_cloud=True)
+    
+    if len(payloads) < 2:
+        print("[Verify] Retry logic didn't trigger.")
+        return False
+        
+    # First call should have 15 items
+    if len(payloads[0]['news_items']) != 15:
+        print(f"[Verify] First call context wrong: {len(payloads[0]['news_items'])}")
+        return False
+        
+    # Second call should have 8 items (Step-Down)
+    if len(payloads[1]['news_items']) != 8:
+        print(f"[Verify] Step-Down failed. Second call context: {len(payloads[1]['news_items'])}")
+        return False
+        
+    return True
+
+def test_ai_fail_fast_returns_none():
+    """Regression: Verifies that generate_broadcast returns None (not a placeholder) on total failure."""
+    from ai_client import AIRadioAIClient
+    client = AIRadioAIClient()
+    client.call_groq = lambda *a, **k: None
+    client.call_gemini = lambda *a, **k: None
+    
+    res = client.generate_broadcast([], [], "ts", is_cloud=True)
+    return res is None
+
 def test_db_healer_column():
     """Verifies that the healer_used column exists in the local database."""
     from db_client import SupabaseDBClient
@@ -440,6 +485,8 @@ if __name__ == "__main__":
     results.append(run_test("Model Isolation (Prod Guard)",   test_production_model_isolation))
     results.append(run_test("AI Payload Trimming (Mocked)",   test_ai_client_payload_trimming))
     results.append(run_test("AI Routing & Logic (Thorough)",  test_ai_client_environment_routing))
+    results.append(run_test("AI Step-Down Context Logic",     test_ai_step_down_logic))
+    results.append(run_test("AI Fail-Fast Abort (None)",      test_ai_fail_fast_returns_none))
     results.append(run_test("DB Healer Column Presence",      test_db_healer_column))
     results.append(run_test("AI Healer Flag Injection",       test_ai_healer_flag_injection))
     results.append(run_test("TTS Budget Enforcement",         test_tts_request_budget_enforcement))
