@@ -304,11 +304,12 @@ def test_ai_client_environment_routing():
     # Mock low-level API callers
     def mock_call_groq(user_input_json, target_segments, model, max_tokens, mandate=""):
         captured_args.append({'payload': json.loads(user_input_json), 'model': model, 'engine': 'groq'})
-        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(5)]})
+        # Create unique segments to pass similarity check
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": f"Unique segment content {i} " * 20, "speed": 1.0} for i in range(5)]})
 
     def mock_call_gemini(user_input_json, target_segments, model="gemini-3.5-flash", mandate=""):
         captured_args.append({'payload': json.loads(user_input_json), 'engine': 'gemini', 'model': model})
-        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(5)]})
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": f"Unique segment content {i} " * 20, "speed": 1.0} for i in range(5)]})
 
     client.call_groq = mock_call_groq
     client.call_gemini = mock_call_gemini
@@ -403,7 +404,8 @@ def test_ai_healer_flag_injection():
     """Verifies that generate_broadcast injects the _healer_used flag."""
     from ai_client import AIRadioAIClient
     client = AIRadioAIClient()
-    mock_resp = json.dumps({"segments": [{"speaker":"ECHO", "text":"hi " * 200, "speed":1.0} for _ in range(5)]})
+    # Unique segments with a completely unique word in each to pass the 50% word overlap check
+    mock_resp = json.dumps({"segments": [{"speaker":"ECHO", "text":f"WordUnique{i} " * 200, "speed":1.0} for i in range(5)]})
     client.call_gemini = lambda *a, **k: mock_resp
     client.call_groq = lambda *a, **k: mock_resp
     res = client.generate_broadcast([], [], "ts", is_cloud=False)
