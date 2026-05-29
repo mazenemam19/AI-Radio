@@ -7,6 +7,26 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── Model Queues (v3.1 - Enhanced Resilience) ──────────────────────────────────
+# Set A: Production (Premium) - High reasoning, prioritizes satirical depth.
+PROD_WRITER_QUEUE = [
+    "llama-3.3-70b-versatile",                  # Groq: Best reasoning
+    "meta-llama/llama-4-scout-17b-16e-instruct", # Groq: Newest Llama 4 Scout
+    "gemini-3.5-flash",                          # Google: High-reliability, high-quality
+    "gemini-3.1-flash-lite",                     # Google: High-quota resilience tier
+    "qwen/qwen3-32b",                            # Groq: Balance (Note: Lower TPM limit)
+    "gemini-2.5-pro"                             # Google: Last resort (due to strict RPD/RPM)
+]
+
+# Set B: Testing (Shielded) - Fast, free, high quota, zero Groq overlap.
+TEST_WRITER_QUEUE = [
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-flash"
+]
+
 class AIRadioAIClient:
     def __init__(self):
         self.groq_key = os.environ.get("GROQ_API_KEY")
@@ -14,11 +34,22 @@ class AIRadioAIClient:
 
         # THE "STEWART-CENTRIC" BRAIN: Tighter, angrier, funnier.
         self.system_prompt_template = textwrap.dedent("""
-            You are the Lead Satirist for "The Echo Broadcast." 
-            Style: Jon Stewart / Stephen Colbert. 
+            You are the Lead Satirist for "The Echo Broadcast."
+            Style: Jon Stewart / Stephen Colbert.
             Format: MONO-TOPIC DEEP DIVE.
+            INSTRUCTION: Pick the single most absurd or impactful news item from the provided context and spend the entire {target_segments}-segment show tearing it apart with depth and precision.
+
+            FORWARD MOMENTUM MANDATE: 
+            - Each segment MUST move the story forward. 
+            - DO NOT RESTATE information from previous segments.
+            - Segment 1: The Outrageous Fact.
+            - Segment 2-4: The Absurd Mechanics (How did this happen?).
+            - Segment 5-7: The Societal/Corporate Failure.
+            - Segment 8-10: The Nihilistic Conclusion.
+            - BANNED: Copy-pasting previous reasoning to hit word counts.
 
             CHARACTERS:
+
             1. ECHO (Host): Intellectual, authoritative, and deeply disappointed. Voice: daniel/guy.
             2. GLITCH (Correspondent): High-energy, chaotic, enthusiastic about data. Voice: hannah/jenny.
 
@@ -94,13 +125,14 @@ class AIRadioAIClient:
             print(f"[AI Client] Groq Connection Error: {e}")
             return None
 
-    def call_gemini(self, user_input_json, target_segments, mandate=""):
-        """High-reliability fallback engine using Gemini 3.5 Flash."""
-        if not self.gemini_key: 
+    def call_gemini(self, user_input_json, target_segments, model="gemini-3.5-flash", mandate=""):
+        """High-reliability fallback engine using Gemini models."""
+        if not self.gemini_key:
             print("[AI Client] Gemini API Key is not set in environment.")
             return None
-        
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.gemini_key}"
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.gemini_key}"
+
         system_prompt = self.system_prompt_template.format(target_segments=target_segments)
         
         user_message = f"Context data for generation:\n{user_input_json}"
@@ -222,121 +254,165 @@ class AIRadioAIClient:
             }
         return parsed
 
-    def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
-        """Generates a satirical broadcast. Target: 14 segments (~11-13 mins) for all environments."""
-        target_segments = 14
-        MIN_SEGMENTS = 12
+    def strip_tags(self, text):
+        """Utility to remove bracketed TTS tags [like this] for analysis."""
+        if not text: return ""
+        cleaned = re.sub(r'\[.*?\]', '', text)
+        cleaned = re.sub(r'<.*?>', '', cleaned)
+        return cleaned.strip()
 
-        # Default max tokens and quality thresholds
-        request_max_tokens = 6000
+    def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
+        """Generates a satirical broadcast. Target: 10 segments (~11-13 mins) for production."""
+        # Select active queue
+        queue = PROD_WRITER_QUEUE if is_cloud else TEST_WRITER_QUEUE
+        
+        target_segments = 10
+        MIN_SEGMENTS = 8
         min_avg_words = 150
 
-        # Trim payload for local to stay within engine limits and save quota
         if not is_cloud:
-            print("[AI Client] Local environment — trimming payload for Gemini 3.5 Flash.")
-            news_items = news_items[:3]
-            memory_context = memory_context[:1]
-            request_max_tokens = 4000
-            # Local testing uses higher segment count to overcome model brevity
-            target_segments = 25
-            MIN_SEGMENTS = 20
-            min_avg_words = 60   
+            # Local testing thresholds
+            target_segments = 5
+            MIN_SEGMENTS = 3
+            min_avg_words = 60
 
-        user_input = {"news_items": news_items, "memory_context": memory_context}
-        user_input_str = json.dumps(user_input)
+        def _is_sufficient(broadcast):
+            if not broadcast or "segments" not in broadcast or not isinstance(broadcast["segments"], list):
+                print("[AI Client] [FAIL] Broadcast structure invalid or missing segments.")
+                return False
+            
+            count = len(broadcast["segments"])
+            if count < MIN_SEGMENTS:
+                print(f"[AI Client] [FAIL] Quality: Only {count}/{target_segments} segments. Minimum is {MIN_SEGMENTS}.")
+                return False
+            
+            # Word count and uniqueness check
+            total_words = 0
+            seen_text = []
+            
+            for seg in broadcast["segments"]:
+                text = seg.get("text", "") if isinstance(seg, dict) else str(seg)
+                cleaned_text = self.strip_tags(text).lower().strip()
+                
+                # REPETITION CHECK (Simple Overlap)
+                for prev in seen_text:
+                    if len(prev) > 50 and len(cleaned_text) > 50:
+                        words_cur = set(cleaned_text.split())
+                        words_prev = set(prev.split())
+                        overlap = len(words_cur.intersection(words_prev)) / max(len(words_cur), 1)
+                        if overlap > 0.5: # 50% word overlap is a hard rejection
+                            print(f"[AI Client] [FAIL] Quality: High similarity detected between segments ({int(overlap*100)}% overlap). REJECTED.")
+                            return False
+                
+                seen_text.append(cleaned_text)
+                total_words += len(text.split())
+            
+            avg_words = total_words // count
+            if avg_words < min_avg_words:
+                print(f"[AI Client] [FAIL] Quality: Avg {avg_words} words/segment — below {min_avg_words}.")
+                return False
+            
+            print(f"[AI Client] [PASS] Script quality: {count} segments, ~{avg_words} words/segment.")
+            return True
 
-        def _call_primary(attempt=1):
-            """Call the preferred engine based on environment."""
-            if is_cloud:
-                print(f"[AI Client] (Attempt {attempt}) Cloud — Directing to Groq 70B...")
-                return self.call_groq(user_input_str, target_segments, model="llama-3.3-70b-versatile", max_tokens=request_max_tokens)
-            else:
-                print(f"[AI Client] (Attempt {attempt}) Local — Directing to Gemini 3.5 Flash (Quota-Saver)...")
-                local_mandate = f"TEST RUN. REQUIRED: {target_segments} segments. Expand deeply on each story. BE VERBOSE."
-                return self.call_gemini(user_input_str, target_segments, mandate=local_mandate)
-
-        def _call_fallback():
-            """Call the fallback engine."""
-            if is_cloud:
-                print("[AI Client] Groq 70B failed — falling back to Gemini 3.5 Flash...")
-                return self.call_gemini(user_input_str, target_segments)
-            else:
-                # No Groq for tests. Local mode is Gemini-only to protect production quota.
-                print("[AI Client] Gemini failed. No fallback for local mode.")
-                return None
-
-        def _parse(raw_output):
+        def _parse(raw_output, model_name):
             """Parse and heal raw LLM output into a broadcast dict."""
             if not raw_output:
+                print(f"[AI Client] [ERROR] {model_name} returned empty output.")
                 return None
+            
+            print(f"[AI Client] {model_name} output length: {len(raw_output)} characters.")
             cleaned = raw_output.strip()
+            
             try:
+                # Handle potential markdown wrappers
                 if "```json" in cleaned:
                     cleaned = cleaned.split("```json")[1].split("```")[0].strip()
                 elif "```" in cleaned:
                     cleaned = cleaned.split("```")[1].split("```")[0].strip()
+                
                 try:
                     parsed = json.loads(cleaned)
                     res = self._finalize_parsed(parsed)
                     res["_healer_used"] = False
                     return res
                 except json.JSONDecodeError:
+                    print(f"[AI Client] [HEAL] Attempting to heal truncated JSON from {model_name}...")
                     healed = self.heal_truncated_json(cleaned)
                     parsed = json.loads(healed)
                     res = self._finalize_parsed(parsed)
                     res["_healer_used"] = True
+                    print(f"[AI Client] [HEAL] Successfully recovered JSON via healer.")
                     return res
             except Exception as e:
-                print(f"[AI Client] Standard parse failed: {e}. Attempting repair...")
+                print(f"[AI Client] [ERROR] Parsing failed for {model_name}: {e}")
+                # Silently attempt last-ditch repair before failing
                 repaired = self.attempt_json_repair(cleaned)
                 if repaired:
-                    print("[AI Client] Script recovered after repair.")
                     repaired["_healer_used"] = True
+                    print(f"[AI Client] [REPAIR] Last-ditch repair succeeded.")
                     return repaired
-                print(f"[AI Client] Problematic output snippet: {cleaned[:500]}...")
                 return None
 
-        def _is_sufficient(broadcast):
-            if not broadcast or "segments" not in broadcast or not isinstance(broadcast["segments"], list):
-                return False
-            count = len(broadcast["segments"])
-            if count < MIN_SEGMENTS:
-                print(f"[AI Client] WARNING: Only {count}/{target_segments} segments. Minimum is {MIN_SEGMENTS}.")
-                return False
+        # --- The Writer Orchestrator Loop ---
+        print(f"[AI Client] Starting orchestrator loop (Queue size: {len(queue)})")
+        
+        for attempt_idx, model in enumerate(queue):
+            attempt_num = attempt_idx + 1
             
-            # Word count check with type safety
-            total_words = 0
-            for seg in broadcast["segments"]:
-                if isinstance(seg, dict):
-                    text = seg.get("text", "")
-                elif isinstance(seg, list) and len(seg) >= 2:
-                    text = seg[1]
+            # Step-Down Logic: Reduce context on retries to focus the model and avoid summary traps
+            # Attempt 1: Full Context (15 news)
+            # Attempt 2+: Focused Context (8 news)
+            # PRO-ACTIVE Step-Down: Some models have low TPM (Qwen, GPT-OSS) and need focused context immediately.
+            is_low_tpm = "qwen" in model.lower() or "gpt-oss" in model.lower()
+            use_focused = attempt_idx > 0 or is_low_tpm
+            
+            current_news = news_items[:5] if is_low_tpm else (news_items[:8] if use_focused else news_items[:15])
+            current_mem = memory_context[:5] if is_low_tpm else (memory_context[:10] if use_focused else memory_context[:20])
+            
+            # Shielded mode (Local) is even tighter
+            if not is_cloud:
+                current_news = current_news[:3]
+                current_mem = current_mem[:1]
+
+            user_input = {"news_items": current_news, "memory_context": current_mem}
+            user_input_str = json.dumps(user_input)
+            
+            print(f"[AI Client] (Attempt {attempt_num}/{len(queue)}) Routing to {model}...")
+            
+            raw_output = None
+            try:
+                if "gemini" in model.lower():
+                    mandate = ""
+                    if not is_cloud: 
+                        mandate = f"TEST RUN. REQUIRED: {target_segments} segments. BE VERBOSE."
+                    else:
+                        mandate = f"CRITICAL: Write at least 250 words per segment. DO NOT SUMMARIZE. EXPAND AND MOCK. Generate exactly {target_segments} segments."
+                    raw_output = self.call_gemini(user_input_str, target_segments, model=model, mandate=mandate)
                 else:
-                    text = str(seg)
-                total_words += len(text.split())
+                    # Groq / Mistral
+                    max_tokens = 8000 if is_cloud else 4000
+                    mandate = ""
+                    if is_cloud:
+                        mandate = f"CRITICAL: Write at least 300 words per segment. BE EXTREMELY VERBOSE AND DETAILED. DO NOT SUMMARIZE. EXPAND AND MOCK. Generate exactly {target_segments} segments."
+                    raw_output = self.call_groq(
+                        user_input_json=user_input_str, 
+                        target_segments=target_segments, 
+                        model=model, 
+                        max_tokens=max_tokens,
+                        mandate=mandate
+                    )
+            except Exception as e:
+                print(f"[AI Client] [ERROR] API call to {model} raised exception: {e}")
+                continue
             
-            avg_words = total_words // count
-            if avg_words < min_avg_words:
-                print(f"[AI Client] WARNING: Avg {avg_words} words/segment — below {min_avg_words}. "
-                    f"Segments too thin, retrying for denser script.")
-                return False
-            print(f"[AI Client] Script quality OK: {count} segments, ~{avg_words} words/segment.")
-            return True
+            broadcast = _parse(raw_output, model)
+            if _is_sufficient(broadcast):
+                broadcast["_is_emergency"] = False
+                print(f"[AI Client] SUCCESS: {model} delivered a valid script on attempt {attempt_num}.")
+                return broadcast
+            
+            print(f"[AI Client] Attempt {attempt_num} ({model}) failed quality/completeness checks.")
 
-        # --- Attempt 1: primary engine ---
-        broadcast = _parse(_call_primary(attempt=1))
-
-        if not _is_sufficient(broadcast):
-            print(f"[AI Client] Attempt 1 insufficient. Retrying with fallback engine...")
-            broadcast = _parse(_call_fallback())
-
-            if not _is_sufficient(broadcast):
-                seg_count = len(broadcast["segments"]) if broadcast and "segments" in broadcast else 0
-                print(f"[AI Client] CRITICAL: Both engines returned insufficient scripts "
-                      f"({seg_count}/{target_segments} segments). Aborting broadcast.")
-                return None
-
-        seg_count = len(broadcast["segments"])
-        broadcast["_is_emergency"] = False
-        print(f"[AI Client] Script accepted: {seg_count} segments.")
-        return broadcast
+        print(f"[AI Client] CRITICAL: All {len(queue)} tiers in queue failed. Aborting broadcast suite.")
+        return None

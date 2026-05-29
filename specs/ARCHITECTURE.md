@@ -15,13 +15,16 @@ subgraph Brain [2. AI Satirical Engine]
     DB -->|Context & Past Jokes| AC[ai_client.py]
     AC --> REAL_SWITCH{is_real_run?}
 
-    REAL_SWITCH -->|Yes / Live| PROD_LOGIC[Full Context: 15 News / 20 Mem]
-    PROD_LOGIC --> L70[Llama 3.3 70B: 8k Tokens]
+    REAL_SWITCH -->|Yes / Premium| PROD_LOGIC[Full Context: 15 News / 20 Mem]
+    PROD_LOGIC --> SET_A[Set A: 6-Tier Resilient Queue]
+    SET_A -->|Llama 70B / Scout / Gemini 3.5 / Flash-Lite / Qwen / Pro| SET_A_OUT
 
-    REAL_SWITCH -->|No / Test| LOCAL_LOGIC[Trimmed Context: 3 News / 1 Mem]
-    LOCAL_LOGIC --> G35[Gemini 3.5 Flash: Quota-Saver]
+    REAL_SWITCH -->|No / Shielded| LOCAL_LOGIC[Trimmed Context: 3 News / 1 Mem]
+    LOCAL_LOGIC --> SET_B[Set B: 5-Tier Fast Queue]
+    SET_B -->|Gemini 3.5 / 3.1 / 2.5 / 2.0 / 1.5| SET_B_OUT
 
-    L70 & G35 -->|Raw Output| HEAL[JSON Healer / String Repair]
+    SET_A_OUT & SET_B_OUT -->|Raw Output| OBS[Observability: Deep Logging]
+    OBS --> HEAL[JSON Healer / String Repair]
     HEAL --> QUAL{Is Good?}
     QUAL -->|No| ABORT[Abort: Code 1]
     QUAL -->|Yes| MASTER_FLOW[Cleaned Script]
@@ -34,12 +37,12 @@ subgraph Mastering [3. Media Mastering]
 
     TTS_SWITCH -->|Yes| RPD_CHECK{Within RPD Limit?}
     RPD_CHECK -->|Yes| GROQ_TTS[Groq Cloud: Orpheus v1]
-    RPD_CHECK -->|No / Exhausted| EDGE_TTS
-
-    GROQ_TTS -->|429 Rate Limit / Error| EDGE_TTS
+    RPD_CHECK -->|No / Exhausted| GOOGLE_TTS[Google Cloud: Neural2]
+    
+    GROQ_TTS -->|429 Rate Limit / Error| GOOGLE_TTS
 
     TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
-        GROQ_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
+        GROQ_TTS & GOOGLE_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
 
         MASTER_FLOW -->|Visual Description| ART[Flux Model: Pollinations]
         ART -->|Neural Art| IMG[Background .png]
@@ -90,12 +93,13 @@ subgraph Mastering [3. Media Mastering]
 
 ## 🌍 Environment Logic Summary
 
-| Feature | Production (Cloud) | Staging (Cloud) | Local (Offline) |
+| Feature | Production (Cloud) | Staging (Cloud) | Local (Shielded) |
 | :--- | :--- | :--- | :--- |
 | **Trigger** | GitHub Actions | Manual CLI | Manual CLI |
-| **AI Brain** | Llama 3.3 70B | Gemini 3.5 Flash | Gemini 3.5 Flash |
-| **Context** | 15 News / 20 Memory | 3 News / 1 Memory | 3 News / 1 Memory |
-| **Speech** | Groq (Orpheus v1) | Edge-TTS (Local) | Edge-TTS (Local) |
+| AI Brain | Set A: 6-Tier Resilient (Llama/Scout/Gemini/Qwen) | Set B: 5-Tier Fast (Gemini Flash) | Set B: 5-Tier Fast (Gemini Flash) |
+| **Context** | 15 News (T1) / 8 News (T2) | 3 News / 1 Memory | 3 News / 1 Memory |
+| **Speech** | Set A: 3-Tier (Orpheus / Google / Edge) | Set B: 1-Tier (Edge-TTS) | Set B: 1-Tier (Edge-TTS) |
+
 | **Database** | Supabase (Prod) | Supabase (Dev) | SQLite (Local) |
 | **Video** | YouTube Upload | Mock (Rick Astley) | Local File |
 | **Socials** | Bluesky Live | Mocked | Mocked |

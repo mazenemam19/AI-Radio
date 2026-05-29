@@ -32,8 +32,8 @@ Create a `.env` file in the root directory. Use the template provided in the [En
 The system requires several keys to operate.
 
 ### 🧠 AI Intelligence (Mandatory)
-- `GROQ_API_KEY`: Primary brain (Llama 3.3 70B). [Groq Console](https://console.groq.com/).
-- `GEMINI_API_KEY`: Fallback brain (Gemini 3.5 Flash). [Google AI Studio](https://aistudio.google.com/).
+- `GROQ_API_KEY`: Primary production brain set (Llama 70B / Scout / Orpheus). [Groq Console](https://console.groq.com/).
+- `GEMINI_API_KEY`: Testing brain set (Gemini 3.5 / 3.1) and high-reasoning production fallback. [Google AI Studio](https://aistudio.google.com/).
 
 ### 🏠 Production Database (Mandatory)
 - `SUPABASE_URL`: Your Supabase Project URL.

@@ -53,10 +53,10 @@ def generate_neural_art(description, save_path):
         print(f"[Main] Vision failure: {e}")
         return False
 
-def run_pipeline(env="production", dry_run=False):
+def run_pipeline(env="production", dry_run=False, force_premium=False):
     # 0. THE MASTER SWITCH: Determine if this is a final performance or just a test/dev run
     is_ci_env = os.environ.get("GITHUB_ACTIONS") == "true"
-    is_real_run = (env == "production" and not dry_run and is_ci_env)
+    is_real_run = (env == "production" and not dry_run and is_ci_env) or force_premium
     
     # QUOTA SAVER: Use Premium Cloud TTS only for real broadcasts.
     use_cloud_tts = is_real_run
@@ -98,11 +98,6 @@ def run_pipeline(env="production", dry_run=False):
 
     # Extract flags
     healer_used = broadcast.pop("_healer_used", False)
-    is_emergency = broadcast.pop("_is_emergency", False)
-
-    if is_emergency:
-        print("[Main] ABORT: Emergency fallback script detected. Engine failure confirmed.")
-        return False
 
     # 4. THE SHOW MUST GO ON
     show_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -129,13 +124,16 @@ def run_pipeline(env="production", dry_run=False):
     duration = tts.get_audio_duration(audio_path)
     print(f"[Main] Broadcast duration: {duration} seconds.")
 
-    MIN_BROADCAST_DURATION = 700
+    # Duration Gate: Production requires 700s (~11.6m), Local/Test requires 250s
+    MIN_BROADCAST_DURATION = 700 if is_real_run else 250
     if duration < MIN_BROADCAST_DURATION:
         print(f"[Main] ABORT: Duration {duration}s below minimum {MIN_BROADCAST_DURATION}s. Discarding episode.")
         return False
 
     # 5. DISTRIBUTION
     video_url = None
+    storage_filename = f"broadcast_{show_id}.mp3"
+    
     if env == "production" and not dry_run:
         video_url = publisher.upload_to_youtube(
             video_path=video_path,
@@ -144,12 +142,17 @@ def run_pipeline(env="production", dry_run=False):
             tags=broadcast["topic_tags"]
         )
         publisher.post_to_bluesky(broadcast["social_post"])
+        # Upload audio to production storage
+        final_audio_url = db.upload_audio(audio_path, storage_filename)
+    elif env == "staging" and not dry_run:
+        video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        final_audio_url = db.upload_audio(audio_path, storage_filename)
     else:
         video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        final_audio_url = f"local://{storage_filename}"
 
     # 6. SAVE TO DB
     if not dry_run:
-        # Save the show title to 'headline' (for dashboard) and original headline to 'original_headline' (for deduplication)
         full_script = json.dumps(broadcast["segments"])
         db.insert_post(
             headline=f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}",
@@ -159,7 +162,7 @@ def run_pipeline(env="production", dry_run=False):
             my_take=broadcast["my_take"],
             post_text=broadcast["social_post"],
             audio_script=full_script,
-            audio_url=f"local://broadcast_{show_id}.mp3" if env != "production" else f"https://placeholder.com",
+            audio_url=final_audio_url,
             video_url=video_url,
             confidence="high",
             broadcast_duration=duration,
@@ -173,6 +176,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", choices=["production", "staging", "local"], default=None)
     parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run mode without publishing")
+    parser.add_argument("--premium", action="store_true", help="Force production AI/TTS models even in local mode")
     args = parser.parse_args()
 
     # Determine environment
@@ -180,5 +184,5 @@ if __name__ == "__main__":
     if not selected_env:
         selected_env = "local" if args.dry_run else "production"
     
-    success = run_pipeline(env=selected_env, dry_run=args.dry_run)
+    success = run_pipeline(env=selected_env, dry_run=args.dry_run, force_premium=args.premium)
     sys.exit(0 if success else 1)

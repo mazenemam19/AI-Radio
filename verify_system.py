@@ -59,11 +59,21 @@ def test_imports():
 
 def test_environment_vars():
     """Checks for presence of critical API keys."""
-    keys = ["GROQ_API_KEY", "GEMINI_API_KEY", "SUPABASE_URL"]
-    missing = [k for k in keys if not os.environ.get(k)]
-    if missing:
-        print(f"[Verify] Missing environment variables: {missing}")
+    # Gemini is always required (Set B). Groq is required for Set A.
+    # Supabase is only required for Cloud runs.
+    critical = ["GEMINI_API_KEY"]
+    optional = ["GROQ_API_KEY", "SUPABASE_URL"]
+    
+    missing_critical = [k for k in critical if not os.environ.get(k)]
+    missing_optional = [k for k in optional if not os.environ.get(k)]
+    
+    if missing_critical:
+        print(f"[Verify] Missing CRITICAL environment variables: {missing_critical}")
         return False
+    
+    if missing_optional:
+        print(f"[Verify] NOTE: Missing optional environment variables (needed for Prod): {missing_optional}")
+        
     return True
 
 def test_binaries():
@@ -294,11 +304,11 @@ def test_ai_client_environment_routing():
     # Mock low-level API callers
     def mock_call_groq(user_input_json, target_segments, model, max_tokens, mandate=""):
         captured_args.append({'payload': json.loads(user_input_json), 'model': model, 'engine': 'groq'})
-        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(25)]})
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(5)]})
 
-    def mock_call_gemini(user_input_json, target_segments, mandate=""):
-        captured_args.append({'payload': json.loads(user_input_json), 'engine': 'gemini'})
-        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(25)]})
+    def mock_call_gemini(user_input_json, target_segments, model="gemini-3.5-flash", mandate=""):
+        captured_args.append({'payload': json.loads(user_input_json), 'engine': 'gemini', 'model': model})
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(5)]})
 
     client.call_groq = mock_call_groq
     client.call_gemini = mock_call_gemini
@@ -334,6 +344,51 @@ def test_ai_client_environment_routing():
         print(f"[Verify] Routing test exception: {e}")
         return False
 
+def test_ai_step_down_logic():
+    """Regression: Verifies that context is reduced (noise reduction) on retries."""
+    from ai_client import AIRadioAIClient
+    client = AIRadioAIClient()
+    payloads = []
+    
+    def mock_call(*a, **k):
+        # Extract user_input_json from either positional or keyword args
+        json_data = k.get('user_input_json') or (a[0] if a else None)
+        if json_data:
+            payloads.append(json.loads(json_data))
+        return json.dumps({"segments": [{"speaker":"ECHO", "text":"too short", "speed":1.0}]})
+
+    client.call_groq = mock_call
+    client.call_gemini = mock_call
+    
+    sample_news = [{"headline": f"H{i}", "source": "S"} for i in range(15)]
+    client.generate_broadcast(sample_news, [], "ts", is_cloud=True)
+    
+    if len(payloads) < 2:
+        print("[Verify] Retry logic didn't trigger.")
+        return False
+        
+    # First call should have 15 items
+    if len(payloads[0]['news_items']) != 15:
+        print(f"[Verify] First call context wrong: {len(payloads[0]['news_items'])}")
+        return False
+        
+    # Second call should have 8 items (Step-Down)
+    if len(payloads[1]['news_items']) != 8:
+        print(f"[Verify] Step-Down failed. Second call context: {len(payloads[1]['news_items'])}")
+        return False
+        
+    return True
+
+def test_ai_fail_fast_returns_none():
+    """Regression: Verifies that generate_broadcast returns None (not a placeholder) on total failure."""
+    from ai_client import AIRadioAIClient
+    client = AIRadioAIClient()
+    client.call_groq = lambda *a, **k: None
+    client.call_gemini = lambda *a, **k: None
+    
+    res = client.generate_broadcast([], [], "ts", is_cloud=True)
+    return res is None
+
 def test_db_healer_column():
     """Verifies that the healer_used column exists in the local database."""
     from db_client import SupabaseDBClient
@@ -348,7 +403,7 @@ def test_ai_healer_flag_injection():
     """Verifies that generate_broadcast injects the _healer_used flag."""
     from ai_client import AIRadioAIClient
     client = AIRadioAIClient()
-    mock_resp = json.dumps({"segments": [{"speaker":"ECHO", "text":"hi " * 200, "speed":1.0} for _ in range(25)]})
+    mock_resp = json.dumps({"segments": [{"speaker":"ECHO", "text":"hi " * 200, "speed":1.0} for _ in range(5)]})
     client.call_gemini = lambda *a, **k: mock_resp
     client.call_groq = lambda *a, **k: mock_resp
     res = client.generate_broadcast([], [], "ts", is_cloud=False)
@@ -430,6 +485,8 @@ if __name__ == "__main__":
     results.append(run_test("Model Isolation (Prod Guard)",   test_production_model_isolation))
     results.append(run_test("AI Payload Trimming (Mocked)",   test_ai_client_payload_trimming))
     results.append(run_test("AI Routing & Logic (Thorough)",  test_ai_client_environment_routing))
+    results.append(run_test("AI Step-Down Context Logic",     test_ai_step_down_logic))
+    results.append(run_test("AI Fail-Fast Abort (None)",      test_ai_fail_fast_returns_none))
     results.append(run_test("DB Healer Column Presence",      test_db_healer_column))
     results.append(run_test("AI Healer Flag Injection",       test_ai_healer_flag_injection))
     results.append(run_test("TTS Budget Enforcement",         test_tts_request_budget_enforcement))
