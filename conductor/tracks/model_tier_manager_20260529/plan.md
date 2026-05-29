@@ -19,6 +19,7 @@ To eliminate all provider overlap between Testing and Production, ensuring that 
     - If Attempt 1 fails, **reduce news context to 8 items** for Attempt 2.
     - If all fail, return `None`.
 - [x] **Delete "Silent Treatment" logic:** Ensure no placeholder script is ever returned. 5a25c9a
+- [x] **Deep Observability:** Add logging for output lengths, segment stats, and error codes. c3ed282
 
 ### Phase 2: TTS Generator Refactor (`tts_generator.py`)
 - [x] **Define Static Queues:** Hardcode the `PROD_VOICE_QUEUE` and `TEST_VOICE_QUEUE`. 774f2b4
@@ -29,7 +30,9 @@ To eliminate all provider overlap between Testing and Production, ensuring that 
 
 ### Phase 3: Orchestrator fail-fast (`main.py`)
 - [x] **Hard Abort:** Ensure `main.py` returns `False` (exit 1) if either the Writer or Narrator fails. bf34335
+- [x] **Premium Override:** Implement `--premium` flag to test production models locally. c3ed282
 
 ### Phase 4: Verification & Integration
 - [x] **CI Protection:** Update `.github/workflows/radio.yml` to confirm it only uses the "Shielded" set for the integration test. f5727a6
 - [x] **Update `ARCHITECTURE.md`:** Finalize the "Bible" with this dual-stack architecture. cb56424
+- [x] **Documentation Sync:** Update all core docs to reflect v3.1 resilient architecture. c3ed282

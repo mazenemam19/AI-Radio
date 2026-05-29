@@ -11,6 +11,8 @@ This is the baseline "contract" for the Echo platform. It defines the foundation
 ## 🛡️ Global Constraints
 - **Deduplication:** Original Source Headline tracking with Threshold-2 Keyword Overlap.
 - **Strict Provider Isolation:** Testing/Local sets (Google/Microsoft) MUST NOT overlap with Production sets (Groq/Mistral).
+- **Resilient Multi-Tier Queue:** Implements a 6-tier failover strategy (Set A) to combat rate limits and ensure broadcast reliability.
+- **Deep Observability:** Mandatory logging of raw model outputs, quality metrics, and specific error codes (429, 413, etc.).
 - **Fail-Fast Integrity:** Placeholder scripts are prohibited. System must ABORT (code 1) if AI quality thresholds are not met.
 - **Persona:** Jon Stewart-style satirical performance with mandatory rhythm shifts and numerical suppression.
 

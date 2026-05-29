@@ -22,8 +22,8 @@
 
 ## AI & Media
 - **Brain (Writer):**
-    - **Production Queue:** Llama 3.3 70B (Groq), Mistral Large (Mistral AI).
-    - **Testing Queue:** Gemini 3.1 Flash-Lite, Gemini 3 Flash.
+    - **Production Queue (Set A):** Llama 3.3 70B, Llama 4 Scout, Gemini 3.5 Flash, Gemini 3.1 Flash-Lite, Qwen 3, Gemini 2.5 Pro.
+    - **Testing Queue (Set B):** Gemini 3.5 Flash, Gemini 3.1 Flash-Lite, Gemini 2.5 Flash-Lite, Gemini 2.0 Flash-Lite, Gemini 1.5 Flash.
 - **Voice (Narrator):** 
     - **Production Queue:** Groq Cloud TTS (orpheus-v1), Google Cloud TTS (Neural2).
     - **Testing Queue:** Edge-TTS (Microsoft Cloud), pocketsphinx (Local).

@@ -6,11 +6,16 @@ To implement a resilient, multi-tiered AI model queue that strictly separates Pr
 ## 📋 Requirements
 
 ### 1. Provider Isolation (No-Overlap v3.1)
-- **Production Set (Premium):** Groq (Llama 70B / Orpheus) and Mistral (Large).
-- **Testing Set (Shielded):** Google (Gemini 3.5 / 3.1) and Microsoft (Edge-TTS).
+- **Production Set (Premium):** 6-Tier Resilient Queue (Llama 70B, Scout, Gemini 3.5, Flash-Lite, Qwen 3, Pro).
+- **Testing Set (Shielded):** 5-Tier Fast Queue (Gemini 3.5, 3.1, 2.5, 2.0, 1.5).
 - **Hard Gate:** Local/Test runs must be physically incapable of calling Groq/Mistral APIs.
 
-### 2. Fail-Fast Integrity
+### 2. Deep Observability
+- Mandatory logging of raw model output lengths.
+- Real-time quality metric logging (segment counts, average words).
+- Explicit error code logging (429, 413, 404) for all tiers.
+
+### 3. Fail-Fast Integrity
 - Remove the "Silent Treatment" emergency placeholder.
 - If all models in a queue fail (quality or availability), return `None`.
 - `main.py` must catch `None` and exit with code 1.

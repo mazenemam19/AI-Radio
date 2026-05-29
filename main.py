@@ -53,10 +53,10 @@ def generate_neural_art(description, save_path):
         print(f"[Main] Vision failure: {e}")
         return False
 
-def run_pipeline(env="production", dry_run=False):
+def run_pipeline(env="production", dry_run=False, force_premium=False):
     # 0. THE MASTER SWITCH: Determine if this is a final performance or just a test/dev run
     is_ci_env = os.environ.get("GITHUB_ACTIONS") == "true"
-    is_real_run = (env == "production" and not dry_run and is_ci_env)
+    is_real_run = (env == "production" and not dry_run and is_ci_env) or force_premium
     
     # QUOTA SAVER: Use Premium Cloud TTS only for real broadcasts.
     use_cloud_tts = is_real_run
@@ -169,6 +169,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", choices=["production", "staging", "local"], default=None)
     parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run mode without publishing")
+    parser.add_argument("--premium", action="store_true", help="Force production AI/TTS models even in local mode")
     args = parser.parse_args()
 
     # Determine environment
@@ -176,5 +177,5 @@ if __name__ == "__main__":
     if not selected_env:
         selected_env = "local" if args.dry_run else "production"
     
-    success = run_pipeline(env=selected_env, dry_run=args.dry_run)
+    success = run_pipeline(env=selected_env, dry_run=args.dry_run, force_premium=args.premium)
     sys.exit(0 if success else 1)

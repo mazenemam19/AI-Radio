@@ -15,13 +15,16 @@ subgraph Brain [2. AI Satirical Engine]
     DB -->|Context & Past Jokes| AC[ai_client.py]
     AC --> REAL_SWITCH{is_real_run?}
 
-    REAL_SWITCH -->|Yes / Live| PROD_LOGIC[Full Context: 15 News / 20 Mem]
-    PROD_LOGIC --> SET_A[Set A: Groq 70B / Mistral Large]
+    REAL_SWITCH -->|Yes / Premium| PROD_LOGIC[Full Context: 15 News / 20 Mem]
+    PROD_LOGIC --> SET_A[Set A: 6-Tier Resilient Queue]
+    SET_A -->|Llama 70B / Scout / Gemini 3.5 / Flash-Lite / Qwen / Pro| SET_A_OUT
 
-    REAL_SWITCH -->|No / Test| LOCAL_LOGIC[Trimmed Context: 3 News / 1 Mem]
-    LOCAL_LOGIC --> SET_B[Set B: Gemini Flash-Lite / Flash]
+    REAL_SWITCH -->|No / Shielded| LOCAL_LOGIC[Trimmed Context: 3 News / 1 Mem]
+    LOCAL_LOGIC --> SET_B[Set B: 5-Tier Fast Queue]
+    SET_B -->|Gemini 3.5 / 3.1 / 2.5 / 2.0 / 1.5| SET_B_OUT
 
-    SET_A & SET_B -->|Raw Output| HEAL[JSON Healer / String Repair]
+    SET_A_OUT & SET_B_OUT -->|Raw Output| OBS[Observability: Deep Logging]
+    OBS --> HEAL[JSON Healer / String Repair]
     HEAL --> QUAL{Is Good?}
     QUAL -->|No| ABORT[Abort: Code 1]
     QUAL -->|Yes| MASTER_FLOW[Cleaned Script]

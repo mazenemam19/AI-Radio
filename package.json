@@ -8,6 +8,7 @@
     "sync:staging": "python sync_config.py --env staging",
     "sync:local": "python sync_config.py --env local",
     "dev:local": "python main.py --env local",
+    "dev:premium": "python main.py --env local --premium",
     "dev:staging": "python main.py --env staging",
     "dev:dry": "python main.py --dry-run",
     "dev:news": "python main.py --test-news",

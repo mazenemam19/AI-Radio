@@ -59,8 +59,10 @@ Do not combine the plan with the tool execution; print the plan first, then exec
 2. For any structural AI/TTS change, run `npm run test:integration` (Heavy Dry-Run).
 3. **NEVER modify `verify_system.py` thresholds or remove test cases to make a failing test pass.**
 4. If `verify` cannot run (missing deps, no network), say so explicitly — do not silently skip it.
-5. **STRICT PROVIDER ISOLATION:** You MUST write new test for each feature and ensure that any testing logic (Set B) never hits Groq or Mistral API endpoints. 
+5. **STRICT PROVIDER ISOLATION:** You MUST ensure that any testing logic (Set B) never hits Groq or Mistral API endpoints. 
+6. **DEEP OBSERVABILITY:** All AI client changes MUST maintain or improve the logging of raw model outputs, segment stats, and error codes. No blind patching.
 
 Violation of these phases or attempting to alter code outside the planned target lines will compromise system stability and result in immediate task failure. Re-verify these constraints constantly.
+
 
 </CRITICAL_EXECUTION_GUARDRAILS>
