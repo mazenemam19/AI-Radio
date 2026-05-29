@@ -3,6 +3,7 @@ import mimetypes
 import json
 import sqlite3
 import requests
+import re
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
@@ -65,7 +66,10 @@ class SupabaseDBClient:
             plays INTEGER DEFAULT 0,
             original_headline TEXT,
             broadcast_duration INTEGER DEFAULT 0,
-            healer_used BOOLEAN DEFAULT 0
+            healer_used BOOLEAN DEFAULT 0,
+            writer_model TEXT,
+            narrator_model TEXT,
+            original_source TEXT
         )''')
         
         # Check for new columns and migrate if needed
@@ -77,6 +81,12 @@ class SupabaseDBClient:
             c.execute("ALTER TABLE memory_log ADD COLUMN broadcast_duration INTEGER DEFAULT 0")
         if "healer_used" not in cols:
             c.execute("ALTER TABLE memory_log ADD COLUMN healer_used BOOLEAN DEFAULT 0")
+        if "writer_model" not in cols:
+            c.execute("ALTER TABLE memory_log ADD COLUMN writer_model TEXT")
+        if "narrator_model" not in cols:
+            c.execute("ALTER TABLE memory_log ADD COLUMN narrator_model TEXT")
+        if "original_source" not in cols:
+            c.execute("ALTER TABLE memory_log ADD COLUMN original_source TEXT")
             
         conn.commit()
         conn.close()
@@ -113,7 +123,7 @@ class SupabaseDBClient:
             print(f"[DB Client] HTTP connection failed fetching memory: {e}")
             return []
 
-    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None, broadcast_duration=0, original_headline=None, healer_used=False):
+    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None, broadcast_duration=0, original_headline=None, healer_used=False, writer_model=None, narrator_model=None, original_source=None):
         confidence_clean = str(confidence).lower() if confidence else "medium"
         if confidence_clean not in ['high', 'medium', 'low']: confidence_clean = "medium"
 
@@ -136,6 +146,9 @@ class SupabaseDBClient:
             "related_ids": related_ids or [],
             "broadcast_duration": broadcast_duration,
             "healer_used": healer_used,
+            "writer_model": writer_model,
+            "narrator_model": narrator_model,
+            "original_source": original_source,
             "likes": 0,
             "plays": 0
         }
@@ -148,9 +161,9 @@ class SupabaseDBClient:
             conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
             c.execute('''INSERT INTO memory_log 
-                (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration, healer_used) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                (headline, final_original_headline, source, json.dumps(final_topic_tags), final_my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration, 1 if healer_used else 0))
+                (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration, healer_used, writer_model, narrator_model, original_source) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                (headline, final_original_headline, source, json.dumps(final_topic_tags), final_my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration, 1 if healer_used else 0, writer_model, narrator_model, original_source))
             row_id = c.lastrowid
             conn.commit()
             conn.close()
@@ -161,7 +174,7 @@ class SupabaseDBClient:
             insert_headers = self.headers.copy()
             insert_headers["Prefer"] = "return=representation"
             # Allow new columns in the payload for Supabase parity
-            allow_keys = ['headline', 'source', 'topic_tags', 'my_take', 'post_text', 'audio_script', 'audio_url', 'video_url', 'confidence', 'related_ids', 'original_headline', 'broadcast_duration', 'healer_used']
+            allow_keys = ['headline', 'source', 'topic_tags', 'my_take', 'post_text', 'audio_script', 'audio_url', 'video_url', 'confidence', 'related_ids', 'original_headline', 'broadcast_duration', 'healer_used', 'writer_model', 'narrator_model', 'original_source']
             payload = {k: v for k, v in data.items() if k in allow_keys}
             
             response = requests.post(endpoint, headers=insert_headers, json=payload, timeout=15)
@@ -205,6 +218,43 @@ class SupabaseDBClient:
                 requests.delete(delete_endpoint, headers=self.headers)
         except Exception as e:
             print(f"[DB Client] Error during cleanup: {e}")
+
+    def find_related_episodes(self, headline, limit=3):
+        """Simple keyword-based search for related episodes."""
+        if self.is_mock or not headline:
+            return []
+        
+        # Extract keywords (words > 3 chars)
+        keywords = [re.sub(r'[^a-zA-Z]', '', w).lower() for w in headline.split() if len(w) > 4]
+        if not keywords:
+            return []
+
+        if self.use_sqlite:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+            # SQLite doesn't have easy array search, so we use LIKE OR
+            query = "SELECT id FROM memory_log WHERE " + " OR ".join(["headline LIKE ?" for _ in keywords[:3]])
+            params = [f"%{k}%" for k in keywords[:3]]
+            c.execute(query + " ORDER BY created_at DESC LIMIT ?", params + [limit])
+            ids = [row[0] for row in c.fetchall()]
+            conn.close()
+            return ids
+
+        try:
+            # Supabase/Postgres full text search equivalent
+            endpoint = f"{self.url}/rest/v1/memory_log"
+            search_str = " | ".join(keywords[:3])
+            params = {
+                "select": "id",
+                "headline": f"fts.{search_str}",
+                "limit": limit
+            }
+            r = requests.get(endpoint, headers=self.headers, params=params)
+            if r.status_code == 200:
+                return [row["id"] for row in r.json()]
+            return []
+        except Exception:
+            return []
 
     def upload_audio(self, local_file_path, storage_filename):
         """Upload raw binary MP3 to Supabase Storage."""

@@ -18,7 +18,11 @@ CREATE TABLE IF NOT EXISTS memory_log (
   likes INTEGER DEFAULT 0,
   plays INTEGER DEFAULT 0,
   original_headline TEXT,
-  broadcast_duration INTEGER DEFAULT 0
+  broadcast_duration INTEGER DEFAULT 0,
+  healer_used BOOLEAN DEFAULT FALSE,
+  writer_model TEXT,
+  narrator_model TEXT,
+  original_source TEXT
 );
 
 -- Comments Table

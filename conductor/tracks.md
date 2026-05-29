@@ -4,7 +4,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Database Field Validation and Like Button Fix**
+- [~] **Track: Database Field Validation and Like Button Fix**
   *Link: [./tracks/db_ux_polish_20260528/](./tracks/db_ux_polish_20260528/)*
 
 - [x] **Track: Model Tier Manager & Fail-Fast Logic**

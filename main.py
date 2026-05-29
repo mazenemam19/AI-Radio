@@ -112,7 +112,12 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
             print("[Main] No background image available. Aborting.")
             return False
 
-    if not tts.make_broadcast_audio(broadcast["segments"], audio_path):
+    # NEW: Capture metadata
+    writer_model = broadcast.get("writer_model", "unknown")
+    original_source = news_items[0].get("source", "Unknown") if news_items else "Unknown"
+
+    narrator_model = tts.make_broadcast_audio(broadcast["segments"], audio_path)
+    if not narrator_model:
         return False
 
     # Use the 'dreamed up' image for the video compilation
@@ -123,6 +128,18 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
     # Calculate exact duration
     duration = tts.get_audio_duration(audio_path)
     print(f"[Main] Broadcast duration: {duration} seconds.")
+
+    # NEW: Dynamic Confidence Score (Quality metric)
+    # Score is high if segments >= 10 and duration > 600s
+    seg_count = len(broadcast["segments"])
+    if seg_count >= 10 and duration >= 600:
+        confidence = "high"
+    elif seg_count >= 8 or duration >= 400:
+        confidence = "medium"
+    else:
+        confidence = "low"
+    
+    print(f"[Main] Performance Confidence: {confidence.upper()} ({seg_count} segments)")
 
     # Duration Gate: Production requires 700s (~11.6m), Local/Test requires 250s
     MIN_BROADCAST_DURATION = 700 if is_real_run else 250
@@ -154,6 +171,8 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
     # 6. SAVE TO DB
     if not dry_run:
         full_script = json.dumps(broadcast["segments"])
+        related_ids = db.find_related_episodes(broadcast.get('primary_news_headline', ''))
+        
         db.insert_post(
             headline=f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}",
             original_headline=broadcast.get('primary_news_headline', 'Daily Broadcast'),
@@ -164,9 +183,13 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
             audio_script=full_script,
             audio_url=final_audio_url,
             video_url=video_url,
-            confidence="high",
+            confidence=confidence,
+            related_ids=related_ids,
             broadcast_duration=duration,
-            healer_used=healer_used
+            healer_used=healer_used,
+            writer_model=writer_model,
+            narrator_model=narrator_model,
+            original_source=original_source
         )
     if env == "local": sync_env_to_config(env="local")
     print(f"\n--- [Broadcast Complete] --- Show: {broadcast['show_title']} ---")

@@ -1,13 +1,17 @@
 # Implementation Plan: Database Field Validation and Like Button Fix
 
 ## Phase 1: Database Audit & Field Stabilization
-- [ ] Task: Audit Local and Production database records for empty fields
-    - [ ] Create audit script in `scripts/audit_db.py`
-    - [ ] Run audit against `ai_radio_dev.db`
+- [x] Task: Audit Local and Production database records for empty fields (9ad3bfe)
+    - [x] Create audit script in `scripts/audit_db.py`
+    - [x] Run audit against `ai_radio_dev.db`
     - [ ] Run audit against Production Supabase (if credentials available)
-- [ ] Task: Harden field population logic in `db_client.py` and `main.py`
-    - [ ] Write unit tests to verify field defaults and validation
-    - [ ] Implement checks to ensure `original_headline` and `my_take` are never empty
+- [x] Task: Harden field population logic in `db_client.py` and `main.py` (c9d7f50)
+    - [x] Write unit tests to verify field defaults and validation
+    - [x] Implement checks to ensure `original_headline` and `my_take` are never empty
+- [~] Task: Implement Model Metadata Tracking and Source Correction
+    - [x] Create branch `fix/db-metadata-integrity`
+    - [x] Add `writer_model`, `narrator_model`, and `original_source` to schema and DB client
+    - [x] Update Orchestrator to capture and store model usage
 - [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: Like Button Functionality Fix
