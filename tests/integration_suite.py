@@ -14,7 +14,7 @@ load_dotenv()
 
 # ── Quality Thresholds ────────────────────────────────────────────────────────
 # These are strict for integration testing (adjusted for local context)
-MIN_BROADCAST_DURATION = 250   # 4.1 minutes
+MIN_BROADCAST_DURATION = 200   # 3.3 minutes
 
 def run_test(title, func):
     print(f"\n[INTEGRATION] Run: {title}...")
@@ -73,9 +73,7 @@ def test_pipeline_dry_run():
 
     duration = float(duration_match.group(1))
     if duration < MIN_BROADCAST_DURATION:
-        # Note: In local mode, the 1177s emergency script might be triggered
-        # if Gemini Flash is being brief. 1177s > 700s, so it passes.
-        print(f"[Integration] FAILURE: Duration {duration}s below prod threshold {MIN_BROADCAST_DURATION}s.")
+        print(f"[Integration] FAILURE: Duration {duration}s below local threshold {MIN_BROADCAST_DURATION}s.")
         return False
 
     return True

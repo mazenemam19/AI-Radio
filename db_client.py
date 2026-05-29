@@ -68,8 +68,7 @@ class SupabaseDBClient:
             broadcast_duration INTEGER DEFAULT 0,
             healer_used BOOLEAN DEFAULT 0,
             writer_model TEXT,
-            narrator_model TEXT,
-            original_source TEXT
+            narrator_model TEXT
         )''')
         
         # Check for new columns and migrate if needed
@@ -85,8 +84,6 @@ class SupabaseDBClient:
             c.execute("ALTER TABLE memory_log ADD COLUMN writer_model TEXT")
         if "narrator_model" not in cols:
             c.execute("ALTER TABLE memory_log ADD COLUMN narrator_model TEXT")
-        if "original_source" not in cols:
-            c.execute("ALTER TABLE memory_log ADD COLUMN original_source TEXT")
             
         conn.commit()
         conn.close()
@@ -123,7 +120,7 @@ class SupabaseDBClient:
             print(f"[DB Client] HTTP connection failed fetching memory: {e}")
             return []
 
-    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None, broadcast_duration=0, original_headline=None, healer_used=False, writer_model=None, narrator_model=None, original_source=None):
+    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None, broadcast_duration=0, original_headline=None, healer_used=False, writer_model=None, narrator_model=None):
         confidence_clean = str(confidence).lower() if confidence else "medium"
         if confidence_clean not in ['high', 'medium', 'low']: confidence_clean = "medium"
 
@@ -131,11 +128,12 @@ class SupabaseDBClient:
         final_original_headline = original_headline or headline or "Daily Broadcast"
         final_my_take = my_take if (my_take and str(my_take).strip()) else "The Echo remains clinically indifferent."
         final_topic_tags = topic_tags if (topic_tags is not None) else []
+        final_source = source if (source and str(source).strip()) else "Unknown Source"
 
         data = {
             "headline": headline,
             "original_headline": final_original_headline,
-            "source": source,
+            "source": final_source,
             "topic_tags": final_topic_tags,
             "my_take": final_my_take,
             "post_text": post_text,
@@ -148,7 +146,6 @@ class SupabaseDBClient:
             "healer_used": healer_used,
             "writer_model": writer_model,
             "narrator_model": narrator_model,
-            "original_source": original_source,
             "likes": 0,
             "plays": 0
         }
@@ -161,9 +158,9 @@ class SupabaseDBClient:
             conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
             c.execute('''INSERT INTO memory_log 
-                (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration, healer_used, writer_model, narrator_model, original_source) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                (headline, final_original_headline, source, json.dumps(final_topic_tags), final_my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration, 1 if healer_used else 0, writer_model, narrator_model, original_source))
+                (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration, healer_used, writer_model, narrator_model) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                (headline, final_original_headline, final_source, json.dumps(final_topic_tags), final_my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration, 1 if healer_used else 0, writer_model, narrator_model))
             row_id = c.lastrowid
             conn.commit()
             conn.close()
@@ -174,7 +171,7 @@ class SupabaseDBClient:
             insert_headers = self.headers.copy()
             insert_headers["Prefer"] = "return=representation"
             # Allow new columns in the payload for Supabase parity
-            allow_keys = ['headline', 'source', 'topic_tags', 'my_take', 'post_text', 'audio_script', 'audio_url', 'video_url', 'confidence', 'related_ids', 'original_headline', 'broadcast_duration', 'healer_used', 'writer_model', 'narrator_model', 'original_source']
+            allow_keys = ['headline', 'source', 'topic_tags', 'my_take', 'post_text', 'audio_script', 'audio_url', 'video_url', 'confidence', 'related_ids', 'original_headline', 'broadcast_duration', 'healer_used', 'writer_model', 'narrator_model']
             payload = {k: v for k, v in data.items() if k in allow_keys}
             
             response = requests.post(endpoint, headers=insert_headers, json=payload, timeout=15)
@@ -280,3 +277,51 @@ class SupabaseDBClient:
             return f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"
         except Exception:
             return f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"
+
+    def increment_likes(self, row_id):
+        """Increment likes for a specific episode in both local and remote DBs."""
+        if self.use_sqlite:
+            try:
+                conn = sqlite3.connect(self.db_path)
+                c = conn.cursor()
+                c.execute("UPDATE memory_log SET likes = likes + 1 WHERE id = ?", (row_id,))
+                conn.commit()
+                conn.close()
+                print(f"[DB Client] Incremented local likes for ID {row_id}")
+                return True
+            except Exception as e:
+                print(f"[DB Client] SQLite increment_likes failed: {e}")
+                return False
+        else:
+            try:
+                # Standard Supabase RPC call
+                endpoint = f"{self.url}/rest/v1/rpc/increment_likes"
+                response = requests.post(endpoint, headers=self.headers, json={"row_id": row_id}, timeout=15)
+                return response.status_code == 200
+            except Exception as e:
+                print(f"[DB Client] Supabase increment_likes failed: {e}")
+                return False
+
+    def increment_plays(self, row_id):
+        """Increment plays for a specific episode in both local and remote DBs."""
+        if self.use_sqlite:
+            try:
+                conn = sqlite3.connect(self.db_path)
+                c = conn.cursor()
+                c.execute("UPDATE memory_log SET plays = plays + 1 WHERE id = ?", (row_id,))
+                conn.commit()
+                conn.close()
+                print(f"[DB Client] Incremented local plays for ID {row_id}")
+                return True
+            except Exception as e:
+                print(f"[DB Client] SQLite increment_plays failed: {e}")
+                return False
+        else:
+            try:
+                # Standard Supabase RPC call
+                endpoint = f"{self.url}/rest/v1/rpc/increment_plays"
+                response = requests.post(endpoint, headers=self.headers, json={"row_id": row_id}, timeout=15)
+                return response.status_code == 200
+            except Exception as e:
+                print(f"[DB Client] Supabase increment_plays failed: {e}")
+                return False

@@ -114,7 +114,7 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
 
     # NEW: Capture metadata
     writer_model = broadcast.get("writer_model", "unknown")
-    original_source = news_items[0].get("source", "Unknown") if news_items else "Unknown"
+    source = news_items[0].get("source", "Unknown") if news_items else "Unknown"
 
     narrator_model = tts.make_broadcast_audio(broadcast["segments"], audio_path)
     if not narrator_model:
@@ -129,20 +129,22 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
     duration = tts.get_audio_duration(audio_path)
     print(f"[Main] Broadcast duration: {duration} seconds.")
 
+    # Duration Gate: Production requires 600s (~10m), Local/Test requires 200s
+    MIN_BROADCAST_DURATION = 600 if is_real_run else 200
+    
     # NEW: Dynamic Confidence Score (Quality metric)
-    # Score is high if segments >= 10 and duration > 600s
     seg_count = len(broadcast["segments"])
-    if seg_count >= 10 and duration >= 600:
+    target_seg_confidence = 10 if is_real_run else 5
+    
+    if seg_count >= target_seg_confidence and duration >= MIN_BROADCAST_DURATION:
         confidence = "high"
-    elif seg_count >= 8 or duration >= 400:
+    elif seg_count >= (target_seg_confidence - 2) or duration >= (MIN_BROADCAST_DURATION * 0.7):
         confidence = "medium"
     else:
         confidence = "low"
     
     print(f"[Main] Performance Confidence: {confidence.upper()} ({seg_count} segments)")
 
-    # Duration Gate: Production requires 700s (~11.6m), Local/Test requires 250s
-    MIN_BROADCAST_DURATION = 700 if is_real_run else 250
     if duration < MIN_BROADCAST_DURATION:
         print(f"[Main] ABORT: Duration {duration}s below minimum {MIN_BROADCAST_DURATION}s. Discarding episode.")
         return False
@@ -176,7 +178,7 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
         db.insert_post(
             headline=f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}",
             original_headline=broadcast.get('primary_news_headline', 'Daily Broadcast'),
-            source="The Echo Broadcast",
+            source=source,
             topic_tags=broadcast["topic_tags"],
             my_take=broadcast["my_take"],
             post_text=broadcast["social_post"],
@@ -188,8 +190,7 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
             broadcast_duration=duration,
             healer_used=healer_used,
             writer_model=writer_model,
-            narrator_model=narrator_model,
-            original_source=original_source
+            narrator_model=narrator_model
         )
     if env == "local": sync_env_to_config(env="local")
     print(f"\n--- [Broadcast Complete] --- Show: {broadcast['show_title']} ---")

@@ -21,8 +21,7 @@ CREATE TABLE IF NOT EXISTS memory_log (
   broadcast_duration INTEGER DEFAULT 0,
   healer_used BOOLEAN DEFAULT FALSE,
   writer_model TEXT,
-  narrator_model TEXT,
-  original_source TEXT
+  narrator_model TEXT
 );
 
 -- Comments Table

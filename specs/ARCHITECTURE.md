@@ -49,7 +49,7 @@ subgraph Mastering [3. Media Mastering]
 
         AUD & IMG --> FF[FFmpeg Orchestrator]
         FF --> VIDEO[Final Broadcast .mp4]
-        VIDEO --> DUR{Duration >= 700s?}
+        VIDEO --> DUR{Duration >= 600s?}
         DUR -->|No| ABORT
         DUR -->|Yes| GRID_FLOW
     end
@@ -103,7 +103,7 @@ subgraph Mastering [3. Media Mastering]
 | **Database** | Supabase (Prod) | Supabase (Dev) | SQLite (Local) |
 | **Video** | YouTube Upload | Mock (Rick Astley) | Local File |
 | **Socials** | Bluesky Live | Mocked | Mocked |
-| **Quality** | >700s Duration | >700s Duration | >700s Duration |
+| **Quality** | >600s Duration | >200s Duration | >200s Duration |
 
 ---
 
