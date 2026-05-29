@@ -7,7 +7,7 @@ load_dotenv()
 
 class NewsFetcher:
     def __init__(self):
-        self.guardian_key = os.environ.get("GUARDIAN_API_KEY")
+        pass
 
     def fetch_rss_feeds(self):
         """Fetch items from BBC, Reuters, and The Guardian RSS feeds."""
@@ -82,28 +82,6 @@ class NewsFetcher:
                     print(f"[News Fetcher] Error fetching HackerNews story {story_id}: {ex}")
         except Exception as e:
             print(f"[News Fetcher] Error fetching HackerNews: {e}")
-
-        return items
-
-        items = []
-        try:
-            print("[News Fetcher] Querying Guardian API...")
-            # Query tech, science, and world sections
-            url = f"https://content.guardianapis.com/search?section=technology|science|world&show-fields=trailText&api-key={self.guardian_key}"
-            r = requests.get(url, timeout=10)
-            results = r.json().get("response", {}).get("results", [])
-
-            for item in results[:4]:
-                headline = item.get("webTitle", "").strip()
-                summary = item.get("fields", {}).get("trailText", "")[:300]
-                items.append({
-                    "headline": headline,
-                    "source": f"The Guardian ({item.get('sectionName', 'World')})",
-                    "summary": summary,
-                    "url": item.get("webUrl", "")
-                })
-        except Exception as e:
-            print(f"[News Fetcher] Error calling Guardian API: {e}")
 
         return items
 
