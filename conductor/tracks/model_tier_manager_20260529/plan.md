@@ -28,7 +28,7 @@ To eliminate all provider overlap between Testing and Production, ensuring that 
 - [x] **RPD Shield:** Maintain the 80-request hard ceiling for Groq. 774f2b4
 
 ### Phase 3: Orchestrator fail-fast (`main.py`)
-- [ ] **Hard Abort:** Ensure `main.py` returns `False` (exit 1) if either the Writer or Narrator fails.
+- [x] **Hard Abort:** Ensure `main.py` returns `False` (exit 1) if either the Writer or Narrator fails. bf34335
 
 ### Phase 4: Verification & Integration
 - [ ] **CI Protection:** Update `.github/workflows/radio.yml` to confirm it only uses the "Shielded" set for the integration test.
