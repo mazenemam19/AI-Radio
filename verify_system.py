@@ -378,6 +378,41 @@ def test_groq_token_limit():
     max_tokens_default = sig.parameters['max_tokens'].default
     return max_tokens_default == 8000
 
+def test_tts_chunk_size():
+    """Verifies that the TTS chunk size is set to 450 for efficiency."""
+    import inspect
+    from tts_generator import TTSRadioGenerator
+    generator = TTSRadioGenerator()
+    sig = inspect.signature(generator.chunk_text)
+    chunk_size_default = sig.parameters['max_chars'].default
+    return chunk_size_default == 450
+
+def test_main_emergency_abort():
+    """
+    Verifies that the pipeline correctly aborts if an emergency script is detected.
+    This protects the production YouTube channel from placeholder content.
+    """
+    from main import run_pipeline
+    from unittest.mock import patch, MagicMock
+    
+    with patch("main.AIRadioAIClient") as MockAI, \
+         patch("main.SupabaseDBClient"), \
+         patch("main.NewsFetcher"), \
+         patch("main.TTSRadioGenerator"), \
+         patch("main.DistributionPublisher"):
+        
+        mock_ai = MockAI.return_value
+        # Mock an emergency response
+        mock_ai.generate_broadcast.return_value = {
+            "segments": [],
+            "_is_emergency": True,
+            "show_title": "Emergency"
+        }
+        
+        # run_pipeline should return False (Abort)
+        success = run_pipeline(env="local", dry_run=True)
+        return success is False
+
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -403,6 +438,8 @@ if __name__ == "__main__":
     results.append(run_test("AI Healer Flag Injection",       test_ai_healer_flag_injection))
     results.append(run_test("TTS Budget Enforcement",         test_tts_request_budget_enforcement))
     results.append(run_test("Groq Token Limit (8k)",          test_groq_token_limit))
+    results.append(run_test("TTS Chunk Size (450)",           test_tts_chunk_size))
+    results.append(run_test("Main Emergency Abort",           test_main_emergency_abort))
 
     passed = sum(results)
     total  = len(results)

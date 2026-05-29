@@ -345,6 +345,7 @@ class AIRadioAIClient:
                     "visual_description": "A sad robot.",
                     "topic_tags": ["error"],
                     "social_post": "Off-air.",
+                    "_is_emergency": True,
                     "segments": [
                         {"speaker": "ECHO", "text": f"{emergency_text} {filler}", "speed": 1.0},
                         {"speaker": "GLITCH", "text": f"Strike! {filler}", "speed": 1.0},
@@ -354,5 +355,6 @@ class AIRadioAIClient:
                 }
 
         seg_count = len(broadcast["segments"])
+        broadcast["_is_emergency"] = False
         print(f"[AI Client] Script accepted: {seg_count} segments.")
         return broadcast
