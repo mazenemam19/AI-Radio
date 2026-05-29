@@ -31,5 +31,5 @@ To eliminate all provider overlap between Testing and Production, ensuring that 
 - [x] **Hard Abort:** Ensure `main.py` returns `False` (exit 1) if either the Writer or Narrator fails. bf34335
 
 ### Phase 4: Verification & Integration
-- [ ] **CI Protection:** Update `.github/workflows/radio.yml` to confirm it only uses the "Shielded" set for the integration test.
-- [ ] **Update `ARCHITECTURE.md`:** Finalize the "Bible" with this dual-stack architecture.
+- [x] **CI Protection:** Update `.github/workflows/radio.yml` to confirm it only uses the "Shielded" set for the integration test. f5727a6
+- [x] **Update `ARCHITECTURE.md`:** Finalize the "Bible" with this dual-stack architecture. cb56424
