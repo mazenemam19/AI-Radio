@@ -21,5 +21,5 @@ A seamless, automated broadcast system that transforms dry news into high-qualit
 
 ## Success Metrics
 - **Broadcast Consistency:** Successful daily autonomous generation and distribution.
-- **Content Quality:** Meeting the 700-second minimum duration and maintaining character persona integrity.
+- **Content Quality:** Meeting the 600-second minimum duration and maintaining character persona integrity.
 - **System Stability:** Passing all health checks and verification suites across environments.

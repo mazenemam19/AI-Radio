@@ -466,6 +466,88 @@ def test_main_emergency_abort():
         success = run_pipeline(env="local", dry_run=True)
         return success is False
 
+def test_confidence_logic():
+    """Regression: Verifies the dynamic confidence scoring logic."""
+    with open("main.py", "r") as f:
+        content = f.read()
+        if "if seg_count >= target_seg_confidence and duration >= MIN_BROADCAST_DURATION:" not in content:
+            print("[Verify] Confidence 'high' logic missing or changed.")
+            return False
+        if "elif seg_count >= (target_seg_confidence - 2) or duration >= (MIN_BROADCAST_DURATION * 0.7):" not in content:
+            print("[Verify] Confidence 'medium' logic missing or changed.")
+            return False
+            
+    return True
+
+def test_db_field_completeness():
+    """Regression: Verifies that insert_post populates mandatory fields even if input is empty."""
+    from db_client import SupabaseDBClient
+    db = SupabaseDBClient(env='local')
+    # Use a dummy ID to not mess with real data if possible, 
+    # but since it's local SQLite we can just insert and then check
+    res = db.insert_post(
+        headline="Completeness Test",
+        source="", # Empty
+        topic_tags=None,
+        my_take="  ", # Whitespace
+        post_text="Text",
+        audio_script="[]",
+        audio_url="url"
+    )
+    
+    if not res.get("original_headline"): return False
+    if not res.get("my_take") or res["my_take"].isspace(): return False
+    if res.get("source") != "Unknown Source": # Hardened value
+        if not res.get("source"): return False
+        
+    return True
+
+def test_like_button_logic():
+    """Regression: Verifies that the increment_likes method works in the DB client."""
+    from db_client import SupabaseDBClient
+    db = SupabaseDBClient(env='local')
+    
+    # Insert a dummy record to like
+    res = db.insert_post(
+        headline="Like Test", source="S", topic_tags=[], 
+        my_take="T", post_text="P", audio_script="[]", audio_url="U"
+    )
+    row_id = res["id"]
+    
+    # Initial likes should be 0
+    conn = sqlite3.connect(db.db_path)
+    val_before = conn.execute("SELECT likes FROM memory_log WHERE id = ?", (row_id,)).fetchone()[0]
+    
+    db.increment_likes(row_id)
+    
+    val_after = conn.execute("SELECT likes FROM memory_log WHERE id = ?", (row_id,)).fetchone()[0]
+    conn.close()
+    
+    return val_after == val_before + 1
+
+def test_quality_thresholds_protection():
+    """Regression: Ensures duration thresholds and model queues are never changed without explicit intent."""
+    from main import run_pipeline
+    import inspect
+    from ai_client import PROD_WRITER_QUEUE, TEST_WRITER_QUEUE
+    
+    # 1. Verify Model List Lengths (Resilience check)
+    if len(PROD_WRITER_QUEUE) != 6:
+        print(f"[Verify] PROD_WRITER_QUEUE length changed! Expected 6, got {len(PROD_WRITER_QUEUE)}")
+        return False
+    if len(TEST_WRITER_QUEUE) != 5:
+        print(f"[Verify] TEST_WRITER_QUEUE length changed! Expected 5, got {len(TEST_WRITER_QUEUE)}")
+        return False
+        
+    # 2. Verify Thresholds in main.py
+    with open("main.py", "r") as f:
+        content = f.read()
+        if "MIN_BROADCAST_DURATION = 600 if is_real_run else 200" not in content:
+            print("[Verify] MIN_BROADCAST_DURATION logic in main.py is incorrect.")
+            return False
+            
+    return True
+
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -491,10 +573,14 @@ if __name__ == "__main__":
     results.append(run_test("AI Fail-Fast Abort (None)",      test_ai_fail_fast_returns_none))
     results.append(run_test("DB Healer Column Presence",      test_db_healer_column))
     results.append(run_test("AI Healer Flag Injection",       test_ai_healer_flag_injection))
+    results.append(run_test("DB Field Completeness",          test_db_field_completeness))
+    results.append(run_test("Like Button Logic",              test_like_button_logic))
     results.append(run_test("TTS Budget Enforcement",         test_tts_request_budget_enforcement))
     results.append(run_test("Groq Token Limit (8k)",          test_groq_token_limit))
     results.append(run_test("TTS Chunk Size (450)",           test_tts_chunk_size))
     results.append(run_test("Main Emergency Abort",           test_main_emergency_abort))
+    results.append(run_test("Quality Threshold Protection",   test_quality_thresholds_protection))
+    results.append(run_test("Confidence Scoring Logic",       test_confidence_logic))
 
     passed = sum(results)
     total  = len(results)

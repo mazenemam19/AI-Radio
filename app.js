@@ -21,6 +21,7 @@ const elements = {
   activeTake: document.getElementById("active-take"),
   activeDate: document.getElementById("active-date"),
   activeLikes: document.getElementById("active-likes"),
+  btnLike: document.getElementById("btn-like"),
   btnPlayPause: document.getElementById("btn-play-pause"),
   playIcon: document.getElementById("play-icon"),
   pauseIcon: document.getElementById("pause-icon"),
@@ -291,6 +292,11 @@ function setupUIEventListeners() {
     renderEpisodesGrid(q ? episodes.filter(ep => ep.headline.toLowerCase().includes(q)) : episodes);
   });
 
+  elements.btnLike.addEventListener("click", () => {
+    if (!activeEpisode) return;
+    incrementLikeCount(activeEpisode.id);
+  });
+
   elements.commentForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (CURRENT_ENV === "local") return alert("Comments disabled in Local Offline mode.");
@@ -311,7 +317,44 @@ async function loadComments(id) {
 }
 
 async function incrementPlayCount(id) {
-  if (CURRENT_ENV !== "local" && supabaseClient) await supabaseClient.rpc("increment_plays", { row_id: id });
+  if (CURRENT_ENV !== "local" && supabaseClient) {
+    await supabaseClient.rpc("increment_plays", { row_id: id });
+  } else if (CURRENT_ENV === "local") {
+    try {
+      await fetch("/api/play", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ row_id: id })
+      });
+    } catch (e) { console.warn("[Echo] Local play sync failed."); }
+  }
+}
+
+async function incrementLikeCount(id) {
+  // Optimistic UI
+  const currentLikes = parseInt(elements.activeLikes.innerText) || 0;
+  elements.activeLikes.innerText = currentLikes + 1;
+  
+  if (CURRENT_ENV !== "local" && supabaseClient) {
+    try {
+      await supabaseClient.rpc("increment_likes", { row_id: id });
+    } catch (e) {
+      console.error("[Echo] Like failed:", e);
+      elements.activeLikes.innerText = currentLikes; // Revert on failure
+    }
+  } else if (CURRENT_ENV === "local") {
+    try {
+      const response = await fetch("/api/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ row_id: id })
+      });
+      if (!response.ok) throw new Error("Local update failed");
+    } catch (e) {
+      console.error("[Echo] Local like failed:", e);
+      elements.activeLikes.innerText = currentLikes; // Revert on failure
+    }
+  }
 }
 
 // --- 8. BOOTSTRAP ---
