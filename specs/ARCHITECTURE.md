@@ -101,6 +101,7 @@ subgraph Mastering [3. Media Mastering]
 | **Speech** | Set A: 3-Tier (Orpheus / Google / Edge) | Set B: 1-Tier (Edge-TTS) | Set B: 1-Tier (Edge-TTS) |
 
 | **Database** | Supabase (Prod) | Supabase (Dev) | SQLite (Local) |
+| :--- | :--- | :--- | :--- |
 | **Video** | YouTube Upload | Mock (Rick Astley) | Local File |
 | **Socials** | Bluesky Live | Mocked | Mocked |
 | **Quality** | >600s Duration | >200s Duration | >200s Duration |
