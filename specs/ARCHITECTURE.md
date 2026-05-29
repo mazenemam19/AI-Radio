@@ -49,14 +49,17 @@ subgraph Mastering [3. Media Mastering]
 
     %% Distribution & Dashboard
     subgraph Grid [4. Distribution & Display]
+        DUR -->|Yes| GRID_FLOW[Approved Episode]
         GRID_FLOW --> DIST_ENV{env == 'production'?}
-        DIST_FLOW -->|Yes| YT[YouTube Upload]
-        DIST_FLOW -->|Yes| BKY[Bluesky Post]
+        
+        DIST_ENV -->|Yes| YT[YouTube Upload]
+        DIST_ENV -->|Yes| BKY[Bluesky Post]
         
         DIST_ENV -->|No| LOCAL_OUT[./output/ Folder]
         DIST_ENV -->|No| MOCK[Mock Socials]
         
-        HEAL -->|Metadata| DB
+        YT & LOCAL_OUT --> DB_WRITE[Save to DB]
+        DB_WRITE --> DB[(SQLite / Supabase)]
         
         DB -->|sync_config.py| CFG[config.js]
         CFG --> APP[app.js]
@@ -74,6 +77,7 @@ subgraph Mastering [3. Media Mastering]
     style REAL_SWITCH fill:#333,stroke:#fff
     style TTS_SWITCH fill:#333,stroke:#fff
     style DIST_ENV fill:#333,stroke:#fff
+    style GRID_FLOW fill:#333,stroke:#fff
     style DUR fill:#ff0000,stroke:#fff
 ```
 
@@ -90,7 +94,22 @@ subgraph Mastering [3. Media Mastering]
 | **Database** | Supabase (Prod) | Supabase (Dev) | SQLite (Local) |
 | **Video** | YouTube Upload | Mock (Rick Astley) | Local File |
 | **Socials** | Bluesky Live | Mocked | Mocked |
-| Quality | >700s Duration | >700s Duration | >700s Duration |
+| **Quality** | >700s Duration | >700s Duration | >700s Duration |
+
+---
+
+## 🧪 Testing & Verification
+
+The system uses a decoupled verification strategy to balance speed and rigor:
+
+1.  **Lightweight Health Check (`npm run verify`):**
+    *   **Scope:** Imports, API connectivity, schema sync, environment variables.
+    *   **Speed:** < 10 seconds.
+    *   **Logic:** Uses mocks for AI generation to avoid token costs.
+2.  **Heavy Integration Suite (`npm run test:integration`):**
+    *   **Scope:** Full pipeline dry-run, FFmpeg rendering, end-to-end artifact validation.
+    *   **Speed:** 2-5 minutes.
+    *   **Logic:** Executes `main.py --dry-run` to ensure the entire system is technically sound.
 
 ---
 

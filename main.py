@@ -28,7 +28,7 @@ def copy_cover_art():
     local_cover = "assets/cover_art.png"
     if os.path.exists(local_cover) and os.path.getsize(local_cover) > 0:
         return local_cover
-    return local_cover
+    return None
 
 def generate_neural_art(description, save_path):
     """Generate a high-quality 'dreamed up' image based on Echo's description."""
@@ -81,7 +81,7 @@ def run_pipeline(env="production", dry_run=False):
     news_items = fetcher.get_all_news(processed_headlines=processed_headlines)
     if not news_items:
         print("[Main] No new stories. Staying off-air.")
-        return
+        return True # Not an error, just no work
 
     # 3. AI SCRIPT (Now with Voice-Awareness)
     print(f"[Main] Invoking Echo for satirical script...")
@@ -94,7 +94,7 @@ def run_pipeline(env="production", dry_run=False):
 
     if not broadcast or "segments" not in broadcast:
         print("[Main] Script generation failed.")
-        return
+        return False
 
     # 4. THE SHOW MUST GO ON
     show_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -105,12 +105,17 @@ def run_pipeline(env="production", dry_run=False):
     episode_image = f"assets/art_{show_id}.png"
     if not generate_neural_art(broadcast.get("visual_description", "Surreal technology chaos"), episode_image):
         episode_image = copy_cover_art()
+        if episode_image is None:
+            print("[Main] No background image available. Aborting.")
+            return False
 
     if not tts.make_broadcast_audio(broadcast["segments"], audio_path):
-        return
+        return False
 
     # Use the 'dreamed up' image for the video compilation
-    tts.compile_video(audio_path, episode_image, video_path)
+    if not tts.compile_video(audio_path, episode_image, video_path):
+        print("[Main] Video compilation failed. Aborting.")
+        return False
 
     # Calculate exact duration
     duration = tts.get_audio_duration(audio_path)
@@ -119,7 +124,7 @@ def run_pipeline(env="production", dry_run=False):
     MIN_BROADCAST_DURATION = 700
     if duration < MIN_BROADCAST_DURATION:
         print(f"[Main] ABORT: Duration {duration}s below minimum {MIN_BROADCAST_DURATION}s. Discarding episode.")
-        return
+        return False
 
     # 5. DISTRIBUTION
     video_url = None
@@ -153,6 +158,7 @@ def run_pipeline(env="production", dry_run=False):
         )
     if env == "local": sync_env_to_config(env="local")
     print(f"\n--- [Broadcast Complete] --- Show: {broadcast['show_title']} ---")
+    return True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -165,4 +171,5 @@ if __name__ == "__main__":
     if not selected_env:
         selected_env = "local" if args.dry_run else "production"
     
-    run_pipeline(env=selected_env, dry_run=args.dry_run)
+    success = run_pipeline(env=selected_env, dry_run=args.dry_run)
+    sys.exit(0 if success else 1)

@@ -68,8 +68,12 @@ class TTSRadioGenerator:
                         chunk_files.append(c_path)
                         break
                     elif r.status_code == 429:
-                        retry_after = r.headers.get("retry-after", "30")
-                        wait_seconds = int(retry_after)
+                        retry_after_raw = r.headers.get("retry-after", "30")
+                        try:
+                            wait_seconds = int(retry_after_raw)
+                        except ValueError:
+                            print(f"[TTS] Warning: malformed retry-after header '{retry_after_raw}'. Defaulting to 30s.")
+                            wait_seconds = 30
                         if wait_seconds > 60:
                             print(f"[TTS] !!! QUOTA LIMIT !!! Switching to local backup.")
                             raise Exception("Quota Limit")
@@ -102,6 +106,8 @@ class TTSRadioGenerator:
         temp_files = []
         try:
             for idx, seg in enumerate(segments):
+                if idx > 0 and self.use_cloud:
+                    time.sleep(3.0)  # pause between segments to respect Groq RPM
                 speaker = str(seg.get("speaker", "ECHO")).upper()
                 voice = self.echo_voice if speaker == "ECHO" else self.glitch_voice
                 temp_path = f"output/temp_seg_{idx}.mp3"

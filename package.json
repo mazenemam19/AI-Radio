@@ -13,7 +13,8 @@
     "dev:news": "py main.py --test-news",
     "prod:run": "py main.py --env production",
     "serve": "py -m http.server 5000",
-    "verify": "py verify_system.py"
+    "verify": "py verify_system.py",
+    "test:integration": "py tests/integration_suite.py"
   },
   "keywords": [
     "ai",
