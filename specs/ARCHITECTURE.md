@@ -29,11 +29,10 @@ subgraph Mastering [3. Media Mastering]
     HEAL -->|Cleaned Script| TTS[tts_generator.py]
     TTS --> TTS_SWITCH{is_real_run?}
 
-    TTS_SWITCH -->|Yes| GROQ_TTS[Groq Cloud: Orpheus]
+    TTS_SWITCH -->|Yes| GROQ_TTS[Groq Cloud: Orpheus v1]
     GROQ_TTS -->|429 Rate Limit| EDGE_TTS
 
     TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
-
         
         GROQ_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
         
@@ -90,7 +89,7 @@ subgraph Mastering [3. Media Mastering]
 | **Trigger** | GitHub Actions | Manual CLI | Manual CLI |
 | **AI Brain** | Llama 3.3 70B | Gemini 3.5 Flash | Gemini 3.5 Flash |
 | **Context** | 15 News / 10 Memory | 3 News / 1 Memory | 3 News / 1 Memory |
-| **Speech** | Groq Cloud TTS | Edge-TTS (Local) | Edge-TTS (Local) |
+| **Speech** | Groq (Orpheus v1) | Edge-TTS (Local) | Edge-TTS (Local) |
 | **Database** | Supabase (Prod) | Supabase (Dev) | SQLite (Local) |
 | **Video** | YouTube Upload | Mock (Rick Astley) | Local File |
 | **Socials** | Bluesky Live | Mocked | Mocked |
