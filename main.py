@@ -124,7 +124,8 @@ def run_pipeline(env="production", dry_run=False):
     duration = tts.get_audio_duration(audio_path)
     print(f"[Main] Broadcast duration: {duration} seconds.")
 
-    MIN_BROADCAST_DURATION = 700
+    # Duration Gate: Production requires 700s (~11.6m), Local/Test requires 250s
+    MIN_BROADCAST_DURATION = 700 if is_real_run else 250
     if duration < MIN_BROADCAST_DURATION:
         print(f"[Main] ABORT: Duration {duration}s below minimum {MIN_BROADCAST_DURATION}s. Discarding episode.")
         return False

@@ -237,8 +237,8 @@ class AIRadioAIClient:
 
         if not is_cloud:
             # Local testing thresholds
-            target_segments = 25
-            MIN_SEGMENTS = 20
+            target_segments = 5
+            MIN_SEGMENTS = 3
             min_avg_words = 60
 
         # --- The Writer Orchestrator Loop ---

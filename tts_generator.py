@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Voice Queues (v3.1) ───────────────────────────────────────────────────────
-PROD_VOICE_QUEUE = ["groq", "google"]
+PROD_VOICE_QUEUE = ["groq", "google", "edge"]
 TEST_VOICE_QUEUE = ["edge"]
 
 class TTSRadioGenerator:
