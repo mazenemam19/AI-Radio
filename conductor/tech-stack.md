@@ -14,6 +14,7 @@
 - **Technologies:** HTML5, CSS3 (Neon-glass aesthetic)
 - **Logic:** `app.js` (Hybrid player, state management, Supabase integration).
 - **APIs:** YouTube IFrame API for production playback.
+- **Local Proxy:** `local_server.py` (Python) to handle local engagement (Likes/Plays).
 
 ## Database & Persistence
 - **Production/Staging:** Supabase (PostgreSQL)
