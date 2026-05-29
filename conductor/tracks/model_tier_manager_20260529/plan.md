@@ -14,11 +14,11 @@ To eliminate all provider overlap between Testing and Production, ensuring that 
 
 ### Phase 1: AI Client Refactor (`ai_client.py`)
 - [x] **Define Static Queues:** Hardcode the `PROD_WRITER_QUEUE` and `TEST_WRITER_QUEUE`. 7353f90
-- [ ] **Implement `WriterOrchestrator`:** 
+- [x] **Implement `WriterOrchestrator`:** 5a25c9a
     - Iterate through the active queue.
     - If Attempt 1 fails, **reduce news context to 8 items** for Attempt 2.
     - If all fail, return `None`.
-- [ ] **Delete "Silent Treatment" logic:** Ensure no placeholder script is ever returned.
+- [x] **Delete "Silent Treatment" logic:** Ensure no placeholder script is ever returned. 5a25c9a
 
 ### Phase 2: TTS Generator Refactor (`tts_generator.py`)
 - [ ] **Define Static Queues:** Hardcode the `PROD_VOICE_QUEUE` and `TEST_VOICE_QUEUE`.
