@@ -32,7 +32,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: System Health Check
-        run: npm run verify
+        run: python verify_system.py
 
       - name: Heavy Integration Test
         run: npm run test:integration
