@@ -132,6 +132,8 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
 
     # 5. DISTRIBUTION
     video_url = None
+    storage_filename = f"broadcast_{show_id}.mp3"
+    
     if env == "production" and not dry_run:
         video_url = publisher.upload_to_youtube(
             video_path=video_path,
@@ -140,12 +142,17 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
             tags=broadcast["topic_tags"]
         )
         publisher.post_to_bluesky(broadcast["social_post"])
+        # Upload audio to production storage
+        final_audio_url = db.upload_audio(audio_path, storage_filename)
+    elif env == "staging" and not dry_run:
+        video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        final_audio_url = db.upload_audio(audio_path, storage_filename)
     else:
         video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        final_audio_url = f"local://{storage_filename}"
 
     # 6. SAVE TO DB
     if not dry_run:
-        # Save the show title to 'headline' (for dashboard) and original headline to 'original_headline' (for deduplication)
         full_script = json.dumps(broadcast["segments"])
         db.insert_post(
             headline=f"[{broadcast['show_title']}] {broadcast.get('primary_news_headline', 'Daily Broadcast')}",
@@ -155,7 +162,7 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
             my_take=broadcast["my_take"],
             post_text=broadcast["social_post"],
             audio_script=full_script,
-            audio_url=f"local://broadcast_{show_id}.mp3" if env != "production" else f"https://placeholder.com",
+            audio_url=final_audio_url,
             video_url=video_url,
             confidence="high",
             broadcast_duration=duration,

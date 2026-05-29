@@ -19,11 +19,22 @@ class TTSRadioGenerator:
         self.echo_voice = echo_voice
         self.glitch_voice = glitch_voice
         self.use_cloud = use_cloud 
+        
+        # Keys
         self.api_key = os.environ.get("GROQ_API_KEY")
+        self.google_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        
+        # Groq Config
         self.api_url = "https://api.groq.com/openai/v1/audio/speech"
         self.model = "canopylabs/orpheus-v1-english"
         self.daily_request_count = 0
-        self.daily_request_limit = 80  # hard ceiling below Groq's 100 RPD, leaving buffer
+        self.daily_request_limit = 80
+        
+        # Google Config (Neural2)
+        self.google_voice_map = {
+            "daniel": "en-US-Neural2-D", # Echo
+            "hannah": "en-US-Neural2-F"  # Glitch
+        }
 
     def strip_tags(self, text):
         cleaned = re.sub(r'\[.*?\]', '', text)
@@ -100,10 +111,45 @@ class TTSRadioGenerator:
                         return True
 
                 elif provider == "google":
-                    # Placeholder for Google Cloud TTS implementation if needed
-                    # For now, we fall back to Edge if Google isn't wired up
-                    print(f"[TTS] Falling through to Edge (Google Cloud TTS not implemented).")
-                    continue
+                    if not self.google_key:
+                        print(f"[TTS] Google Cloud skipped (No Key).")
+                        continue
+                    
+                    print(f"[TTS] Invoking Google Cloud TTS (Neural2)...")
+                    google_voice = self.google_voice_map.get(voice, "en-US-Neural2-D")
+                    chunks = self.chunk_text(text)
+                    chunk_files = []
+                    
+                    import base64
+                    url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={self.google_key}"
+                    
+                    for c_idx, chunk_text in enumerate(chunks):
+                        body = {
+                            "input": {"text": self.strip_tags(chunk_text)},
+                            "voice": {"languageCode": "en-US", "name": google_voice},
+                            "audioConfig": {"audioEncoding": "MP3", "pitch": -2.0 if "daniel" in voice else 2.0}
+                        }
+                        r = requests.post(url, json=body, timeout=60)
+                        if r.status_code == 200:
+                            audio_content = r.json().get("audioContent")
+                            if audio_content:
+                                c_path = f"{path}_gchunk_{c_idx}.mp3"
+                                with open(c_path, "wb") as f:
+                                    f.write(base64.b64decode(audio_content))
+                                chunk_files.append(c_path)
+                            else: raise Exception("No audio content in Google response")
+                        else:
+                            raise Exception(f"Google API Error {r.status_code}: {r.text}")
+
+                    if chunk_files:
+                        ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
+                        list_path = f"{path}_glist.txt"
+                        with open(list_path, "w") as f:
+                            for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
+                        subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
+                        for cf in chunk_files: os.remove(cf)
+                        os.remove(list_path)
+                        return True
 
                 elif provider == "edge":
                     asyncio.run(self.generate_edge_fallback(text, voice, path))

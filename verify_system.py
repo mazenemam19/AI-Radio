@@ -306,8 +306,8 @@ def test_ai_client_environment_routing():
         captured_args.append({'payload': json.loads(user_input_json), 'model': model, 'engine': 'groq'})
         return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(5)]})
 
-    def mock_call_gemini(user_input_json, target_segments, mandate=""):
-        captured_args.append({'payload': json.loads(user_input_json), 'engine': 'gemini'})
+    def mock_call_gemini(user_input_json, target_segments, model="gemini-3.5-flash", mandate=""):
+        captured_args.append({'payload': json.loads(user_input_json), 'engine': 'gemini', 'model': model})
         return json.dumps({"segments": [{"speaker": "ECHO", "text": "Test Word " * 10, "speed": 1.0} for _ in range(5)]})
 
     client.call_groq = mock_call_groq

@@ -252,7 +252,7 @@ class AIRadioAIClient:
         
         target_segments = 10
         MIN_SEGMENTS = 8
-        min_avg_words = 140
+        min_avg_words = 200
 
         if not is_cloud:
             # Local testing thresholds
