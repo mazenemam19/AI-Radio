@@ -13,7 +13,7 @@ To eliminate all provider overlap between Testing and Production, ensuring that 
 ## 📋 Implementation Steps
 
 ### Phase 1: AI Client Refactor (`ai_client.py`)
-- [ ] **Define Static Queues:** Hardcode the `PROD_WRITER_QUEUE` and `TEST_WRITER_QUEUE`.
+- [x] **Define Static Queues:** Hardcode the `PROD_WRITER_QUEUE` and `TEST_WRITER_QUEUE`. 7353f90
 - [ ] **Implement `WriterOrchestrator`:** 
     - Iterate through the active queue.
     - If Attempt 1 fails, **reduce news context to 8 items** for Attempt 2.
