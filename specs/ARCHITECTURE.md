@@ -16,12 +16,12 @@ subgraph Brain [2. AI Satirical Engine]
     AC --> REAL_SWITCH{is_real_run?}
 
     REAL_SWITCH -->|Yes / Live| PROD_LOGIC[Full Context: 15 News / 20 Mem]
-    PROD_LOGIC --> L70[Llama 3.3 70B: 8k Tokens]
+    PROD_LOGIC --> SET_A[Set A: Groq 70B / Mistral Large]
 
     REAL_SWITCH -->|No / Test| LOCAL_LOGIC[Trimmed Context: 3 News / 1 Mem]
-    LOCAL_LOGIC --> G35[Gemini 3.5 Flash: Quota-Saver]
+    LOCAL_LOGIC --> SET_B[Set B: Gemini Flash-Lite / Flash]
 
-    L70 & G35 -->|Raw Output| HEAL[JSON Healer / String Repair]
+    SET_A & SET_B -->|Raw Output| HEAL[JSON Healer / String Repair]
     HEAL --> QUAL{Is Good?}
     QUAL -->|No| ABORT[Abort: Code 1]
     QUAL -->|Yes| MASTER_FLOW[Cleaned Script]
@@ -34,12 +34,12 @@ subgraph Mastering [3. Media Mastering]
 
     TTS_SWITCH -->|Yes| RPD_CHECK{Within RPD Limit?}
     RPD_CHECK -->|Yes| GROQ_TTS[Groq Cloud: Orpheus v1]
-    RPD_CHECK -->|No / Exhausted| EDGE_TTS
-
-    GROQ_TTS -->|429 Rate Limit / Error| EDGE_TTS
+    RPD_CHECK -->|No / Exhausted| GOOGLE_TTS[Google Cloud: Neural2]
+    
+    GROQ_TTS -->|429 Rate Limit / Error| GOOGLE_TTS
 
     TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
-        GROQ_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
+        GROQ_TTS & GOOGLE_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
 
         MASTER_FLOW -->|Visual Description| ART[Flux Model: Pollinations]
         ART -->|Neural Art| IMG[Background .png]

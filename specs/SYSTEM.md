@@ -10,7 +10,8 @@ This is the baseline "contract" for the Echo platform. It defines the foundation
 
 ## 🛡️ Global Constraints
 - **Deduplication:** Original Source Headline tracking with Threshold-2 Keyword Overlap.
-- **Quota-Saver:** Exclusively uses local Edge-TTS and Gemini 3.5 Flash for local development to protect expensive Groq quotas.
+- **Strict Provider Isolation:** Testing/Local sets (Google/Microsoft) MUST NOT overlap with Production sets (Groq/Mistral).
+- **Fail-Fast Integrity:** Placeholder scripts are prohibited. System must ABORT (code 1) if AI quality thresholds are not met.
 - **Persona:** Jon Stewart-style satirical performance with mandatory rhythm shifts and numerical suppression.
 
 ## 🔗 Feature Index

@@ -21,8 +21,12 @@
 - **Management:** `db_client.py` (Triple-mode persistence).
 
 ## AI & Media
-- **Brain:** Llama 3.3 70B (Production), Llama 3.1 8B (Local), Gemini 3.5 Flash (Fallback).
-- **Voice:** Groq Cloud TTS (canopylabs/orpheus-v1-english).
+- **Brain (Writer):**
+    - **Production Queue:** Llama 3.3 70B (Groq), Mistral Large (Mistral AI).
+    - **Testing Queue:** Gemini 3.1 Flash-Lite, Gemini 3 Flash.
+- **Voice (Narrator):** 
+    - **Production Queue:** Groq Cloud TTS (orpheus-v1), Google Cloud TTS (Neural2).
+    - **Testing Queue:** Edge-TTS (Microsoft Cloud), pocketsphinx (Local).
 - **Visuals:** Flux (via Pollinations.ai) for HD background generation.
 - **Compiler:** FFmpeg (Hardware-accelerated video compilation).
 
