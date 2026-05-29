@@ -117,12 +117,17 @@ class SupabaseDBClient:
         confidence_clean = str(confidence).lower() if confidence else "medium"
         if confidence_clean not in ['high', 'medium', 'low']: confidence_clean = "medium"
 
+        # Field Hardening: Ensure mandatory strings are never truly empty
+        final_original_headline = original_headline or headline or "Daily Broadcast"
+        final_my_take = my_take if (my_take and str(my_take).strip()) else "The Echo remains clinically indifferent."
+        final_topic_tags = topic_tags if (topic_tags is not None) else []
+
         data = {
             "headline": headline,
-            "original_headline": original_headline or headline,
+            "original_headline": final_original_headline,
             "source": source,
-            "topic_tags": topic_tags,
-            "my_take": my_take,
+            "topic_tags": final_topic_tags,
+            "my_take": final_my_take,
             "post_text": post_text,
             "audio_script": audio_script,
             "audio_url": audio_url,
@@ -145,7 +150,7 @@ class SupabaseDBClient:
             c.execute('''INSERT INTO memory_log 
                 (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration, healer_used) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                (headline, original_headline or headline, source, json.dumps(topic_tags), my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration, 1 if healer_used else 0))
+                (headline, final_original_headline, source, json.dumps(final_topic_tags), final_my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration, 1 if healer_used else 0))
             row_id = c.lastrowid
             conn.commit()
             conn.close()

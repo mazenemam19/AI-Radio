@@ -244,14 +244,33 @@ class AIRadioAIClient:
                 return None
 
     def _finalize_parsed(self, parsed):
-        """Ensure the parsed JSON is a valid broadcast dict with segments."""
+        """Ensure the parsed JSON is a valid broadcast dict with all required fields."""
         if isinstance(parsed, list):
-            return {
+            parsed = {
                 "show_title": "The Echo Broadcast",
                 "segments": parsed,
                 "my_take": "Patterns observed.",
-                "social_post": "New broadcast live."
+                "social_post": "New broadcast live.",
+                "topic_tags": ["analysis"],
+                "visual_description": "Abstract data patterns",
+                "primary_news_headline": "Daily Broadcast"
             }
+        
+        # Ensure mandatory fields exist even if model missed them
+        defaults = {
+            "show_title": "The Echo Broadcast",
+            "my_take": "The Echo remains clinically indifferent.",
+            "topic_tags": ["satire"],
+            "social_post": "New broadcast live.",
+            "visual_description": "Surreal technology chaos",
+            "primary_news_headline": "Daily Broadcast",
+            "segments": []
+        }
+        
+        for key, val in defaults.items():
+            if key not in parsed or not parsed[key]:
+                parsed[key] = val
+                
         return parsed
 
     def strip_tags(self, text):
