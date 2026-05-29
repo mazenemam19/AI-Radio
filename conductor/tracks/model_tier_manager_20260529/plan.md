@@ -21,11 +21,11 @@ To eliminate all provider overlap between Testing and Production, ensuring that 
 - [x] **Delete "Silent Treatment" logic:** Ensure no placeholder script is ever returned. 5a25c9a
 
 ### Phase 2: TTS Generator Refactor (`tts_generator.py`)
-- [ ] **Define Static Queues:** Hardcode the `PROD_VOICE_QUEUE` and `TEST_VOICE_QUEUE`.
-- [ ] **Implement `NarratorOrchestrator`:**
+- [x] **Define Static Queues:** Hardcode the `PROD_VOICE_QUEUE` and `TEST_VOICE_QUEUE`. 774f2b4
+- [x] **Implement `NarratorOrchestrator`:** 774f2b4
     - Explicitly check `is_real_run`. 
     - If `False`, the code path to `self.api_url` (Groq) must be physically unreachable.
-- [ ] **RPD Shield:** Maintain the 80-request hard ceiling for Groq.
+- [x] **RPD Shield:** Maintain the 80-request hard ceiling for Groq. 774f2b4
 
 ### Phase 3: Orchestrator fail-fast (`main.py`)
 - [ ] **Hard Abort:** Ensure `main.py` returns `False` (exit 1) if either the Writer or Narrator fails.
