@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── Voice Queues (v3.1) ───────────────────────────────────────────────────────
+PROD_VOICE_QUEUE = ["groq", "google"]
+TEST_VOICE_QUEUE = ["edge"]
+
 class TTSRadioGenerator:
     def __init__(self, echo_voice="daniel", glitch_voice="hannah", use_cloud=True):
         self.echo_voice = echo_voice
@@ -48,58 +52,69 @@ class TTSRadioGenerator:
         await communicate.save(path)
 
     def generate_segment_audio(self, text, voice, path):
-        # QUOTA-SAVER: Proactively skip Groq if not in cloud mode
-        if not self.use_cloud or not self.api_key:
-            asyncio.run(self.generate_edge_fallback(text, voice, path))
-            return True
-
-        chunks = self.chunk_text(text)
-        chunk_files = []
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        """Tiered Narrator Orchestrator (v3.1)"""
+        queue = PROD_VOICE_QUEUE if self.use_cloud else TEST_VOICE_QUEUE
         
-        try:
-            for c_idx, chunk_text in enumerate(chunks):
-                if self.daily_request_count >= self.daily_request_limit:
-                    print(f"[TTS] Daily request budget exhausted. Switching to Edge TTS.")
+        for provider in queue:
+            try:
+                if provider == "groq":
+                    if not self.api_key or self.daily_request_count >= self.daily_request_limit:
+                        print(f"[TTS] Groq skipped (No Key or Budget Exhausted).")
+                        continue
+                    
+                    chunks = self.chunk_text(text)
+                    chunk_files = []
+                    headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+                    
+                    for c_idx, chunk_text in enumerate(chunks):
+                        if c_idx > 0: time.sleep(8.0)
+                        body = {"model": self.model, "input": chunk_text, "voice": voice, "response_format": "wav"}
+                        
+                        success = False
+                        for attempt in range(3):
+                            r = requests.post(self.api_url, headers=headers, json=body, timeout=30)
+                            if r.status_code == 200:
+                                self.daily_request_count += 1
+                                c_path = f"{path}_chunk_{c_idx}.wav"
+                                with open(c_path, "wb") as f: f.write(r.content)
+                                chunk_files.append(c_path)
+                                success = True
+                                break
+                            elif r.status_code == 429:
+                                retry_after = int(r.headers.get("retry-after", "30"))
+                                if retry_after > 60:
+                                    print(f"[TTS] Groq Rate Limit (429) too high. Falling back.")
+                                    raise Exception("Rate Limit")
+                                time.sleep(retry_after + 1)
+                        
+                        if not success: raise Exception("Chunk Failed")
+
+                    if chunk_files:
+                        ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
+                        list_path = f"{path}_list.txt"
+                        with open(list_path, "w") as f:
+                            for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
+                        subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
+                        for cf in chunk_files: os.remove(cf)
+                        os.remove(list_path)
+                        return True
+
+                elif provider == "google":
+                    # Placeholder for Google Cloud TTS implementation if needed
+                    # For now, we fall back to Edge if Google isn't wired up
+                    print(f"[TTS] Falling through to Edge (Google Cloud TTS not implemented).")
+                    continue
+
+                elif provider == "edge":
                     asyncio.run(self.generate_edge_fallback(text, voice, path))
                     return True
 
-                if c_idx > 0: time.sleep(8.0)
-                body = {"model": self.model, "input": chunk_text, "voice": voice, "response_format": "wav"}
-                for attempt in range(3):
-                    r = requests.post(self.api_url, headers=headers, json=body, timeout=30)
-                    if r.status_code == 200:
-                        self.daily_request_count += 1
-                        c_path = f"{path}_chunk_{c_idx}.wav"
-                        with open(c_path, "wb") as f: f.write(r.content)
-                        chunk_files.append(c_path)
-                        break
-                    elif r.status_code == 429:
-                        retry_after_raw = r.headers.get("retry-after", "30")
-                        try:
-                            wait_seconds = int(retry_after_raw)
-                        except ValueError:
-                            print(f"[TTS] Warning: malformed retry-after header '{retry_after_raw}'. Defaulting to 30s.")
-                            wait_seconds = 30
-                        if wait_seconds > 60:
-                            print(f"[TTS] !!! QUOTA LIMIT !!! Switching to local backup.")
-                            raise Exception("Quota Limit")
-                        time.sleep(wait_seconds + 1)
-                    else:
-                        raise Exception(f"API Error {r.status_code}")
+            except Exception as e:
+                print(f"[TTS] Provider '{provider}' failed: {e}. Attempting next tier...")
+                continue
 
-            if chunk_files:
-                ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
-                list_path = f"{path}_list.txt"
-                with open(list_path, "w") as f:
-                    for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
-                subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
-                for cf in chunk_files: os.remove(cf)
-                os.remove(list_path)
-                return True
-        except Exception:
-            asyncio.run(self.generate_edge_fallback(text, voice, path))
-            return True
+        print(f"[TTS] CRITICAL: All voice tiers failed. Script at {path} could not be spoken.")
+        return False
 
     def make_audio(self, text, output_path):
         """Generate audio from simple text input (used for testing and simple cases)."""
