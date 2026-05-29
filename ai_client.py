@@ -7,6 +7,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── Model Queues (v3.1) ───────────────────────────────────────────────────────
+PROD_WRITER_QUEUE = ["llama-3.3-70b-versatile", "mistral-large-latest"]
+TEST_WRITER_QUEUE = ["gemini-3.5-flash", "gemini-3.1-flash-lite"]
+
 class AIRadioAIClient:
     def __init__(self):
         self.groq_key = os.environ.get("GROQ_API_KEY")
