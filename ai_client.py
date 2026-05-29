@@ -228,119 +228,112 @@ class AIRadioAIClient:
 
     def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
         """Generates a satirical broadcast. Target: 14 segments (~11-13 mins) for all environments."""
+        # Select active queue
+        queue = PROD_WRITER_QUEUE if is_cloud else TEST_WRITER_QUEUE
+        
         target_segments = 14
         MIN_SEGMENTS = 12
-
-        # Default max tokens and quality thresholds
-        request_max_tokens = 6000
         min_avg_words = 150
 
-        # Trim payload for local to stay within engine limits and save quota
         if not is_cloud:
-            print("[AI Client] Local environment — trimming payload for Gemini 3.5 Flash.")
-            news_items = news_items[:3]
-            memory_context = memory_context[:1]
-            request_max_tokens = 4000
-            # Local testing uses higher segment count to overcome model brevity
+            # Local testing thresholds
             target_segments = 25
             MIN_SEGMENTS = 20
-            min_avg_words = 60   
+            min_avg_words = 60
 
-        user_input = {"news_items": news_items, "memory_context": memory_context}
-        user_input_str = json.dumps(user_input)
+        # --- The Writer Orchestrator Loop ---
+        for attempt_idx, model in enumerate(queue):
+            attempt_num = attempt_idx + 1
+            
+            # Step-Down Logic: Reduce context on retries to focus the model and avoid summary traps
+            # Attempt 1: Full Context (15 news)
+            # Attempt 2+: Focused Context (8 news)
+            current_news = news_items[:15] if attempt_idx == 0 else news_items[:8]
+            current_mem = memory_context[:20] if attempt_idx == 0 else memory_context[:10]
+            
+            # Shielded mode (Local) is even tighter
+            if not is_cloud:
+                current_news = current_news[:3]
+                current_mem = current_mem[:1]
 
-        def _call_primary(attempt=1):
-            """Call the preferred engine based on environment."""
-            if is_cloud:
-                print(f"[AI Client] (Attempt {attempt}) Cloud — Directing to Groq 70B...")
-                return self.call_groq(user_input_str, target_segments, model="llama-3.3-70b-versatile", max_tokens=request_max_tokens)
-            else:
-                print(f"[AI Client] (Attempt {attempt}) Local — Directing to Gemini 3.5 Flash (Quota-Saver)...")
-                local_mandate = f"TEST RUN. REQUIRED: {target_segments} segments. Expand deeply on each story. BE VERBOSE."
-                return self.call_gemini(user_input_str, target_segments, mandate=local_mandate)
-
-        def _call_fallback():
-            """Call the fallback engine."""
-            if is_cloud:
-                print("[AI Client] Groq 70B failed — falling back to Gemini 3.5 Flash...")
-                return self.call_gemini(user_input_str, target_segments)
-            else:
-                # No Groq for tests. Local mode is Gemini-only to protect production quota.
-                print("[AI Client] Gemini failed. No fallback for local mode.")
-                return None
-
-        def _parse(raw_output):
-            """Parse and heal raw LLM output into a broadcast dict."""
-            if not raw_output:
-                return None
-            cleaned = raw_output.strip()
-            try:
-                if "```json" in cleaned:
-                    cleaned = cleaned.split("```json")[1].split("```")[0].strip()
-                elif "```" in cleaned:
-                    cleaned = cleaned.split("```")[1].split("```")[0].strip()
+            user_input = {"news_items": current_news, "memory_context": current_mem}
+            user_input_str = json.dumps(user_input)
+            
+            print(f"[AI Client] (Attempt {attempt_num}) Routing to {model}...")
+            
+            def _parse(raw_output):
+                """Parse and heal raw LLM output into a broadcast dict."""
+                if not raw_output:
+                    return None
+                cleaned = raw_output.strip()
                 try:
-                    parsed = json.loads(cleaned)
-                    res = self._finalize_parsed(parsed)
-                    res["_healer_used"] = False
-                    return res
-                except json.JSONDecodeError:
-                    healed = self.heal_truncated_json(cleaned)
-                    parsed = json.loads(healed)
-                    res = self._finalize_parsed(parsed)
-                    res["_healer_used"] = True
-                    return res
-            except Exception as e:
-                print(f"[AI Client] Standard parse failed: {e}. Attempting repair...")
-                repaired = self.attempt_json_repair(cleaned)
-                if repaired:
-                    print("[AI Client] Script recovered after repair.")
-                    repaired["_healer_used"] = True
-                    return repaired
-                print(f"[AI Client] Problematic output snippet: {cleaned[:500]}...")
-                return None
+                    if "```json" in cleaned:
+                        cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+                    elif "```" in cleaned:
+                        cleaned = cleaned.split("```")[1].split("```")[0].strip()
+                    try:
+                        parsed = json.loads(cleaned)
+                        res = self._finalize_parsed(parsed)
+                        res["_healer_used"] = False
+                        return res
+                    except json.JSONDecodeError:
+                        healed = self.heal_truncated_json(cleaned)
+                        parsed = json.loads(healed)
+                        res = self._finalize_parsed(parsed)
+                        res["_healer_used"] = True
+                        return res
+                except Exception:
+                    # Silently attempt repair before failing
+                    repaired = self.attempt_json_repair(cleaned)
+                    if repaired:
+                        repaired["_healer_used"] = True
+                        return repaired
+                    return None
 
-        def _is_sufficient(broadcast):
-            if not broadcast or "segments" not in broadcast or not isinstance(broadcast["segments"], list):
-                return False
-            count = len(broadcast["segments"])
-            if count < MIN_SEGMENTS:
-                print(f"[AI Client] WARNING: Only {count}/{target_segments} segments. Minimum is {MIN_SEGMENTS}.")
-                return False
+            def _is_sufficient(broadcast):
+                if not broadcast or "segments" not in broadcast or not isinstance(broadcast["segments"], list):
+                    return False
+                count = len(broadcast["segments"])
+                if count < MIN_SEGMENTS:
+                    print(f"[AI Client] WARNING: Only {count}/{target_segments} segments. Minimum is {MIN_SEGMENTS}.")
+                    return False
+                
+                # Word count check with type safety
+                total_words = 0
+                for seg in broadcast["segments"]:
+                    text = seg.get("text", "") if isinstance(seg, dict) else str(seg)
+                    total_words += len(text.split())
+                
+                avg_words = total_words // count
+                if avg_words < min_avg_words:
+                    print(f"[AI Client] WARNING: Avg {avg_words} words/segment — below {min_avg_words}. "
+                        f"Segments too thin.")
+                    return False
+                print(f"[AI Client] Script quality OK: {count} segments, ~{avg_words} words/segment.")
+                return True
+
+            raw_output = None
+            if "gemini" in model.lower():
+                mandate = ""
+                if not is_cloud: 
+                    mandate = f"TEST RUN. REQUIRED: {target_segments} segments. BE VERBOSE."
+                raw_output = self.call_gemini(user_input_str, target_segments, mandate=mandate)
+            else:
+                # Groq / Mistral
+                max_tokens = 8000 if is_cloud else 4000
+                raw_output = self.call_groq(
+                    user_input_json=user_input_str, 
+                    target_segments=target_segments, 
+                    model=model, 
+                    max_tokens=max_tokens
+                )
             
-            # Word count check with type safety
-            total_words = 0
-            for seg in broadcast["segments"]:
-                if isinstance(seg, dict):
-                    text = seg.get("text", "")
-                elif isinstance(seg, list) and len(seg) >= 2:
-                    text = seg[1]
-                else:
-                    text = str(seg)
-                total_words += len(text.split())
+            broadcast = _parse(raw_output)
+            if _is_sufficient(broadcast):
+                broadcast["_is_emergency"] = False
+                return broadcast
             
-            avg_words = total_words // count
-            if avg_words < min_avg_words:
-                print(f"[AI Client] WARNING: Avg {avg_words} words/segment — below {min_avg_words}. "
-                    f"Segments too thin, retrying for denser script.")
-                return False
-            print(f"[AI Client] Script quality OK: {count} segments, ~{avg_words} words/segment.")
-            return True
+            print(f"[AI Client] Attempt {attempt_num} ({model}) failed quality/completeness.")
 
-        # --- Attempt 1: primary engine ---
-        broadcast = _parse(_call_primary(attempt=1))
-
-        if not _is_sufficient(broadcast):
-            print(f"[AI Client] Attempt 1 insufficient. Retrying with fallback engine...")
-            broadcast = _parse(_call_fallback())
-
-            if not _is_sufficient(broadcast):
-                seg_count = len(broadcast["segments"]) if broadcast and "segments" in broadcast else 0
-                print(f"[AI Client] CRITICAL: Both engines returned insufficient scripts "
-                      f"({seg_count}/{target_segments} segments). Aborting broadcast.")
-                return None
-
-        seg_count = len(broadcast["segments"])
-        broadcast["_is_emergency"] = False
-        print(f"[AI Client] Script accepted: {seg_count} segments.")
-        return broadcast
+        print(f"[AI Client] CRITICAL: All {len(queue)} tiers in queue failed. Aborting broadcast.")
+        return None
