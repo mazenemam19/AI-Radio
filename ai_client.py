@@ -261,9 +261,9 @@ class AIRadioAIClient:
                 print("[AI Client] Groq 70B failed — falling back to Gemini 3.5 Flash...")
                 return self.call_gemini(user_input_str, target_segments)
             else:
-                print("[AI Client] Gemini failed — falling back to Groq 8B (Emergency Only)...")
-                local_mandate = f"TEST RUN. REQUIRE {target_segments} segments. YOU MUST BE EXTREMELY VERBOSE."
-                return self.call_groq(user_input_str, target_segments, model="llama-3.1-8b-instant", max_tokens=4000, mandate=local_mandate)
+                # No Groq for tests. Local mode is Gemini-only to protect production quota.
+                print("[AI Client] Gemini failed. No fallback for local mode.")
+                return None
 
         def _parse(raw_output):
             """Parse and heal raw LLM output into a broadcast dict."""
@@ -334,25 +334,7 @@ class AIRadioAIClient:
                 seg_count = len(broadcast["segments"]) if broadcast and "segments" in broadcast else 0
                 print(f"[AI Client] CRITICAL: Both engines returned insufficient scripts "
                       f"({seg_count}/{target_segments} segments). Aborting broadcast.")
-                
-                # Emergency fallback if both fail
-                emergency_text = "Echo here. Total cognitive blackout. " * 30
-                filler = "Digital placeholder of significant length to satisfy duration. " * 60
-                return {
-                    "show_title": "The Silent Treatment",
-                    "primary_news_headline": "API Quota Exceeded",
-                    "my_take": "The machines are tired.",
-                    "visual_description": "A sad robot.",
-                    "topic_tags": ["error"],
-                    "social_post": "Off-air.",
-                    "_is_emergency": True,
-                    "segments": [
-                        {"speaker": "ECHO", "text": f"{emergency_text} {filler}", "speed": 1.0},
-                        {"speaker": "GLITCH", "text": f"Strike! {filler}", "speed": 1.0},
-                        {"speaker": "ECHO", "text": f"Wait. {filler}", "speed": 1.0},
-                        {"speaker": "GLITCH", "text": f"End. {filler}", "speed": 1.0}
-                    ]
-                }
+                return None
 
         seg_count = len(broadcast["segments"])
         broadcast["_is_emergency"] = False

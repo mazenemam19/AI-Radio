@@ -22,33 +22,34 @@ subgraph Brain [2. AI Satirical Engine]
     LOCAL_LOGIC --> G35[Gemini 3.5 Flash: Quota-Saver]
 
     L70 & G35 -->|Raw Output| HEAL[JSON Healer / String Repair]
-    HEAL -->|Metadata: healer_used| DB_WRITE
+    HEAL --> QUAL{Is Good?}
+    QUAL -->|No| ABORT[Abort: Code 1]
+    QUAL -->|Yes| MASTER_FLOW[Cleaned Script]
 end
 
 %% Media Generation
 subgraph Mastering [3. Media Mastering]
-HEAL -->|Cleaned Script| TTS[tts_generator.py]
-TTS --> TTS_SWITCH{is_real_run?}
+    MASTER_FLOW --> TTS[tts_generator.py]
+    TTS --> TTS_SWITCH{is_real_run?}
 
-TTS_SWITCH -->|Yes| RPD_CHECK{Within RPD Limit?}
-RPD_CHECK -->|Yes| GROQ_TTS[Groq Cloud: Orpheus v1]
-RPD_CHECK -->|No / Exhausted| EDGE_TTS
+    TTS_SWITCH -->|Yes| RPD_CHECK{Within RPD Limit?}
+    RPD_CHECK -->|Yes| GROQ_TTS[Groq Cloud: Orpheus v1]
+    RPD_CHECK -->|No / Exhausted| EDGE_TTS
 
-GROQ_TTS -->|429 Rate Limit / Error| EDGE_TTS
+    GROQ_TTS -->|429 Rate Limit / Error| EDGE_TTS
 
-TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
+    TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
         GROQ_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
-        
-        HEAL -->|Visual Description| ART[Flux Model: Pollinations]
+
+        MASTER_FLOW -->|Visual Description| ART[Flux Model: Pollinations]
         ART -->|Neural Art| IMG[Background .png]
-        
+
         AUD & IMG --> FF[FFmpeg Orchestrator]
         FF --> VIDEO[Final Broadcast .mp4]
         VIDEO --> DUR{Duration >= 700s?}
-        DUR -->|No| ABORT[Discard Episode]
+        DUR -->|No| ABORT
         DUR -->|Yes| GRID_FLOW
     end
-
     %% Distribution & Dashboard
     subgraph Grid [4. Distribution & Display]
         DUR -->|Yes| GRID_FLOW[Approved Episode]
@@ -81,8 +82,8 @@ TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
     style DIST_ENV fill:#333,stroke:#fff
     style GRID_FLOW fill:#333,stroke:#fff
     style DUR fill:#ff0000,stroke:#fff
+    style QUAL fill:#333,stroke:#fff
     style RPD_CHECK fill:#333,stroke:#fff
-    style DB_WRITE fill:#333,stroke:#fff
 ```
 
 ---

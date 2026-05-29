@@ -389,8 +389,8 @@ def test_tts_chunk_size():
 
 def test_main_emergency_abort():
     """
-    Verifies that the pipeline correctly aborts if an emergency script is detected.
-    This protects the production YouTube channel from placeholder content.
+    Verifies that the pipeline correctly aborts if the AI fails to produce a script.
+    This protects the production YouTube channel from broken or empty content.
     """
     from main import run_pipeline
     from unittest.mock import patch, MagicMock
@@ -402,12 +402,8 @@ def test_main_emergency_abort():
          patch("main.DistributionPublisher"):
         
         mock_ai = MockAI.return_value
-        # Mock an emergency response
-        mock_ai.generate_broadcast.return_value = {
-            "segments": [],
-            "_is_emergency": True,
-            "show_title": "Emergency"
-        }
+        # Mock a failed AI response (None)
+        mock_ai.generate_broadcast.return_value = None
         
         # run_pipeline should return False (Abort)
         success = run_pipeline(env="local", dry_run=True)
