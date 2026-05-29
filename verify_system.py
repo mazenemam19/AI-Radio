@@ -334,6 +334,50 @@ def test_ai_client_environment_routing():
         print(f"[Verify] Routing test exception: {e}")
         return False
 
+def test_db_healer_column():
+    """Verifies that the healer_used column exists in the local database."""
+    from db_client import SupabaseDBClient
+    db = SupabaseDBClient(env='local')
+    conn = sqlite3.connect(db.db_path)
+    cursor = conn.execute('PRAGMA table_info(memory_log)')
+    cols = [row[1] for row in cursor.fetchall()]
+    conn.close()
+    return "healer_used" in cols
+
+def test_ai_healer_flag_injection():
+    """Verifies that generate_broadcast injects the _healer_used flag."""
+    from ai_client import AIRadioAIClient
+    client = AIRadioAIClient()
+    mock_resp = json.dumps({"segments": [{"speaker":"ECHO", "text":"hi " * 200, "speed":1.0} for _ in range(25)]})
+    client.call_gemini = lambda *a, **k: mock_resp
+    client.call_groq = lambda *a, **k: mock_resp
+    res = client.generate_broadcast([], [], "ts", is_cloud=False)
+    return "_healer_used" in res
+
+def test_tts_request_budget_enforcement():
+    """Verifies that TTS Generator respects the daily budget and falls back to Edge."""
+    from tts_generator import TTSRadioGenerator
+    import asyncio
+    generator = TTSRadioGenerator(use_cloud=True)
+    generator.daily_request_count = 80 # Limit reached
+    
+    # Mock Edge fallback (needs to be an async mock)
+    async def mock_edge(*a): return None
+    generator.generate_edge_fallback = mock_edge
+    
+    # This should trigger budget exhaustion
+    success = generator.generate_segment_audio("Test budget", "daniel", "output/budget_test.mp3")
+    return success # Should return True via fallback
+
+def test_groq_token_limit():
+    """Verifies that Groq max_tokens is set to 8000 in the method definition."""
+    import inspect
+    from ai_client import AIRadioAIClient
+    client = AIRadioAIClient()
+    sig = inspect.signature(client.call_groq)
+    max_tokens_default = sig.parameters['max_tokens'].default
+    return max_tokens_default == 8000
+
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -355,6 +399,10 @@ if __name__ == "__main__":
     results.append(run_test("Model Isolation (Prod Guard)",   test_production_model_isolation))
     results.append(run_test("AI Payload Trimming (Mocked)",   test_ai_client_payload_trimming))
     results.append(run_test("AI Routing & Logic (Thorough)",  test_ai_client_environment_routing))
+    results.append(run_test("DB Healer Column Presence",      test_db_healer_column))
+    results.append(run_test("AI Healer Flag Injection",       test_ai_healer_flag_injection))
+    results.append(run_test("TTS Budget Enforcement",         test_tts_request_budget_enforcement))
+    results.append(run_test("Groq Token Limit (8k)",          test_groq_token_limit))
 
     passed = sum(results)
     total  = len(results)

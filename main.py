@@ -28,7 +28,7 @@ def copy_cover_art():
     local_cover = "assets/cover_art.png"
     if os.path.exists(local_cover) and os.path.getsize(local_cover) > 0:
         return local_cover
-    return None
+    return local_cover
 
 def generate_neural_art(description, save_path):
     """Generate a high-quality 'dreamed up' image based on Echo's description."""
@@ -96,6 +96,9 @@ def run_pipeline(env="production", dry_run=False):
         print("[Main] Script generation failed.")
         return False
 
+    # Extract healer flag
+    healer_used = broadcast.pop("_healer_used", False)
+
     # 4. THE SHOW MUST GO ON
     show_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     audio_path = f"output/broadcast_{show_id}.mp3"
@@ -154,7 +157,8 @@ def run_pipeline(env="production", dry_run=False):
             audio_url=f"local://broadcast_{show_id}.mp3" if env != "production" else f"https://placeholder.com",
             video_url=video_url,
             confidence="high",
-            broadcast_duration=duration
+            broadcast_duration=duration,
+            healer_used=healer_used
         )
     if env == "local": sync_env_to_config(env="local")
     print(f"\n--- [Broadcast Complete] --- Show: {broadcast['show_title']} ---")

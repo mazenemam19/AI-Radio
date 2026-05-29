@@ -18,14 +18,15 @@ class TTSRadioGenerator:
         self.api_key = os.environ.get("GROQ_API_KEY")
         self.api_url = "https://api.groq.com/openai/v1/audio/speech"
         self.model = "canopylabs/orpheus-v1-english"
-        self.daily_char_limit = 14400 
+        self.daily_request_count = 0
+        self.daily_request_limit = 80  # hard ceiling below Groq's 100 RPD, leaving buffer
 
     def strip_tags(self, text):
         cleaned = re.sub(r'\[.*?\]', '', text)
         cleaned = re.sub(r'<.*?>', '', cleaned)
         return cleaned.strip()
 
-    def chunk_text(self, text, max_chars=190):
+    def chunk_text(self, text, max_chars=450):
         sentences = re.split(r'(?<=[.!?])\s+', text)
         chunks = []
         current_chunk = ""
@@ -58,11 +59,17 @@ class TTSRadioGenerator:
         
         try:
             for c_idx, chunk_text in enumerate(chunks):
+                if self.daily_request_count >= self.daily_request_limit:
+                    print(f"[TTS] Daily request budget exhausted. Switching to Edge TTS.")
+                    asyncio.run(self.generate_edge_fallback(text, voice, path))
+                    return True
+
                 if c_idx > 0: time.sleep(8.0)
                 body = {"model": self.model, "input": chunk_text, "voice": voice, "response_format": "wav"}
                 for attempt in range(3):
                     r = requests.post(self.api_url, headers=headers, json=body, timeout=30)
                     if r.status_code == 200:
+                        self.daily_request_count += 1
                         c_path = f"{path}_chunk_{c_idx}.wav"
                         with open(c_path, "wb") as f: f.write(r.content)
                         chunk_files.append(c_path)

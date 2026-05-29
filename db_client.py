@@ -64,7 +64,8 @@ class SupabaseDBClient:
             likes INTEGER DEFAULT 0,
             plays INTEGER DEFAULT 0,
             original_headline TEXT,
-            broadcast_duration INTEGER DEFAULT 0
+            broadcast_duration INTEGER DEFAULT 0,
+            healer_used BOOLEAN DEFAULT 0
         )''')
         
         # Check for new columns and migrate if needed
@@ -74,6 +75,8 @@ class SupabaseDBClient:
             c.execute("ALTER TABLE memory_log ADD COLUMN original_headline TEXT")
         if "broadcast_duration" not in cols:
             c.execute("ALTER TABLE memory_log ADD COLUMN broadcast_duration INTEGER DEFAULT 0")
+        if "healer_used" not in cols:
+            c.execute("ALTER TABLE memory_log ADD COLUMN healer_used BOOLEAN DEFAULT 0")
             
         conn.commit()
         conn.close()
@@ -110,7 +113,7 @@ class SupabaseDBClient:
             print(f"[DB Client] HTTP connection failed fetching memory: {e}")
             return []
 
-    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None, broadcast_duration=0, original_headline=None):
+    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None, broadcast_duration=0, original_headline=None, healer_used=False):
         confidence_clean = str(confidence).lower() if confidence else "medium"
         if confidence_clean not in ['high', 'medium', 'low']: confidence_clean = "medium"
 
@@ -127,6 +130,7 @@ class SupabaseDBClient:
             "confidence": confidence_clean,
             "related_ids": related_ids or [],
             "broadcast_duration": broadcast_duration,
+            "healer_used": healer_used,
             "likes": 0,
             "plays": 0
         }
@@ -139,9 +143,9 @@ class SupabaseDBClient:
             conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
             c.execute('''INSERT INTO memory_log 
-                (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                (headline, original_headline or headline, source, json.dumps(topic_tags), my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration))
+                (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration, healer_used) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                (headline, original_headline or headline, source, json.dumps(topic_tags), my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration, 1 if healer_used else 0))
             row_id = c.lastrowid
             conn.commit()
             conn.close()
@@ -152,7 +156,7 @@ class SupabaseDBClient:
             insert_headers = self.headers.copy()
             insert_headers["Prefer"] = "return=representation"
             # Allow new columns in the payload for Supabase parity
-            allow_keys = ['headline', 'source', 'topic_tags', 'my_take', 'post_text', 'audio_script', 'audio_url', 'video_url', 'confidence', 'related_ids', 'original_headline', 'broadcast_duration']
+            allow_keys = ['headline', 'source', 'topic_tags', 'my_take', 'post_text', 'audio_script', 'audio_url', 'video_url', 'confidence', 'related_ids', 'original_headline', 'broadcast_duration', 'healer_used']
             payload = {k: v for k, v in data.items() if k in allow_keys}
             
             response = requests.post(endpoint, headers=insert_headers, json=payload, timeout=15)

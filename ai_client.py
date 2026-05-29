@@ -61,7 +61,7 @@ class AIRadioAIClient:
 
             Generate exactly {target_segments} segments.""").strip()
 
-    def call_groq(self, user_input_json, target_segments, model="llama-3.3-70b-versatile", max_tokens=6000, mandate=""):
+    def call_groq(self, user_input_json, target_segments, model="llama-3.3-70b-versatile", max_tokens=8000, mandate=""):
         """Primary satirical engine using Llama models on Groq."""
         if not self.groq_key: 
             print("[AI Client] Groq API Key is not set in environment.")
@@ -277,16 +277,21 @@ class AIRadioAIClient:
                     cleaned = cleaned.split("```")[1].split("```")[0].strip()
                 try:
                     parsed = json.loads(cleaned)
-                    return self._finalize_parsed(parsed)
+                    res = self._finalize_parsed(parsed)
+                    res["_healer_used"] = False
+                    return res
                 except json.JSONDecodeError:
                     healed = self.heal_truncated_json(cleaned)
                     parsed = json.loads(healed)
-                    return self._finalize_parsed(parsed)
+                    res = self._finalize_parsed(parsed)
+                    res["_healer_used"] = True
+                    return res
             except Exception as e:
                 print(f"[AI Client] Standard parse failed: {e}. Attempting repair...")
                 repaired = self.attempt_json_repair(cleaned)
                 if repaired:
                     print("[AI Client] Script recovered after repair.")
+                    repaired["_healer_used"] = True
                     return repaired
                 print(f"[AI Client] Problematic output snippet: {cleaned[:500]}...")
                 return None

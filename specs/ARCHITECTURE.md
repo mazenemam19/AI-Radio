@@ -6,34 +6,37 @@ This diagram uses **Mermaid.js** syntax to visualize the data flow of the Echo b
 graph TD
     %% Data Sources
     subgraph Ingestion [1. Ingestion & Filtering]
-        RSS[RSS Feeds: BBC, Reuters] --> NF[news_fetcher.py]
+        RSS[RSS Feeds: BBC, Reuters, Guardian] --> NF[news_fetcher.py]
         HN[HackerNews API] --> NF
-        NF -->|Deduplication: Keyword Overlap| DB[(SQLite / Supabase)]
+        NF -->|Deduplication: Threshold-2 Overlap| DB[(SQLite / Supabase)]
     end
 %% AI Core
 subgraph Brain [2. AI Satirical Engine]
     DB -->|Context & Past Jokes| AC[ai_client.py]
     AC --> REAL_SWITCH{is_real_run?}
 
-    REAL_SWITCH -->|Yes / Live| PROD_LOGIC[Full Context: 15 News / 10 Mem]
-    PROD_LOGIC --> L70[Llama 3.3 70B: Versatile]
+    REAL_SWITCH -->|Yes / Live| PROD_LOGIC[Full Context: 15 News / 20 Mem]
+    PROD_LOGIC --> L70[Llama 3.3 70B: 8k Tokens]
 
     REAL_SWITCH -->|No / Test| LOCAL_LOGIC[Trimmed Context: 3 News / 1 Mem]
     LOCAL_LOGIC --> G35[Gemini 3.5 Flash: Quota-Saver]
 
     L70 & G35 -->|Raw Output| HEAL[JSON Healer / String Repair]
+    HEAL -->|Metadata: healer_used| DB_WRITE
 end
 
 %% Media Generation
 subgraph Mastering [3. Media Mastering]
-    HEAL -->|Cleaned Script| TTS[tts_generator.py]
-    TTS --> TTS_SWITCH{is_real_run?}
+HEAL -->|Cleaned Script| TTS[tts_generator.py]
+TTS --> TTS_SWITCH{is_real_run?}
 
-    TTS_SWITCH -->|Yes| GROQ_TTS[Groq Cloud: Orpheus v1]
-    GROQ_TTS -->|429 Rate Limit| EDGE_TTS
+TTS_SWITCH -->|Yes| RPD_CHECK{Within RPD Limit?}
+RPD_CHECK -->|Yes| GROQ_TTS[Groq Cloud: Orpheus v1]
+RPD_CHECK -->|No / Exhausted| EDGE_TTS
 
-    TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
-        
+GROQ_TTS -->|429 Rate Limit / Error| EDGE_TTS
+
+TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
         GROQ_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
         
         HEAL -->|Visual Description| ART[Flux Model: Pollinations]
@@ -78,6 +81,8 @@ subgraph Mastering [3. Media Mastering]
     style DIST_ENV fill:#333,stroke:#fff
     style GRID_FLOW fill:#333,stroke:#fff
     style DUR fill:#ff0000,stroke:#fff
+    style RPD_CHECK fill:#333,stroke:#fff
+    style DB_WRITE fill:#333,stroke:#fff
 ```
 
 ---
@@ -88,7 +93,7 @@ subgraph Mastering [3. Media Mastering]
 | :--- | :--- | :--- | :--- |
 | **Trigger** | GitHub Actions | Manual CLI | Manual CLI |
 | **AI Brain** | Llama 3.3 70B | Gemini 3.5 Flash | Gemini 3.5 Flash |
-| **Context** | 15 News / 10 Memory | 3 News / 1 Memory | 3 News / 1 Memory |
+| **Context** | 15 News / 20 Memory | 3 News / 1 Memory | 3 News / 1 Memory |
 | **Speech** | Groq (Orpheus v1) | Edge-TTS (Local) | Edge-TTS (Local) |
 | **Database** | Supabase (Prod) | Supabase (Dev) | SQLite (Local) |
 | **Video** | YouTube Upload | Mock (Rick Astley) | Local File |
