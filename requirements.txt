@@ -1,10 +1,35 @@
-feedparser>=6.0.10
-requests>=2.31.0
-atproto>=0.0.48
-edge-tts>=6.1.9
-google-api-python-client>=2.115.0
+# AI Radio Echo — Python dependencies
+# Install: pip install -r requirements.txt
+
+# ── Core pipeline ──────────────────────────────────────────────────────────
+python-dotenv>=1.0.0          # .env file loading
+
+# ── News fetching ─────────────────────────────────────────────────────────
+feedparser>=6.0.11            # RSS/Atom parsing (always via requests, never direct URL)
+requests>=2.31.0              # HTTP client with timeout control
+
+# ── AI clients ────────────────────────────────────────────────────────────
+google-generativeai>=0.8.0    # Gemini (gemini-3.5-flash, gemini-3.1-flash-lite)
+groq>=0.12.0                  # Groq completions + Orpheus TTS
+
+# ── TTS ───────────────────────────────────────────────────────────────────
+edge-tts>=6.1.12              # Microsoft Neural TTS (local fallback, zero quota)
+
+# ── Database ──────────────────────────────────────────────────────────────
+supabase>=2.4.0               # Supabase REST client (prod-db, production envs)
+
+# ── YouTube upload ────────────────────────────────────────────────────────
+google-api-python-client>=2.130.0
+google-auth>=2.29.0
 google-auth-oauthlib>=1.2.0
-google-auth-httplib2>=0.2.0
-google-genai>=0.1.1
-python-dotenv>=1.0.1
-Pillow>=10.0.0
+
+# ── Image generation ──────────────────────────────────────────────────────
+Pillow>=10.3.0                # Episode thumbnail creation
+
+# ── FFmpeg ────────────────────────────────────────────────────────────────
+# FFmpeg is a system binary, not a Python package.
+# Install separately:
+#   Ubuntu/Debian:  sudo apt-get install ffmpeg
+#   macOS:          brew install ffmpeg
+#   Windows:        https://ffmpeg.org/download.html  (add to PATH)
+# The pipeline uses shutil.which("ffmpeg") — never hardcodes paths.
