@@ -1,0 +1,10 @@
+.env
+output/
+__pycache__/
+config.js
+assets/*
+*.mp3
+*.mp4
+*.pyc
+ai_radio_dev.db
+.gemini/ralph/*
