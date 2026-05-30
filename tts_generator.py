@@ -28,9 +28,9 @@ _EDGE_VOICES: dict[str, str] = {
 
 # Groq Orpheus voice IDs keyed by speaker name
 _GROQ_VOICES: dict[str, str] = {
-    "HOST":    "dan",
-    "CO-HOST": "talia",
-    "DEFAULT": "talia",
+    "HOST":    "daniel",
+    "CO-HOST": "hannah",
+    "DEFAULT": "daniel",
 }
 
 
@@ -98,7 +98,7 @@ def _groq_tts(text: str, voice_id: str, out_path: str) -> bool:
                 model=_GROQ_TTS_MODEL,
                 voice=voice_id,
                 input=chunk_text,
-                response_format="mp3",
+                response_format="wav",
             )
             audio_parts.append(resp.read())
             _increment_usage(len(chunk_text))   # track after each successful chunk
