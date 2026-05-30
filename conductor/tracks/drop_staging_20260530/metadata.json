@@ -1,0 +1,8 @@
+{
+  "track_id": "drop_staging_20260530",
+  "type": "refactor",
+  "status": "new",
+  "created_at": "2026-05-30T10:00:00Z",
+  "updated_at": "2026-05-30T10:00:00Z",
+  "description": "Drop the staging environment and move to a binary local/production model."
+}
