@@ -371,7 +371,7 @@ def _run_tts_pipeline(
 
 def _build_episode_data(
     broadcast: dict,
-    audio_path: str,
+    audio_url: str | None,
     video_url: str | None,
     duration: float,
     narrator_model: str,
@@ -402,7 +402,7 @@ def _build_episode_data(
         "source":            source,
         "topic_tags":        json.dumps(tags),
         "audio_script":      audio_script,
-        "audio_url":         None,     # No separate audio hosting per spec
+        "audio_url":         audio_url,
         "video_url":         video_url,
         "confidence":        broadcast.get("confidence", "medium"),
         "related_ids":       None,
@@ -503,8 +503,17 @@ def run_pipeline(env: str, dry_run: bool) -> None:
 
     # ── Step 8: Save to DB ────────────────────────────────────────────────
     if not dry_run:
+        # NEW: Register artifacts (Local URI or Supabase Upload)
+        print("[Main] Registering artifacts...")
+        final_audio_url = db.upload_file(audio_path, bucket="broadcasts")
+        final_video_url = db.upload_file(video_path, bucket="broadcasts")
+
+        # Prioritise YouTube link if it exists
+        if video_url:
+            final_video_url = video_url
+
         episode_data = _build_episode_data(
-            broadcast, audio_path, video_url, duration, narrator_model, news
+            broadcast, final_audio_url, final_video_url, duration, narrator_model, news
         )
         inserted = db.insert_post(episode_data)
         if inserted:
