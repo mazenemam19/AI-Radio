@@ -484,6 +484,7 @@ def main():
     env     = args.env
     dry_run = args.dry_run
 
+    episode_ts = time.strftime("%Y%m%d_%H%M%S")
     print(f"[PIPELINE] Starting — env={env}, dry_run={dry_run}")
 
     # --- Load environment variables ---
@@ -565,7 +566,7 @@ def main():
     # ------------------------------------------------------------------ #
     # Step 5: Concatenate audio
     # ------------------------------------------------------------------ #
-    master_audio = "output/total_broadcast.mp3"
+    master_audio = f"output/broadcast_{episode_ts}.mp3"
     if not concatenate_audio(segment_files, master_audio):
         print("[PIPELINE] Audio concatenation failed. Exiting.")
         sys.exit(1)
