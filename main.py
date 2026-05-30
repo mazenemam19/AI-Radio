@@ -526,6 +526,15 @@ def main() -> None:
         if confidence not in ("high", "medium", "low"):
             confidence = "medium"
 
+        # NEW: Upload files to storage (or get local:// URIs)
+        print("[Main] Registering artifacts...")
+        final_audio_url = db.upload_file(combined_audio, bucket="broadcasts")
+        final_video_url = db.upload_file(video_path,    bucket="broadcasts")
+
+        # Prioritise YouTube link if it exists
+        if video_url:
+            final_video_url = video_url
+
         post_data = {
             "headline":          broadcast.get("headline",          ""),
             "original_headline": broadcast.get("original_headline", ""),
@@ -534,8 +543,8 @@ def main() -> None:
             "my_take":           broadcast.get("my_take",           ""),
             "post_text":         broadcast.get("post_text",         ""),
             "audio_script":      audio_script,
-            "audio_url":         None,    # no audio-only upload — never fake a URL
-            "video_url":         video_url,
+            "audio_url":         final_audio_url,
+            "video_url":         final_video_url,
             "confidence":        confidence,
             "related_ids":       None,
             "broadcast_duration": int(duration),

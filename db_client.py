@@ -8,6 +8,7 @@ import os
 import sqlite3
 import json
 import requests
+import mimetypes
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -229,3 +230,46 @@ class DBClient:
                 print(f"[DB] delete_old_episodes failed ({resp.status_code}): {resp.text}")
         except Exception as e:
             print(f"[DB] delete_old_episodes error: {e}")
+
+    def upload_file(self, local_path: str, bucket: str = "broadcasts") -> str | None:
+        """
+        Upload a file to Supabase Storage (if in Supabase mode) or return
+        a local reference URI (if in SQLite mode).
+
+        Returns:
+            The public URL or local:// URI string, or None on failure.
+        """
+        p = Path(local_path)
+        if not p.exists():
+            print(f"[DB] upload_file failed: {local_path} does not exist.")
+            return None
+
+        if self._backend == "sqlite":
+            # Return a 'local://' URI that the dashboard frontend can recognize.
+            return f"local://{p.name}"
+
+        # Supabase Storage
+        file_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{p.name}"
+        url = f"{self.supabase_url}/storage/v1/object/{bucket}/{file_name}"
+
+        mime_type, _ = mimetypes.guess_type(local_path)
+        headers = {
+            **self._headers,
+            "Content-Type": mime_type or "application/octet-stream",
+        }
+
+        try:
+            with open(local_path, "rb") as f:
+                resp = requests.post(url, headers=headers, data=f, timeout=60)
+
+            if resp.status_code == 200:
+                # Construct public URL
+                public_url = f"{self.supabase_url}/storage/v1/object/public/{bucket}/{file_name}"
+                print(f"[DB] Uploaded to Supabase Storage: {public_url}")
+                return public_url
+
+            print(f"[DB] Supabase upload failed ({resp.status_code}): {resp.text}")
+            return None
+        except Exception as e:
+            print(f"[DB] upload_file error: {e}")
+            return None
