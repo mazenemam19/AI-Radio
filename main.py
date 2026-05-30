@@ -425,6 +425,7 @@ def build_episode_metadata(
     news_items: list[dict],
     broadcast: dict,
     duration: float,
+    audio_url: "str | None",
     video_url: "str | None",
     healer_used: bool,
     writer_model: str,
@@ -440,7 +441,7 @@ def build_episode_metadata(
         "source":            news_items[0].get("source", "") if news_items else "",
         "topic_tags":        json.dumps(sources),
         "audio_script":      json.dumps(broadcast),
-        "audio_url":         None,   # No cloud audio upload in current spec
+        "audio_url":         audio_url,
         "video_url":         video_url,
         "confidence":        "high",
         "broadcast_duration": int(duration),
@@ -614,14 +615,24 @@ def main():
             print("[PIPELINE] YouTube upload returned None. Saving None to DB and continuing.")
 
     # ------------------------------------------------------------------ #
-    # Step 9: Save to DB (skip if dry-run)
+    # Step 9: Save to DB (skip if dry-run)                               #
     # ------------------------------------------------------------------ #
     if not dry_run:
+        # NEW: Register artifacts (Local URI or Supabase Upload)
+        print("[PIPELINE] Registering artifacts...")
+        final_audio_url = db.upload_file(master_audio, bucket="broadcasts")
+        final_video_url = db.upload_file(video_path,    bucket="broadcasts")
+
+        # Prioritise YouTube link if it exists
+        if video_url:
+            final_video_url = video_url
+
         post_data = build_episode_metadata(
             news_items=news_items,
             broadcast=broadcast,
             duration=duration,
-            video_url=video_url,
+            audio_url=final_audio_url,
+            video_url=final_video_url,
             healer_used=healer_used,
             writer_model=writer_model,
             narrator_model=narrator_model,
