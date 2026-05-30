@@ -1,0 +1,8 @@
+{
+  "track_id": "model_tier_manager_20260529",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-05-29T13:00:00Z",
+  "updated_at": "2026-05-29T13:00:00Z",
+  "description": "Implementation of No-Overlap v3.1 Model Queue Strategy and Fail-Fast Logic"
+}
