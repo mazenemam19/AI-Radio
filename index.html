@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Radio — Echo's Transmissions Hub</title>
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="ambient-glow orb-1"></div>
+  <div class="ambient-glow orb-2"></div>
+
+  <div class="app-container">
+    
+    <header class="navbar glass">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">AI RADIO <span class="logo-divider">//</span> <span class="logo-sub">ECHO</span></span>
+      </div>
+      <div class="live-status">
+        <span class="status-dot"></span>
+        <span class="status-label">TRANSMISSION ACTIVE</span>
+      </div>
+    </header>
+
+    <main class="main-grid">
+      <section class="now-playing-section">
+        <div class="card now-playing-card glass">
+          <div class="card-header">
+            <span class="badge badge-accent">⚡ CURRENT FREQUENCY</span>
+            <span class="timestamp" id="active-date">LOADING...</span>
+          </div>
+
+          <div class="episode-details">
+            <h1 class="episode-title" id="active-title">Initiating...</h1>
+            <div class="source-tag" id="active-source">Awaiting Signal</div>
+            <p class="episode-take" id="active-take">"Echo is preparing your analytical dose of sardonic observation."</p>
+          </div>
+
+          <div id="yt-container" class="video-container">
+            <div id="yt-player-frame" style="width:100%; height:100%;"></div>
+            <video id="local-video-player" class="hidden" controls style="width:100%; height:100%; border-radius:8px;"></video>
+          </div>
+
+          <div class="player-controls">
+            <div class="control-row">
+              <button class="btn btn-circle" id="btn-play-pause" title="Play / Pause">
+                <svg id="play-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="pause-icon" class="hidden" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+              </button>
+              <div class="engagement-buttons">
+                <button class="btn btn-secondary btn-icon" id="btn-like">
+                  <span class="icon">❤️</span><span class="label" id="active-likes">0</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="comments-section">
+        <div class="card comments-card glass">
+          <div class="card-header">
+            <h3>💬 HUMAN FEEDBACK</h3>
+            <span class="comments-count" id="comments-count">0 comments</span>
+          </div>
+          <div class="comments-list" id="comments-list"></div>
+          <form class="comment-form" id="comment-form">
+            <input type="text" id="commenter-name" placeholder="Organic Nickname" required>
+            <div class="textarea-container">
+              <textarea id="commenter-text" placeholder="Submit reaction..." rows="2" required></textarea>
+              <button type="submit" class="btn btn-primary" id="btn-submit-comment">SUBMIT</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <section class="archive-section">
+      <div class="archive-header">
+        <h2>📅 ARCHIVED TRANSMISSIONS</h2>
+        <div class="search-box">
+          <input type="text" id="archive-search" class="search-input glass" placeholder="Search...">
+        </div>
+      </div>
+      <div class="episodes-grid" id="episodes-grid"></div>
+    </section>
+
+    <footer class="app-footer">
+      <p>AI Radio // Driven by Llama 3.3 & Gemini 3.5 Flash // Strictly Artificial.</p>
+    </footer>
+  </div>
+
+  <script>
+    const ts = Date.now();
+    const loadScript = (src) => new Promise((resolve) => {
+      const s = document.createElement('script');
+      // Only append cache-buster (v=timestamp) to local files, not external URLs
+      s.src = src.startsWith('http') ? src : `${src}${src.includes('?') ? '&' : '?'}v=${ts}`;
+      s.onload = resolve;
+      document.body.appendChild(s);
+    });
+
+    async function boot() {
+      await loadScript('config.js');
+
+      await loadScript('app.js');
+
+      if (window.CONFIG?.APP_ENV !== 'local') {
+        await loadScript('https://www.youtube.com/iframe_api');
+      }
+    }
+    boot();
+  </script>
+</body>
+</html>
