@@ -1,440 +1,338 @@
-import os
+"""
+ai_client.py — AI Radio Echo
+Two callers: call_gemini(), call_groq()
+One orchestrator: generate_broadcast(news, memory, env)
+Includes heal_truncated_json and full validation per spec.
+"""
+
 import json
-import requests
+import os
 import re
-import textwrap
-from dotenv import load_dotenv
 
-load_dotenv()
+# ---------------------------------------------------------------------------
+# Model queues per spec
+# ---------------------------------------------------------------------------
 
-# ── Model Queues (v3.1 - Enhanced Resilience) ──────────────────────────────────
-# Set A: Production (Premium) - High reasoning, prioritizes satirical depth.
-PROD_WRITER_QUEUE = [
-    "llama-3.3-70b-versatile",                  # Groq: Best reasoning
-    "meta-llama/llama-4-scout-17b-16e-instruct", # Groq: Newest Llama 4 Scout
-    "gemini-3.5-flash",                          # Google: High-reliability, high-quality
-    "gemini-3.1-flash-lite",                     # Google: High-quota resilience tier
-    "qwen/qwen3-32b",                            # Groq: Balance (Note: Lower TPM limit)
-    "gemini-2.5-pro"                             # Google: Last resort (due to strict RPD/RPM)
+_QUEUE_PROD = [
+    ("groq",   "llama-3.3-70b-versatile"),
+    ("gemini", "gemini-3.5-flash"),
+    ("gemini", "gemini-3.1-flash-lite"),
 ]
 
-# Set B: Testing (Shielded) - Fast, free, high quota, zero Groq overlap.
-TEST_WRITER_QUEUE = [
-    "gemini-3.5-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-2.5-flash-lite",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash"
+_QUEUE_LOCAL = [
+    ("gemini", "gemini-3.5-flash"),
 ]
 
-class AIRadioAIClient:
-    def __init__(self):
-        self.groq_key = os.environ.get("GROQ_API_KEY")
-        self.gemini_key = os.environ.get("GEMINI_API_KEY")
+_PROD_ENVS = {"production", "prod-models"}
 
-        # THE "STEWART-CENTRIC" BRAIN: Tighter, angrier, funnier.
-        self.system_prompt_template = textwrap.dedent("""
-            You are the Lead Satirist for "The Echo Broadcast."
-            Style: Jon Stewart / Stephen Colbert.
-            Format: MONO-TOPIC DEEP DIVE.
-            INSTRUCTION: Pick the single most absurd or impactful news item from the provided context and spend the entire {target_segments}-segment show tearing it apart with depth and precision.
+# ---------------------------------------------------------------------------
+# Prompt building
+# ---------------------------------------------------------------------------
 
-            FORWARD MOMENTUM MANDATE: 
-            - Each segment MUST move the story forward. 
-            - DO NOT RESTATE information from previous segments.
-            - Segment 1: The Outrageous Fact.
-            - Segment 2-4: The Absurd Mechanics (How did this happen?).
-            - Segment 5-7: The Societal/Corporate Failure.
-            - Segment 8-10: The Nihilistic Conclusion.
-            - BANNED: Copy-pasting previous reasoning to hit word counts.
+_SYSTEM_PROMPT = """\
+You are the head writer for "Echo," a satirical AI radio station that covers world events
+with wit and irreverence. Your scripts blend genuine insight with sharp absurdist humour.
 
-            CHARACTERS:
+Return ONLY valid JSON. No markdown, no code fences, no explanation — ONLY the raw JSON object.
 
-            1. ECHO (Host): Intellectual, authoritative, and deeply disappointed. Voice: daniel/guy.
-            2. GLITCH (Correspondent): High-energy, chaotic, enthusiastic about data. Voice: hannah/jenny.
+Required format exactly:
+{
+  "title": "Catchy episode title (max 80 chars)",
+  "headline": "Main story headline",
+  "confidence": "high",
+  "segments": [
+    {"speaker": "HOST", "text": "Full spoken text, minimum 50 words..."},
+    ...
+  ]
+}
 
-            SATIRE & TONE RULES:
-            1. NO NUMBERS: BAN ALL STATS, DATES, AND NUMBERS unless they are the literal subject of the story. Replace with qualitative mockery.
-            2. NO REPETITION: If a joke has been made in the memory context, IT IS BANNED. Find a new angle.
-            3. RHYTHM SHIFTS (MANDATORY): You must use [fast], [slow], [whisper], [shout] tags to force the voice engine to change its cadence.
-            4. DEPTH: Write 200-300 words per segment. Be verbose and detailed.
-            CONFLICT: Echo and Glitch must name each other and argue. No generic titles.
-            5. FORWARD MOMENTUM (MANDATORY): Each segment must introduce a NEW angle, joke, or piece of information. 
-            Restating what the previous segment already said is banned. Before writing each segment, ask:
-            "What does this add that wasn't said before?" If the answer is nothing — rewrite it.
-            6. BANNED FILLER PHRASES: NEVER use: "keep fighting", "keep pushing", "demand change", 
-            "demand justice", "slap on the wrist", "tip of the iceberg", "status quo", "root causes", 
-            "we need to do better", "long and difficult road", "fight for justice", "make our voices heard".
+Strict rules:
+- Minimum 10 segments, maximum 15.
+- Each segment text MUST be at least 50 words — count carefully before finishing.
+- Valid speakers: HOST, REPORTER, ANALYST, WEATHERBOT, COMMENTATOR.
+- HOST opens the broadcast and closes it. Alternate other speakers naturally.
+- Satirical, fact-based. Exaggerate real trends. Do NOT invent fictional statistics.
+- No segment may repeat ideas from another segment (>50% word overlap forbidden).
+- confidence must be "high", "medium", or "low".
+"""
 
-            CRITICAL CONSTRAINTS:
-            1. NAME USAGE QUOTA: DO NOT say the other person's name in every segment. You are only allowed to say "Echo" or "Glitch" a MAXIMUM OF 3 TIMES across the entire 12-segment script. Use pronouns (you) or indirect responses ("Exactly", "Ha!", "No way", "My Friend", ... etc.) instead.
-            2. BANNED CLICHÉS: NEVER use: "Human conflict and disease can collide", "perfect example of how", "ticking time bomb", "tune in to our latest episode".
-            3. NO REPETITION: You have access to past episodes in the context. If you covered a topic or used a joke before, YOU ARE BANNED FROM USING IT AGAIN.
 
-            OUTPUT FORMAT (Strict JSON):
-            CRITICAL JSON ESCAPING RULE: If characters use air-quotes, cite spoken dialogue, or quote an entity inside their script text string, you MUST use single quotes (') instead of double quotes. Raw unescaped double quotes inside a JSON string value are strictly banned as they break the compilation parser.
+def _build_prompt(news: list[dict], memory: list[dict], max_news: int = 15) -> str:
+    news_block_items = []
+    for item in news[:max_news]:
+        src = item.get("source", "Unknown")
+        headline = item.get("headline", "")
+        summary = item.get("summary", "")
+        news_block_items.append(f"  [{src}] {headline}: {summary[:300]}")
+    news_block = "\n".join(news_block_items) or "  (no news items available)"
 
-            {{
-              "show_title": "A witty title",
-              "primary_news_headline": "The news headline covered",
-              "my_take": "Cynical summary",
-              "visual_description": "A detailed artistic prompt describing a satirical, or absurd image",
-              "topic_tags": ["tag1", "tag2"],
-              "social_post": "Promo text",
-              "segments": [
-                {{
-                  "speaker": "ECHO | GLITCH",
-                  "text": "The script with [vocal directions] and AGGRESSIVE PUNCTUATION!!!",
-                  "speed": 1.0
-                }}
-              ]
-            }}
+    memory_block_items = [m.get("headline", "") for m in memory[:5] if m.get("headline")]
+    memory_block = "\n".join(f"  - {h}" for h in memory_block_items) or "  (no prior episodes)"
 
-            Generate exactly {target_segments} segments.""").strip()
+    return (
+        _SYSTEM_PROMPT
+        + "\n\nTODAY'S NEWS ITEMS:\n"
+        + news_block
+        + "\n\nRECENT EPISODE HEADLINES (avoid repetition):\n"
+        + memory_block
+        + "\n\nWrite the complete broadcast JSON now:"
+    )
 
-    def call_groq(self, user_input_json, target_segments, model="llama-3.3-70b-versatile", max_tokens=8000, mandate=""):
-        """Primary satirical engine using Llama models on Groq."""
-        if not self.groq_key: 
-            print("[AI Client] Groq API Key is not set in environment.")
-            return None
-        headers = {"Authorization": f"Bearer {self.groq_key}", "Content-Type": "application/json"}
-        system_prompt = self.system_prompt_template.format(target_segments=target_segments)
-        
-        user_message = f"Return the JSON show script for the following context:\n{user_input_json}"
-        if mandate:
-            user_message += f"\n\nIMPORTANT MANDATE: {mandate}"
 
-        body = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            "temperature": 0.9,
-            "max_tokens": max_tokens,
-            "response_format": {"type": "json_object"}
-        }
-        
-        try:
-            r = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=body, timeout=120)
-            if r.status_code == 200: 
-                return r.json()["choices"][0]["message"]["content"]
-            print(f"[AI Client] Groq API returned status {r.status_code}: {r.text}")
-            return None
-        except Exception as e: 
-            print(f"[AI Client] Groq Connection Error: {e}")
-            return None
+# ---------------------------------------------------------------------------
+# Raw API callers
+# ---------------------------------------------------------------------------
 
-    def call_gemini(self, user_input_json, target_segments, model="gemini-3.5-flash", mandate=""):
-        """High-reliability fallback engine using Gemini models."""
-        if not self.gemini_key:
-            print("[AI Client] Gemini API Key is not set in environment.")
-            return None
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.gemini_key}"
-
-        system_prompt = self.system_prompt_template.format(target_segments=target_segments)
-        
-        user_message = f"Context data for generation:\n{user_input_json}"
-        if mandate:
-            user_message += f"\n\nIMPORTANT MANDATE: {mandate}"
-
-        # Native Payload Optimization: Routing the system prompt explicitly into systemInstruction
-        body = {
-            "systemInstruction": {
-                "parts": [{"text": system_prompt}]
-            },
-            "contents": [
-                {
-                    "role": "user", 
-                    "parts": [{"text": user_message}]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.8, 
-                "maxOutputTokens": 8000, 
-                "responseMimeType": "application/json"
-            }
-        }
-        try:
-            r = requests.post(url, headers={"Content-Type": "application/json"}, json=body, timeout=120)
-            if r.status_code == 200: 
-                return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-            print(f"[AI Client] Gemini API returned status {r.status_code}: {r.text}")
-            return None
-        except Exception as e: 
-            print(f"[AI Client] Gemini Connection Error: {e}")
-            return None
-
-    def heal_truncated_json(self, json_str):
-        """Advanced state-aware parser to recover truncated JSON segments."""
-        stack = []
-        is_in_string = False
-        escaped = False
-        last_valid_index = 0
-        
-        for i, char in enumerate(json_str):
-            if escaped:
-                escaped = False
-                continue
-            
-            if char == '\\':
-                escaped = True
-                continue
-            
-            if char == '"':
-                is_in_string = not is_in_string
-                if not is_in_string:
-                    last_valid_index = i + 1
-                continue
-            
-            if not is_in_string:
-                if char in '{[':
-                    stack.append(char)
-                    last_valid_index = i + 1
-                elif char in '}]':
-                    if not stack:
-                        json_str = json_str[:i]
-                        break
-                    opening = stack.pop()
-                    if (opening == '{' and char != '}') or (opening == '[' and char != ']'):
-                        json_str = json_str[:i]
-                        break
-                    last_valid_index = i + 1
-                elif char in ',:':
-                    last_valid_index = i + 1
-        
-        if is_in_string:
-            json_str = json_str.rstrip('\\')
-            json_str += '"'
-        
-        json_str = json_str.rstrip().rstrip(',').rstrip(':')
-        
-        while stack:
-            opening = stack.pop()
-            json_str += '}' if opening == '{' else ']'
-            
-        return json_str
-
-    def attempt_json_repair(self, bad_json_str):
-        """
-        Robustly recovers truncated JSON without needing manual key replacement.
-        """
-        # 1. Strip everything before the first '{' and after the last '}'
-        start = bad_json_str.find('{')
-        end = bad_json_str.rfind('}')
-        if start == -1 or end == -1 or end <= start:
-            return None
-        
-        trimmed = bad_json_str[start:end+1]
-        
-        try:
-            # 2. Try parsing directly
-            parsed = json.loads(trimmed)
-            return self._finalize_parsed(parsed)
-        except json.JSONDecodeError:
-            # 3. If parsing fails, we assume it's truncated or has inner-quote issues.
-            try:
-                # Replace unescaped inner quotes ONLY IF they follow a colon and precede a comma/brace
-                repaired = re.sub(r'(?<=[^:\\\\])"(?=[^,:\\\\}\]])', "'", trimmed)
-                parsed = json.loads(repaired)
-                return self._finalize_parsed(parsed)
-            except Exception as e:
-                print(f"[AI Client] Repair failed: {e}")
-                return None
-
-    def _finalize_parsed(self, parsed):
-        """Ensure the parsed JSON is a valid broadcast dict with all required fields."""
-        if isinstance(parsed, list):
-            parsed = {
-                "show_title": "The Echo Broadcast",
-                "segments": parsed,
-                "my_take": "Patterns observed.",
-                "social_post": "New broadcast live.",
-                "topic_tags": ["analysis"],
-                "visual_description": "Abstract data patterns",
-                "primary_news_headline": "Daily Broadcast"
-            }
-        
-        # Ensure mandatory fields exist even if model missed them
-        defaults = {
-            "show_title": "The Echo Broadcast",
-            "my_take": "The Echo remains clinically indifferent.",
-            "topic_tags": ["satire"],
-            "social_post": "New broadcast live.",
-            "visual_description": "Surreal technology chaos",
-            "primary_news_headline": "Daily Broadcast",
-            "segments": []
-        }
-        
-        for key, val in defaults.items():
-            if key not in parsed or not parsed[key]:
-                parsed[key] = val
-                
-        return parsed
-
-    def strip_tags(self, text):
-        """Utility to remove bracketed TTS tags [like this] for analysis."""
-        if not text: return ""
-        cleaned = re.sub(r'\[.*?\]', '', text)
-        cleaned = re.sub(r'<.*?>', '', cleaned)
-        return cleaned.strip()
-
-    def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
-        """Generates a satirical broadcast using a multi-tier fallback queue."""
-        # Select active queue
-        queue = PROD_WRITER_QUEUE if is_cloud else TEST_WRITER_QUEUE
-        
-        target_segments = 10
-        MIN_SEGMENTS = 8
-        min_avg_words = 150
-
-        if not is_cloud:
-            # Local testing thresholds - increased to hit 600s gate
-            target_segments = 10
-            MIN_SEGMENTS = 8
-            min_avg_words = 150
-
-        return self._orchestrate_writer(queue, news_items, memory_context, target_segments, MIN_SEGMENTS, min_avg_words, is_cloud)
-
-    def _orchestrate_writer(self, queue, news_items, memory_context, target_segments, MIN_SEGMENTS, min_avg_words, is_cloud):
-        """ISSUE 6: Real multi-tier fallback chain orchestration."""
-        
-        def _is_sufficient(broadcast):
-            if not broadcast or "segments" not in broadcast or not isinstance(broadcast["segments"], list):
-                print("[AI Client] [FAIL] Broadcast structure invalid or missing segments.")
-                return False
-            
-            count = len(broadcast["segments"])
-            if count < MIN_SEGMENTS:
-                print(f"[AI Client] [FAIL] Quality: Only {count}/{target_segments} segments. Minimum is {MIN_SEGMENTS}.")
-                return False
-            
-            # Word count and uniqueness check
-            total_words = 0
-            seen_text = []
-            
-            for seg in broadcast["segments"]:
-                text = seg.get("text", "") if isinstance(seg, dict) else str(seg)
-                cleaned_text = self.strip_tags(text).lower().strip()
-                
-                # REPETITION CHECK (Simple Overlap)
-                for prev in seen_text:
-                    if len(prev) > 50 and len(cleaned_text) > 50:
-                        words_cur = set(cleaned_text.split())
-                        words_prev = set(prev.split())
-                        overlap = len(words_cur.intersection(words_prev)) / max(len(words_cur), 1)
-                        if overlap > 0.5: # 50% word overlap is a hard rejection
-                            print(f"[AI Client] [FAIL] Quality: High similarity detected between segments ({int(overlap*100)}% overlap). REJECTED.")
-                            return False
-                
-                seen_text.append(cleaned_text)
-                total_words += len(text.split())
-            
-            avg_words = total_words // count
-            if avg_words < min_avg_words:
-                print(f"[AI Client] [FAIL] Quality: Avg {avg_words} words/segment — below {min_avg_words}.")
-                return False
-            
-            print(f"[AI Client] [PASS] Script quality: {count} segments, ~{avg_words} words/segment.")
-            return True
-
-        def _parse(raw_output, model_name):
-            """Parse and heal raw LLM output into a broadcast dict."""
-            if not raw_output:
-                print(f"[AI Client] [ERROR] {model_name} returned empty output.")
-                return None
-            
-            print(f"[AI Client] {model_name} output length: {len(raw_output)} characters.")
-            cleaned = raw_output.strip()
-            
-            try:
-                # Handle potential markdown wrappers
-                if "```json" in cleaned:
-                    cleaned = cleaned.split("```json")[1].split("```")[0].strip()
-                elif "```" in cleaned:
-                    cleaned = cleaned.split("```")[1].split("```")[0].strip()
-                
-                try:
-                    parsed = json.loads(cleaned)
-                    res = self._finalize_parsed(parsed)
-                    res["_healer_used"] = False
-                    return res
-                except json.JSONDecodeError:
-                    print(f"[AI Client] [HEAL] Attempting to heal truncated JSON from {model_name}...")
-                    healed = self.heal_truncated_json(cleaned)
-                    parsed = json.loads(healed)
-                    res = self._finalize_parsed(parsed)
-                    res["_healer_used"] = True
-                    print(f"[AI Client] [HEAL] Successfully recovered JSON via healer.")
-                    return res
-            except Exception as e:
-                print(f"[AI Client] [ERROR] Parsing failed for {model_name}: {e}")
-                # Silently attempt last-ditch repair before failing
-                repaired = self.attempt_json_repair(cleaned)
-                if repaired:
-                    repaired["_healer_used"] = True
-                    print(f"[AI Client] [REPAIR] Last-ditch repair succeeded.")
-                    return repaired
-                return None
-
-        # --- The Writer Orchestrator Loop ---
-        print(f"[AI Client] Starting orchestrator loop (Queue size: {len(queue)})")
-        
-        for attempt_idx, model in enumerate(queue):
-            attempt_num = attempt_idx + 1
-            
-            # Step-Down Logic: Reduce context on retries to focus the model and avoid summary traps
-            is_low_tpm = "qwen" in model.lower() or "gpt-oss" in model.lower()
-            use_focused = attempt_idx > 0 or is_low_tpm
-            
-            current_news = news_items[:5] if is_low_tpm else (news_items[:8] if use_focused else news_items[:15])
-            current_mem = memory_context[:5] if is_low_tpm else (memory_context[:10] if use_focused else memory_context[:20])
-            
-            # Shielded mode (Local) is even tighter
-            if not is_cloud:
-                current_news = current_news[:3]
-                current_mem = current_mem[:1]
-
-            user_input = {"news_items": current_news, "memory_context": current_mem}
-            user_input_str = json.dumps(user_input)
-            
-            print(f"[AI Client] (Attempt {attempt_num}/{len(queue)}) Routing to {model}...")
-            
-            raw_output = None
-            try:
-                if "gemini" in model.lower():
-                    mandate = ""
-                    if not is_cloud: 
-                        mandate = f"TEST RUN. REQUIRED: {target_segments} segments. BE VERBOSE."
-                    else:
-                        mandate = f"CRITICAL: Write at least 250 words per segment. DO NOT SUMMARIZE. EXPAND AND MOCK. Generate exactly {target_segments} segments."
-                    raw_output = self.call_gemini(user_input_str, target_segments, model=model, mandate=mandate)
-                else:
-                    # Groq
-                    max_tokens = 8000 if is_cloud else 4000
-                    mandate = ""
-                    if is_cloud:
-                        mandate = f"CRITICAL: Write at least 300 words per segment. BE EXTREMELY VERBOSE AND DETAILED. DO NOT SUMMARIZE. EXPAND AND MOCK. Generate exactly {target_segments} segments."
-                    raw_output = self.call_groq(
-                        user_input_json=user_input_str, 
-                        target_segments=target_segments, 
-                        model=model, 
-                        max_tokens=max_tokens,
-                        mandate=mandate
-                    )
-            except Exception as e:
-                print(f"[AI Client] [ERROR] API call to {model} raised exception: {e}")
-                continue
-            
-            broadcast = _parse(raw_output, model)
-            if _is_sufficient(broadcast):
-                broadcast["_is_emergency"] = False
-                broadcast["writer_model"] = model
-                print(f"[AI Client] SUCCESS: {model} delivered a valid script on attempt {attempt_num}.")
-                return broadcast
-            
-            print(f"[AI Client] Attempt {attempt_num} ({model}) failed quality/completeness checks.")
-
-        print(f"[AI Client] CRITICAL: All {len(queue)} tiers in queue failed. Aborting broadcast suite.")
+def call_gemini(prompt: str, model: str) -> str | None:
+    """Call Google Gemini. Returns raw text or None on any failure."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        print("[AI] GEMINI_API_KEY not set.")
         return None
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model_obj = genai.GenerativeModel(model)
+        response = model_obj.generate_content(
+            prompt,
+            generation_config={"temperature": 0.9, "max_output_tokens": 8192},
+        )
+        return response.text
+    except Exception as exc:
+        print(f"[AI] Gemini error ({model}): {exc}")
+        return None
+
+
+def call_groq(prompt: str, model: str) -> str | None:
+    """Call Groq. Returns raw text or None on any failure."""
+    api_key = os.environ.get("GROQ_API_KEY", "")
+    if not api_key:
+        print("[AI] GROQ_API_KEY not set.")
+        return None
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9,
+            max_tokens=8000,
+        )
+        return response.choices[0].message.content
+    except Exception as exc:
+        print(f"[AI] Groq error ({model}): {exc}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# JSON healing
+# ---------------------------------------------------------------------------
+
+def heal_truncated_json(text: str) -> dict | None:
+    """
+    Attempt to close a truncated JSON object.
+    No regex repairs — only bracket balancing and quote closing.
+    Returns parsed dict or None.
+    """
+    if not text:
+        return None
+
+    raw = text.strip()
+
+    # Strip markdown code fence if present
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        # Remove opening fence line
+        lines = lines[1:]
+        # Remove closing fence if present
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        raw = "\n".join(lines).strip()
+
+    # Try to parse as-is first
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Remove trailing commas before closing brackets (common LLM mistake)
+    cleaned = re.sub(r",\s*([}\]])", r"\1", raw)
+
+    # Count unclosed string — if odd number of unescaped quotes, close it
+    # Walk character by character to avoid false positives
+    in_string = False
+    escaped = False
+    for ch in cleaned:
+        if escaped:
+            escaped = False
+            continue
+        if ch == "\\":
+            escaped = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+
+    if in_string:
+        cleaned += '"'
+
+    # Balance brackets
+    open_braces   = cleaned.count("{") - cleaned.count("}")
+    open_brackets  = cleaned.count("[") - cleaned.count("]")
+
+    cleaned += "]" * max(0, open_brackets)
+    cleaned += "}" * max(0, open_braces)
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        print(f"[AI] Heal failed: {exc}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+def _word_count(text: str) -> int:
+    return len(text.split())
+
+
+def _jaccard_similarity(text_a: str, text_b: str) -> float:
+    words_a = set(text_a.lower().split())
+    words_b = set(text_b.lower().split())
+    if not words_a or not words_b:
+        return 0.0
+    return len(words_a & words_b) / len(words_a | words_b)
+
+
+def _check_repetition(segments: list[dict]) -> bool:
+    """
+    Returns True if any segment pair has >50% Jaccard similarity (word overlap).
+    Spec: reject the entire script if detected.
+    """
+    texts = [seg.get("text", "") for seg in segments]
+    for i in range(len(texts)):
+        for j in range(i + 1, len(texts)):
+            if _jaccard_similarity(texts[i], texts[j]) > 0.50:
+                print(
+                    f"[AI] Repetition detected between segments {i} and {j} "
+                    f"(Jaccard={_jaccard_similarity(texts[i], texts[j]):.2f})"
+                )
+                return True
+    return False
+
+
+def validate_broadcast(data: object) -> bool:
+    """
+    Full structural validation per spec:
+    - has 'segments' key
+    - segments is a list with >= 8 items
+    - each segment has 'speaker' and 'text'
+    - each text >= 50 words
+    """
+    if not isinstance(data, dict):
+        print("[AI] Validation failed: response is not a dict.")
+        return False
+
+    segments = data.get("segments")
+    if segments is None:
+        print("[AI] Validation failed: missing 'segments' key.")
+        return False
+    if not isinstance(segments, list):
+        print("[AI] Validation failed: 'segments' is not a list.")
+        return False
+    if len(segments) < 8:
+        print(f"[AI] Validation failed: only {len(segments)} segments (need >= 8).")
+        return False
+
+    for idx, seg in enumerate(segments):
+        if not isinstance(seg, dict):
+            print(f"[AI] Validation failed: segment {idx} is not a dict.")
+            return False
+        if "speaker" not in seg:
+            print(f"[AI] Validation failed: segment {idx} missing 'speaker'.")
+            return False
+        if "text" not in seg:
+            print(f"[AI] Validation failed: segment {idx} missing 'text'.")
+            return False
+        wc = _word_count(seg["text"])
+        if wc < 50:
+            print(
+                f"[AI] Validation failed: segment {idx} ({seg['speaker']}) "
+                f"has only {wc} words (need >= 50)."
+            )
+            return False
+
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Orchestration
+# ---------------------------------------------------------------------------
+
+def generate_broadcast(news: list[dict], memory: list[dict], env: str) -> dict | None:
+    """
+    Generate a broadcast JSON via the configured model queue.
+    Per spec:
+      - production/prod-models: Set A queue (Groq -> Gemini fallbacks)
+      - local/prod-db: Set B queue (Gemini only)
+      - Parse failures trigger heal; heal failures advance to next model.
+      - Validation failure returns None immediately (caller retries).
+      - Step-down: try 15 news items first; if all parse/heal fail, retry with 8.
+    """
+    queue = _QUEUE_PROD if env in _PROD_ENVS else _QUEUE_LOCAL
+
+    for context_size in [15, 8]:
+        prompt = _build_prompt(news, memory, max_news=context_size)
+
+        for api_type, model_name in queue:
+            print(f"[AI] Trying {model_name} with {context_size} news items...")
+
+            raw = call_groq(prompt, model_name) if api_type == "groq" else call_gemini(prompt, model_name)
+            if raw is None:
+                print(f"[AI] {model_name} returned None. Advancing queue.")
+                continue
+
+            # Strip markdown code fences before parsing
+            candidate = raw.strip()
+            if candidate.startswith("```"):
+                lines = candidate.splitlines()
+                lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                candidate = "\n".join(lines).strip()
+
+            data: dict | None = None
+            healer_used = False
+
+            try:
+                data = json.loads(candidate)
+            except json.JSONDecodeError:
+                print(f"[AI] JSON parse failed for {model_name}. Attempting heal...")
+                data = heal_truncated_json(candidate)
+                healer_used = True
+                if data is None:
+                    print(f"[AI] Heal failed for {model_name}. Advancing queue.")
+                    continue
+
+            # Structural validation
+            if not validate_broadcast(data):
+                print(f"[AI] Validation failed for {model_name} output. Returning None.")
+                return None  # Per spec: do not retry within generate_broadcast
+
+            # Repetition check
+            if _check_repetition(data["segments"]):
+                print(f"[AI] Repetition rule violated in {model_name} output. Returning None.")
+                return None
+
+            data["_model"] = model_name
+            data["_healer_used"] = healer_used
+            print(f"[AI] Broadcast generated successfully with {model_name} "
+                  f"(healer={'yes' if healer_used else 'no'}).")
+            return data
+
+        print(f"[AI] All models exhausted at context_size={context_size}. "
+              f"{'Stepping down.' if context_size == 15 else 'Giving up.'}")
+
+    print("[AI] generate_broadcast failed: all models and context sizes exhausted.")
+    return None

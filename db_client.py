@@ -1,327 +1,268 @@
-import os
-import mimetypes
+"""
+db_client.py — AI Radio Echo
+Database abstraction layer.
+  - SQLite backend: local, prod-models
+  - Supabase backend: prod-db, production
+Public interface is identical regardless of backend.
+"""
+
 import json
-import sqlite3
-import requests
+import os
 import re
-from datetime import datetime, timedelta, timezone
-from dotenv import load_dotenv
+import sqlite3
+from datetime import datetime, timedelta
 
-load_dotenv()
+SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
 
-class SupabaseDBClient:
-    def __init__(self, env="production"):
-        self.env = env.lower()
-        self.is_mock = False
-        self.use_sqlite = (self.env == "local")
-        
-        if self.use_sqlite:
-            self.db_path = "ai_radio_dev.db"
+SUPABASE_ENVS = {"prod-db", "production"}
+SQLITE_ENVS   = {"local", "prod-models"}
+
+_SCHEMA_COLUMNS_CACHE: set[str] | None = None
+
+
+def _parse_schema_columns() -> set[str]:
+    """Parse column names from schema.sql CREATE TABLE block."""
+    global _SCHEMA_COLUMNS_CACHE
+    if _SCHEMA_COLUMNS_CACHE is not None:
+        return _SCHEMA_COLUMNS_CACHE
+
+    with open(SCHEMA_PATH, "r") as fh:
+        sql = fh.read()
+
+    match = re.search(
+        r"CREATE TABLE IF NOT EXISTS memory_log\s*\((.*?)\);",
+        sql,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not match:
+        raise RuntimeError("Could not parse CREATE TABLE from schema.sql")
+
+    columns: set[str] = set()
+    for raw_line in match.group(1).strip().splitlines():
+        line = raw_line.strip().rstrip(",")
+        if not line:
+            continue
+        first_token = line.split()[0].upper()
+        # Skip constraint keywords and SQL comments
+        if first_token in ("PRIMARY", "UNIQUE", "CHECK", "FOREIGN", "CONSTRAINT", "--"):
+            continue
+        if line.startswith("--"):
+            continue
+        col_name = line.split()[0]
+        if col_name:
+            columns.add(col_name)
+
+    _SCHEMA_COLUMNS_CACHE = columns
+    return columns
+
+
+class DBClient:
+    """Unified database interface for SQLite and Supabase."""
+
+    def __init__(self, env: str):
+        if env not in SUPABASE_ENVS | SQLITE_ENVS:
+            raise ValueError(f"Unknown env '{env}'. Must be one of: local, prod-models, prod-db, production")
+        self.env = env
+        self._use_supabase = env in SUPABASE_ENVS
+
+        if self._use_supabase:
+            self._init_supabase()
+        else:
             self._init_sqlite()
-            print(f"[DB Client] Operating in LOCAL mode (SQLite: {self.db_path})")
-            return
 
-        # Environment switching logic
-        if self.env == "staging":
-            self.url = os.environ.get("STAGING_SUPABASE_URL")
-            self.key = os.environ.get("STAGING_SUPABASE_KEY")
-        else:
-            self.url = os.environ.get("SUPABASE_URL")
-            self.key = os.environ.get("SUPABASE_KEY")
-
-        # Clean URL trailing slash if present
-        if self.url:
-            self.url = self.url.rstrip("/")
-
-        if self.url and self.key:
-            # Standard Supabase authorization headers
-            self.headers = {
-                "apikey": self.key,
-                "Authorization": f"Bearer {self.key}",
-                "Content-Type": "application/json"
-            }
-            print(f"[DB Client] Connected to {self.env.upper()} Supabase successfully.")
-        else:
-            print(f"[DB Client] Missing credentials for {self.env.upper()}. Operating in mock mode.")
-            self.is_mock = True
+    # ------------------------------------------------------------------
+    # Initialisation
+    # ------------------------------------------------------------------
 
     def _init_sqlite(self):
-        """Initialize local SQLite database for offline testing and handle migrations."""
-        conn = sqlite3.connect(self.db_path)
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS memory_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            headline TEXT,
-            source TEXT,
-            topic_tags TEXT,
-            my_take TEXT,
-            post_text TEXT,
-            audio_script TEXT,
-            audio_url TEXT,
-            video_url TEXT,
-            confidence TEXT,
-            related_ids TEXT,
-            likes INTEGER DEFAULT 0,
-            plays INTEGER DEFAULT 0,
-            original_headline TEXT,
-            broadcast_duration INTEGER DEFAULT 0,
-            healer_used BOOLEAN DEFAULT 0,
-            writer_model TEXT,
-            narrator_model TEXT
-        )''')
-        
-        # Check for new columns and migrate if needed
-        c.execute("PRAGMA table_info(memory_log)")
-        cols = [info[1] for info in c.fetchall()]
-        if "original_headline" not in cols:
-            c.execute("ALTER TABLE memory_log ADD COLUMN original_headline TEXT")
-        if "broadcast_duration" not in cols:
-            c.execute("ALTER TABLE memory_log ADD COLUMN broadcast_duration INTEGER DEFAULT 0")
-        if "healer_used" not in cols:
-            c.execute("ALTER TABLE memory_log ADD COLUMN healer_used BOOLEAN DEFAULT 0")
-        if "writer_model" not in cols:
-            c.execute("ALTER TABLE memory_log ADD COLUMN writer_model TEXT")
-        if "narrator_model" not in cols:
-            c.execute("ALTER TABLE memory_log ADD COLUMN narrator_model TEXT")
-            
+        self._db_path = "ai_radio_dev.db"
+        with open(SCHEMA_PATH, "r") as fh:
+            schema_sql = fh.read()
+        conn = sqlite3.connect(self._db_path)
+        conn.executescript(schema_sql)
         conn.commit()
         conn.close()
+        print(f"[DB] SQLite initialised: {self._db_path}")
 
-    def fetch_recent_memory(self, limit=30):
-        """Fetch the last `limit` posts for historical memory context."""
-        if self.is_mock:
-            return []
-
-        if self.use_sqlite:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            c = conn.cursor()
-            c.execute("SELECT * FROM memory_log ORDER BY created_at DESC LIMIT ?", (limit,))
-            rows = c.fetchall()
-            results = []
-            for r in rows:
-                d = dict(r)
-                d["topic_tags"] = json.loads(d["topic_tags"]) if d["topic_tags"] else []
-                results.append(d)
-            conn.close()
-            return results
-
-        try:
-            endpoint = f"{self.url}/rest/v1/memory_log"
-            params = {
-                "select": "id,created_at,headline,my_take,post_text,topic_tags",
-                "order": "created_at.desc",
-                "limit": limit
-            }
-            response = requests.get(endpoint, headers=self.headers, params=params, timeout=15)
-            return response.json() if response.status_code == 200 else []
-        except Exception as e:
-            print(f"[DB Client] HTTP connection failed fetching memory: {e}")
-            return []
-
-    def insert_post(self, headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url=None, confidence="medium", related_ids=None, broadcast_duration=0, original_headline=None, healer_used=False, writer_model=None, narrator_model=None):
-        confidence_clean = str(confidence).lower() if confidence else "medium"
-        if confidence_clean not in ['high', 'medium', 'low']: confidence_clean = "medium"
-
-        # Field Hardening: Ensure mandatory strings are never truly empty
-        final_original_headline = original_headline or headline or "Daily Broadcast"
-        final_my_take = my_take if (my_take and str(my_take).strip()) else "The Echo remains clinically indifferent."
-        final_topic_tags = topic_tags if (topic_tags is not None) else []
-        final_source = source if (source and str(source).strip()) else "Unknown Source"
-
-        data = {
-            "headline": headline,
-            "original_headline": final_original_headline,
-            "source": final_source,
-            "topic_tags": final_topic_tags,
-            "my_take": final_my_take,
-            "post_text": post_text,
-            "audio_script": audio_script,
-            "audio_url": audio_url,
-            "video_url": video_url,
-            "confidence": confidence_clean,
-            "related_ids": related_ids or [],
-            "broadcast_duration": broadcast_duration,
-            "healer_used": healer_used,
-            "writer_model": writer_model,
-            "narrator_model": narrator_model,
-            "likes": 0,
-            "plays": 0
+    def _init_supabase(self):
+        supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+        supabase_key = os.environ.get("SUPABASE_KEY", "")
+        if not supabase_url or not supabase_key:
+            raise RuntimeError(
+                "SUPABASE_URL and SUPABASE_KEY must be set for env='prod-db' or 'production'."
+            )
+        self._supabase_url = supabase_url
+        self._headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json",
         }
+        self._validate_supabase_columns()
+        print(f"[DB] Supabase initialised: {supabase_url}")
 
-        if self.is_mock:
-            return {"id": 999, **data}
+    def _validate_supabase_columns(self):
+        """Raise RuntimeError if any schema.sql column is missing in Supabase."""
+        import requests
 
-        if self.use_sqlite:
-            # SQLite schema is strictly controlled, we require these columns
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute('''INSERT INTO memory_log 
-                (headline, original_headline, source, topic_tags, my_take, post_text, audio_script, audio_url, video_url, confidence, related_ids, broadcast_duration, healer_used, writer_model, narrator_model) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                (headline, final_original_headline, final_source, json.dumps(final_topic_tags), final_my_take, post_text, audio_script, audio_url, video_url, confidence_clean, json.dumps(related_ids or []), broadcast_duration, 1 if healer_used else 0, writer_model, narrator_model))
-            row_id = c.lastrowid
-            conn.commit()
-            conn.close()
-            return {"id": row_id, **data}
+        expected = _parse_schema_columns()
+        try:
+            resp = requests.get(
+                f"{self._supabase_url}/rest/v1/",
+                headers={**self._headers, "Accept": "application/openapi+json"},
+                timeout=15,
+            )
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Cannot reach Supabase for schema validation: {exc}") from exc
+
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"Supabase schema validation request failed: {resp.status_code} {resp.text[:200]}"
+            )
 
         try:
-            endpoint = f"{self.url}/rest/v1/memory_log"
-            insert_headers = self.headers.copy()
-            insert_headers["Prefer"] = "return=representation"
-            # Allow new columns in the payload for Supabase parity
-            allow_keys = ['headline', 'source', 'topic_tags', 'my_take', 'post_text', 'audio_script', 'audio_url', 'video_url', 'confidence', 'related_ids', 'original_headline', 'broadcast_duration', 'healer_used', 'writer_model', 'narrator_model']
-            payload = {k: v for k, v in data.items() if k in allow_keys}
-            
-            response = requests.post(endpoint, headers=insert_headers, json=payload, timeout=15)
-            if response.status_code in [200, 201]:
-                records = response.json()
-                if records:
-                    print(f"[DB Client] Inserted episode successfully: {headline}")
-                    return records[0]
-            return data
-        except Exception as e:
-            print(f"[DB Client] HTTP connection failed inserting post: {e}")
-            return data
-
-    def delete_old_episodes(self, days_to_keep=7):
-        """Deletes episodes older than X days."""
-        if self.is_mock: return
-
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days_to_keep)).isoformat()
-        
-        if self.use_sqlite:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            c.execute("DELETE FROM memory_log WHERE created_at < ?", (cutoff,))
-            conn.commit()
-            conn.close()
+            spec = resp.json()
+            props = (
+                spec.get("definitions", {})
+                    .get("memory_log", {})
+                    .get("properties", {})
+            )
+            actual = set(props.keys())
+        except (json.JSONDecodeError, AttributeError) as exc:
+            print(f"[DB] Warning: Could not parse Supabase OpenAPI spec for column validation: {exc}")
             return
 
+        missing = expected - actual
+        if missing:
+            raise RuntimeError(
+                f"Supabase table 'memory_log' is missing columns defined in schema.sql: "
+                f"{', '.join(sorted(missing))}"
+            )
+        print(f"[DB] Supabase schema validation passed ({len(actual)} columns found).")
+
+    # ------------------------------------------------------------------
+    # Public interface
+    # ------------------------------------------------------------------
+
+    def fetch_recent_memory(self, limit: int = 20) -> list[dict]:
+        """Return up to `limit` most recent episodes, newest first."""
+        if self._use_supabase:
+            return self._supabase_fetch_recent(limit)
+        return self._sqlite_fetch_recent(limit)
+
+    def insert_post(self, data: dict) -> dict | None:
+        """Insert a new episode row. Returns the inserted row or None on failure."""
+        if self._use_supabase:
+            return self._supabase_insert(data)
+        return self._sqlite_insert(data)
+
+    def delete_old_episodes(self, days_to_keep: int):
+        """Delete episodes older than `days_to_keep` days."""
+        cutoff = (datetime.utcnow() - timedelta(days=days_to_keep)).isoformat()
+        if self._use_supabase:
+            self._supabase_delete_old(cutoff)
+        else:
+            self._sqlite_delete_old(cutoff)
+
+    # ------------------------------------------------------------------
+    # SQLite implementations
+    # ------------------------------------------------------------------
+
+    def _sqlite_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _sqlite_fetch_recent(self, limit: int) -> list[dict]:
+        conn = self._sqlite_conn()
         try:
-            endpoint = f"{self.url}/rest/v1/memory_log"
-            params = {"created_at": f"lt.{cutoff}", "select": "id,audio_url"}
-            r = requests.get(endpoint, headers=self.headers, params=params)
-            old_episodes = r.json() if r.status_code == 200 else []
-            if not old_episodes: return
-
-            for ep in old_episodes:
-                if ep.get("audio_url") and "supabase" in ep["audio_url"]:
-                    filename = ep["audio_url"].split("/")[-1]
-                    storage_endpoint = f"{self.url}/storage/v1/object/broadcasts/{filename}"
-                    requests.delete(storage_endpoint, headers=self.headers)
-                delete_endpoint = f"{self.url}/rest/v1/memory_log?id=eq.{ep['id']}"
-                requests.delete(delete_endpoint, headers=self.headers)
-        except Exception as e:
-            print(f"[DB Client] Error during cleanup: {e}")
-
-    def find_related_episodes(self, headline, limit=3):
-        """Simple keyword-based search for related episodes."""
-        if self.is_mock or not headline:
-            return []
-        
-        # Extract keywords (words > 3 chars)
-        keywords = [re.sub(r'[^a-zA-Z]', '', w).lower() for w in headline.split() if len(w) > 4]
-        if not keywords:
-            return []
-
-        if self.use_sqlite:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-            # SQLite doesn't have easy array search, so we use LIKE OR
-            query = "SELECT id FROM memory_log WHERE " + " OR ".join(["headline LIKE ?" for _ in keywords[:3]])
-            params = [f"%{k}%" for k in keywords[:3]]
-            c.execute(query + " ORDER BY created_at DESC LIMIT ?", params + [limit])
-            ids = [row[0] for row in c.fetchall()]
+            cur = conn.execute(
+                "SELECT * FROM memory_log ORDER BY created_at DESC LIMIT ?", (limit,)
+            )
+            return [dict(row) for row in cur.fetchall()]
+        finally:
             conn.close()
-            return ids
 
+    def _sqlite_insert(self, data: dict) -> dict | None:
+        # Serialise list/dict values to JSON strings for SQLite text affinity
+        safe_data = {
+            k: (json.dumps(v) if isinstance(v, (list, dict)) else v)
+            for k, v in data.items()
+        }
+        cols = ", ".join(safe_data.keys())
+        placeholders = ", ".join(["?" for _ in safe_data])
+        vals = list(safe_data.values())
+
+        conn = self._sqlite_conn()
         try:
-            # Supabase/Postgres full text search equivalent
-            endpoint = f"{self.url}/rest/v1/memory_log"
-            search_str = " | ".join(keywords[:3])
-            params = {
-                "select": "id",
-                "headline": f"fts.{search_str}",
-                "limit": limit
-            }
-            r = requests.get(endpoint, headers=self.headers, params=params)
-            if r.status_code == 200:
-                return [row["id"] for row in r.json()]
-            return []
-        except Exception:
-            return []
+            cur = conn.execute(
+                f"INSERT INTO memory_log ({cols}) VALUES ({placeholders})", vals
+            )
+            conn.commit()
+            row_id = cur.lastrowid
+            row = conn.execute(
+                "SELECT * FROM memory_log WHERE id = ?", (row_id,)
+            ).fetchone()
+            return dict(row) if row else None
+        except sqlite3.Error as exc:
+            print(f"[DB] SQLite insert error: {exc}")
+            return None
+        finally:
+            conn.close()
 
-    def upload_audio(self, local_file_path, storage_filename):
-        """Upload raw binary MP3 to Supabase Storage."""
-        if self.use_sqlite or self.is_mock:
-            return f"https://local-mock-storage.co/{storage_filename}"
-
-        bucket_name = "broadcasts"
+    def _sqlite_delete_old(self, cutoff_iso: str):
+        conn = self._sqlite_conn()
         try:
-            mime_type, _ = mimetypes.guess_type(local_file_path)
-            if not mime_type: mime_type = "audio/mpeg"
-            endpoint = f"{self.url}/storage/v1/object/{bucket_name}/{storage_filename}"
-            upload_headers = {
-                "Authorization": f"Bearer {self.key}",
-                "apikey": self.key,
-                "Content-Type": mime_type,
-                "x-upsert": "true"
-            }
-            with open(local_file_path, "rb") as f:
-                file_bytes = f.read()
-            response = requests.post(endpoint, headers=upload_headers, data=file_bytes, timeout=45)
-            if response.status_code == 200:
-                return f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"
-            return f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"
-        except Exception:
-            return f"{self.url}/storage/v1/object/public/{bucket_name}/{storage_filename}"
+            cur = conn.execute(
+                "DELETE FROM memory_log WHERE created_at < ?", (cutoff_iso,)
+            )
+            conn.commit()
+            print(f"[DB] Deleted {cur.rowcount} old SQLite episodes (cutoff: {cutoff_iso}).")
+        finally:
+            conn.close()
 
-    def increment_likes(self, row_id):
-        """Increment likes for a specific episode in both local and remote DBs."""
-        if self.use_sqlite:
-            try:
-                conn = sqlite3.connect(self.db_path)
-                c = conn.cursor()
-                c.execute("UPDATE memory_log SET likes = likes + 1 WHERE id = ?", (row_id,))
-                conn.commit()
-                conn.close()
-                print(f"[DB Client] Incremented local likes for ID {row_id}")
-                return True
-            except Exception as e:
-                print(f"[DB Client] SQLite increment_likes failed: {e}")
-                return False
-        else:
-            try:
-                # Standard Supabase RPC call
-                endpoint = f"{self.url}/rest/v1/rpc/increment_likes"
-                response = requests.post(endpoint, headers=self.headers, json={"row_id": row_id}, timeout=15)
-                return response.status_code == 200
-            except Exception as e:
-                print(f"[DB Client] Supabase increment_likes failed: {e}")
-                return False
+    # ------------------------------------------------------------------
+    # Supabase implementations
+    # ------------------------------------------------------------------
 
-    def increment_plays(self, row_id):
-        """Increment plays for a specific episode in both local and remote DBs."""
-        if self.use_sqlite:
-            try:
-                conn = sqlite3.connect(self.db_path)
-                c = conn.cursor()
-                c.execute("UPDATE memory_log SET plays = plays + 1 WHERE id = ?", (row_id,))
-                conn.commit()
-                conn.close()
-                print(f"[DB Client] Incremented local plays for ID {row_id}")
-                return True
-            except Exception as e:
-                print(f"[DB Client] SQLite increment_plays failed: {e}")
-                return False
+    def _supabase_fetch_recent(self, limit: int) -> list[dict]:
+        import requests
+
+        resp = requests.get(
+            f"{self._supabase_url}/rest/v1/memory_log",
+            headers=self._headers,
+            params={"select": "*", "order": "created_at.desc", "limit": str(limit)},
+            timeout=20,
+        )
+        if resp.status_code != 200:
+            print(f"[DB] Supabase fetch error: {resp.status_code} {resp.text[:200]}")
+            return []
+        return resp.json()
+
+    def _supabase_insert(self, data: dict) -> dict | None:
+        import requests
+
+        resp = requests.post(
+            f"{self._supabase_url}/rest/v1/memory_log",
+            headers={**self._headers, "Prefer": "return=representation"},
+            json=data,
+            timeout=20,
+        )
+        if resp.status_code not in (200, 201):
+            print(f"[DB] Supabase insert error: {resp.status_code} {resp.text[:200]}")
+            return None
+        result = resp.json()
+        return result[0] if result else None
+
+    def _supabase_delete_old(self, cutoff_iso: str):
+        import requests
+
+        resp = requests.delete(
+            f"{self._supabase_url}/rest/v1/memory_log",
+            headers=self._headers,
+            params={"created_at": f"lt.{cutoff_iso}"},
+            timeout=20,
+        )
+        if resp.status_code not in (200, 204):
+            print(f"[DB] Supabase delete error: {resp.status_code} {resp.text[:200]}")
         else:
-            try:
-                # Standard Supabase RPC call
-                endpoint = f"{self.url}/rest/v1/rpc/increment_plays"
-                response = requests.post(endpoint, headers=self.headers, json={"row_id": row_id}, timeout=15)
-                return response.status_code == 200
-            except Exception as e:
-                print(f"[DB Client] Supabase increment_plays failed: {e}")
-                return False
+            print(f"[DB] Supabase old episodes deleted (cutoff: {cutoff_iso}).")
