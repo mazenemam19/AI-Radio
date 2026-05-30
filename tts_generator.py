@@ -1,290 +1,200 @@
-import os
-import re
+"""
+tts_generator.py — AI Radio Echo
+Generates segment audio via Groq Orpheus TTS (cloud) or edge-tts (local fallback).
+Maintains a daily character quota file at output/.groq_usage.json.
+"""
+
 import asyncio
-import subprocess
-import shutil
-import time
-import requests
-import edge_tts
+import json
+import os
 from datetime import datetime
-from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
 
-# ── Voice Queues (v3.1) ───────────────────────────────────────────────────────
-PROD_VOICE_QUEUE = ["groq", "google", "edge"]
-TEST_VOICE_QUEUE = ["edge"]
+# ------------------------------------------------------------------ #
+#  Constants & voice maps                                             #
+# ------------------------------------------------------------------ #
 
-class TTSRadioGenerator:
-    def __init__(self, echo_voice="daniel", glitch_voice="hannah", use_cloud=True):
-        self.echo_voice = echo_voice
-        self.glitch_voice = glitch_voice
-        self.use_cloud = use_cloud 
-        
-        # Keys
-        self.api_key = os.environ.get("GROQ_API_KEY")
-        self.google_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-        
-        # Groq Config
-        self.api_url = "https://api.groq.com/openai/v1/audio/speech"
-        self.model = "canopylabs/orpheus-v1-english"
-        self.daily_request_count = 0
-        self.daily_request_limit = 80
-        self.daily_char_limit = 14400
-        self.groq_auth_failed = False
-        self.usage_file = "output/.groq_usage.json"
-        
-        # Google Config (Neural2)
-        self.google_voice_map = {
-            "daniel": "en-US-Neural2-D", # Echo
-            "hannah": "en-US-Neural2-F"  # Glitch
-        }
+_GROQ_USAGE_FILE  = Path("output") / ".groq_usage.json"
+_GROQ_DAILY_LIMIT = 14_400          # characters per day
+_GROQ_TTS_MODEL   = "canopylabs/orpheus-v1-english"
 
-    def _get_groq_usage(self):
-        today = datetime.now().strftime("%Y-%m-%d")
-        if os.path.exists(self.usage_file):
-            try:
-                with open(self.usage_file, "r") as f:
-                    data = json.load(f)
-                    if data.get("date") == today:
-                        return data.get("chars_used", 0)
-            except: pass
-        return 0
+# edge-tts voices keyed by speaker name
+_EDGE_VOICES: dict[str, str] = {
+    "HOST":    "en-US-GuyNeural",
+    "CO-HOST": "en-US-AriaNeural",
+    "DEFAULT": "en-US-GuyNeural",
+}
 
-    def _update_groq_usage(self, chars):
-        today = datetime.now().strftime("%Y-%m-%d")
-        chars_used = self._get_groq_usage() + chars
+# Groq Orpheus voice IDs keyed by speaker name
+_GROQ_VOICES: dict[str, str] = {
+    "HOST":    "dan",
+    "CO-HOST": "talia",
+    "DEFAULT": "talia",
+}
+
+
+# ------------------------------------------------------------------ #
+#  Quota helpers                                                      #
+# ------------------------------------------------------------------ #
+
+def _load_usage() -> dict:
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    if _GROQ_USAGE_FILE.exists():
         try:
-            os.makedirs("output", exist_ok=True)
-            with open(self.usage_file, "w") as f:
-                json.dump({"date": today, "chars_used": chars_used}, f)
-        except: pass
+            data = json.loads(_GROQ_USAGE_FILE.read_text(encoding="utf-8"))
+            if data.get("date") == today:
+                return data
+        except Exception:
+            pass
+    return {"date": today, "chars_used": 0}
 
-    def strip_tags(self, text):
-        cleaned = re.sub(r'\[.*?\]', '', text)
-        cleaned = re.sub(r'<.*?>', '', cleaned)
-        return cleaned.strip()
 
-    def chunk_text(self, text, max_chars=450):
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        chunks = []
-        current_chunk = ""
-        for s in sentences:
-            if len(current_chunk) + len(s) < max_chars:
-                current_chunk += (" " + s if current_chunk else s)
-            else:
-                if current_chunk: chunks.append(current_chunk.strip())
-                if len(s) >= max_chars:
-                    for i in range(0, len(s), max_chars): chunks.append(s[i:i+max_chars])
-                    current_chunk = ""
-                else: current_chunk = s
-        if current_chunk: chunks.append(current_chunk.strip())
-        return chunks
+def _save_usage(data: dict) -> None:
+    _GROQ_USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _GROQ_USAGE_FILE.write_text(json.dumps(data), encoding="utf-8")
 
-    async def generate_edge_fallback(self, text, voice, path):
-        edge_voice = "en-US-GuyNeural" if "daniel" in voice else "en-US-JennyNeural"
-        communicate = edge_tts.Communicate(self.strip_tags(text), edge_voice)
-        await communicate.save(path)
 
-    def generate_segment_audio(self, text, voice, path):
-        """Tiered Narrator Orchestrator (v3.1)"""
-        # ISSUE 8: Prevents 401 retries if auth already failed
-        if self.groq_auth_failed:
-            asyncio.run(self.generate_edge_fallback(text, voice, path))
-            return "edge"
+def _quota_ok() -> bool:
+    usage = _load_usage()
+    if usage["chars_used"] >= _GROQ_DAILY_LIMIT:
+        print("[TTS] Daily char limit reached. Routing to local fallback.")
+        return False
+    return True
 
-        queue = PROD_VOICE_QUEUE if self.use_cloud else TEST_VOICE_QUEUE
-        
-        for provider in queue:
-            try:
-                if provider == "groq":
-                    # ISSUE 2: Pre-emptive usage check
-                    chars_today = self._get_groq_usage()
-                    if chars_today >= self.daily_char_limit:
-                        print(f"[TTS] Daily char limit reached. Routing to local fallback.")
-                        continue
 
-                    if not self.api_key:
-                        print(f"[TTS] Groq skipped (No Key).")
-                        continue
-                    
-                    chunks = self.chunk_text(text)
-                    chunk_files = []
-                    headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-                    
-                    for c_idx, chunk_text in enumerate(chunks):
-                        if c_idx > 0: time.sleep(8.0)
-                        body = {"model": self.model, "input": chunk_text, "voice": voice, "response_format": "wav"}
-                        
-                        success = False
-                        for attempt in range(3):
-                            try:
-                                r = requests.post(self.api_url, headers=headers, json=body, timeout=30)
-                                if r.status_code == 200:
-                                    # Update usage
-                                    self._update_groq_usage(len(chunk_text))
-                                    self.daily_request_count += 1
-                                    
-                                    c_path = f"{path}_chunk_{c_idx}.wav"
-                                    with open(c_path, "wb") as f: f.write(r.content)
-                                    chunk_files.append(c_path)
-                                    success = True
-                                    break
-                                elif r.status_code == 401:
-                                    print(f"[TTS] AUTH ERROR: Check GROQ_API_KEY. Falling back to local.")
-                                    self.groq_auth_failed = True
-                                    raise Exception("Auth Error")
-                                elif r.status_code == 429:
-                                    retry_after = int(r.headers.get("retry-after", "30"))
-                                    if retry_after > 60:
-                                        print(f"[TTS] Quota limit hit. Falling back to local.")
-                                        raise Exception("Quota Limit")
-                                    time.sleep(retry_after + 1)
-                                else:
-                                    raise Exception(f"API Error {r.status_code}")
-                            except requests.exceptions.Timeout:
-                                print(f"[TTS] Groq timeout. Falling back to local for this segment.")
-                                raise Exception("Timeout")
-                        
-                        if not success: raise Exception("Chunk Failed")
+def _increment_usage(chars: int) -> None:
+    usage = _load_usage()
+    usage["chars_used"] += chars
+    _save_usage(usage)
 
-                    if chunk_files:
-                        ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
-                        list_path = f"{path}_list.txt"
-                        with open(list_path, "w") as f:
-                            for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
-                        subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
-                        for cf in chunk_files:
-                            if os.path.exists(cf): os.remove(cf)
-                        if os.path.exists(list_path): os.remove(list_path)
-                        return provider # Success
 
-                elif provider == "google":
-                    # ISSUE 3: Google Cloud Neural2 fallback
-                    if not self.google_key:
-                        print(f"[TTS] Google Cloud skipped (No Key).")
-                        continue
-                    
-                    print(f"[TTS] Invoking Google Cloud TTS (Neural2)...")
-                    google_voice = self.google_voice_map.get(voice, "en-US-Neural2-D")
-                    chunks = self.chunk_text(text)
-                    chunk_files = []
-                    
-                    import base64
-                    url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={self.google_key}"
-                    
-                    for c_idx, chunk_text in enumerate(chunks):
-                        body = {
-                            "input": {"text": self.strip_tags(chunk_text)},
-                            "voice": {"languageCode": "en-US", "name": google_voice},
-                            "audioConfig": {"audioEncoding": "MP3", "pitch": -2.0 if "daniel" in voice else 2.0}
-                        }
-                        r = requests.post(url, json=body, timeout=60)
-                        if r.status_code == 200:
-                            audio_content = r.json().get("audioContent")
-                            if audio_content:
-                                c_path = f"{path}_gchunk_{c_idx}.mp3"
-                                with open(c_path, "wb") as f:
-                                    f.write(base64.b64decode(audio_content))
-                                chunk_files.append(c_path)
-                            else: raise Exception("No audio content in Google response")
-                        else:
-                            raise Exception(f"Google API Error {r.status_code}: {r.text}")
+# ------------------------------------------------------------------ #
+#  Groq Orpheus TTS                                                   #
+# ------------------------------------------------------------------ #
 
-                    if chunk_files:
-                        ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
-                        list_path = f"{path}_glist.txt"
-                        with open(list_path, "w") as f:
-                            for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
-                        subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
-                        for cf in chunk_files:
-                            if os.path.exists(cf): os.remove(cf)
-                        if os.path.exists(list_path): os.remove(list_path)
-                        return provider # Success
-
-                elif provider == "edge":
-                    asyncio.run(self.generate_edge_fallback(text, voice, path))
-                    return provider # Success
-
-            except Exception as e:
-                # ISSUE 8: Differentiate logs
-                if "Auth Error" in str(e): pass # Logged above
-                elif "Quota Limit" in str(e): pass # Logged above
-                elif "Timeout" in str(e): pass # Logged above
-                else:
-                    print(f"[TTS] Unexpected error ({type(e).__name__}): {e}. Falling back.")
-                continue
-
-        print(f"[TTS] CRITICAL: All voice tiers failed. Script at {path} could not be spoken.")
+def _groq_tts(text: str, voice_id: str, out_path: str) -> bool:
+    """
+    Generate audio via Groq Orpheus TTS and save to out_path (.mp3).
+    Tracks character usage per chunk after each successful API call.
+    Returns True on success, False on any error or quota/rate issue.
+    """
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        print("[TTS] GROQ_API_KEY not set.")
         return False
 
-    def make_audio(self, text, output_path):
-        """Generate audio from simple text input (used for testing and simple cases)."""
-        print(f"[TTS] Generating audio: {output_path}")
-        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-        return self.generate_segment_audio(text, self.echo_voice, output_path)
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
 
-    def make_broadcast_audio(self, segments, output_path):
-        mode = "PREMIUM CLOUD" if self.use_cloud else "STANDARD LOCAL"
-        print(f"[TTS] --- STARTING {mode} MASTERING ---")
-        temp_files = []
-        last_provider = None
-        try:
-            for idx, seg in enumerate(segments):
-                if idx > 0 and self.use_cloud:
-                    time.sleep(3.0)  # pause between segments to respect Groq RPM
-                speaker = str(seg.get("speaker", "ECHO")).upper()
-                voice = self.echo_voice if speaker == "ECHO" else self.glitch_voice
-                temp_path = f"output/temp_seg_{idx}.mp3"
-                provider = self.generate_segment_audio(seg["text"], voice, temp_path)
-                if provider:
-                    temp_files.append(temp_path)
-                    last_provider = provider
-            
-            if not temp_files: return False
-            list_path = "output/concat_list.txt"
-            with open(list_path, "w") as f:
-                for tf in temp_files: f.write(f"file '{os.path.abspath(tf)}'\n")
-            
-            ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
-            subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c", "copy", output_path], check=True, capture_output=True)
-            print(f"[TTS] Broadcast Audio Mastered: {output_path} (Used: {last_provider})")
-            return last_provider
-        except Exception as e:
-            print(f"[TTS] Mastering Error: {e}")
-            return False
-        finally:
-            # ISSUE 7: Temp file leak fix
-            for tf in temp_files:
-                if os.path.exists(tf):
-                    try: os.remove(tf)
-                    except: pass
-            if os.path.exists("output/concat_list.txt"):
-                try: os.remove("output/concat_list.txt")
-                except: pass
+        # Split into chunks so each chunk's char count is tracked individually
+        chunk_size = 500
+        chunks = [text[i: i + chunk_size] for i in range(0, len(text), chunk_size)]
 
-    def get_audio_duration(self, audio_path):
-        ffmpeg_cmd = shutil.which("ffprobe") or r"C:\ffmpeg\bin\ffprobe.exe"
-        try:
-            result = subprocess.run(
-                [ffmpeg_cmd, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
-                check=True, capture_output=True, text=True
+        audio_parts: list[bytes] = []
+        for chunk_text in chunks:
+            resp = client.audio.speech.create(
+                model=_GROQ_TTS_MODEL,
+                voice=voice_id,
+                input=chunk_text,
+                response_format="mp3",
             )
-            return int(float(result.stdout.strip()))
-        except Exception as e:
-            print(f"[TTS] Duration probe error: {e}")
-            return 0
+            audio_parts.append(resp.read())
+            _increment_usage(len(chunk_text))   # track after each successful chunk
 
-    def compile_video(self, audio_path, image_path, output_path):
-        ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
-        command = [
-            ffmpeg_cmd, "-y", "-loop", "1", "-i", image_path, "-i", audio_path,
-            "-c:v", "libx264", "-preset", "fast", "-tune", "stillimage",
-            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", "-shortest", output_path
-        ]
-        try:
-            subprocess.run(command, check=True, capture_output=True)
-            return True
-        except Exception as e:
-            print(f"[TTS] Video Error: {e}")
+        with open(out_path, "wb") as fh:
+            for part in audio_parts:
+                fh.write(part)
+
+        return True
+
+    except Exception as e:
+        err_str = str(e)
+        if "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower():
+            print(f"[TTS] Groq TTS rate-limited / quota hit: {e}")
+        else:
+            print(f"[TTS] Groq TTS error: {e}")
+        return False
+
+
+# ------------------------------------------------------------------ #
+#  edge-tts (local fallback)                                         #
+# ------------------------------------------------------------------ #
+
+async def _edge_tts_coro(text: str, voice: str, out_path: str) -> bool:
+    try:
+        import edge_tts
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(out_path)
+        return True
+    except Exception as e:
+        print(f"[TTS] edge-tts coroutine failed: {e}")
+        return False
+
+
+def _edge_tts(text: str, voice: str, out_path: str) -> bool:
+    """
+    Synchronous wrapper around edge-tts.
+    Uses asyncio.run(); falls back to asyncio.new_event_loop() if a loop
+    is already running (e.g. inside Jupyter or an async framework).
+    """
+    coro = _edge_tts_coro(text, voice, out_path)
+    try:
+        return asyncio.run(coro)
+    except RuntimeError as exc:
+        if "event loop" in str(exc).lower():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(_edge_tts_coro(text, voice, out_path))
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
+        else:
+            print(f"[TTS] Unexpected asyncio error: {exc}")
             return False
+
+
+# ------------------------------------------------------------------ #
+#  Public API                                                         #
+# ------------------------------------------------------------------ #
+
+def generate_segment_audio(
+    text: str,
+    voice: str,
+    path: str,
+    use_cloud: bool,
+) -> bool:
+    """
+    Generate audio for a single broadcast segment.
+
+    Args:
+        text:       Spoken text for this segment.
+        voice:      Speaker name key ("HOST", "CO-HOST", or any string).
+        path:       Destination file path (should end in .mp3).
+        use_cloud:  True for prod/prod-models envs; False for local/prod-db.
+
+    Behaviour:
+        - use_cloud=False  → edge-tts only (no Groq).
+        - use_cloud=True   → try Groq Orpheus first; fall back to edge-tts.
+        - Pre-emptive quota check: if chars_used >= 14 400 today, skip Groq.
+        - On any Groq error (429, exception, quota) → fall back to edge-tts.
+        - If edge-tts also fails → return False (never silent failure).
+
+    Returns:
+        True on success, False if both TTS engines failed.
+    """
+    if use_cloud and _quota_ok():
+        groq_voice = _GROQ_VOICES.get(voice, _GROQ_VOICES["DEFAULT"])
+        print(f"[TTS] Attempting Groq Orpheus (voice={groq_voice}) for '{voice}'")
+        if _groq_tts(text, groq_voice, path):
+            return True
+        print("[TTS] Groq failed. Falling back to edge-tts.")
+
+    edge_voice = _EDGE_VOICES.get(voice, _EDGE_VOICES["DEFAULT"])
+    print(f"[TTS] Using edge-tts (voice={edge_voice}) for '{voice}'")
+    success = _edge_tts(text, edge_voice, path)
+    if not success:
+        print(f"[TTS] edge-tts also failed for segment path={path}. Returning False.")
+    return success

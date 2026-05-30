@@ -1,142 +1,207 @@
-import os
+"""
+news_fetcher.py — AI Radio Echo
+Fetches headlines from BBC, Reuters, Guardian RSS feeds and HackerNews API.
+Deduplicates against existing headlines using keyword overlap.
+"""
+
 import requests
 import feedparser
-from dotenv import load_dotenv
+from html.parser import HTMLParser
 
-load_dotenv()
 
-class NewsFetcher:
+# ------------------------------------------------------------------ #
+#  HTML stripper — defined once at module level, never inside loops  #
+# ------------------------------------------------------------------ #
+
+class _HTMLStripper(HTMLParser):
     def __init__(self):
-        pass
+        super().__init__()
+        self._parts: list[str] = []
 
-    def fetch_rss_feeds(self):
-        """Fetch items from BBC, Reuters, and The Guardian RSS feeds."""
-        feeds = {
-            "BBC News": "https://feeds.bbci.co.uk/news/rss.xml",
-            "Reuters World": "https://rss.reuters.com/reuters/worldNews",
-            "The Guardian World": "https://www.theguardian.com/world/rss"
-        }
-        items = []
+    def handle_data(self, data: str):
+        self._parts.append(data)
 
-        for source_name, url in feeds.items():
-            try:
-                print(f"[News Fetcher] Parsing RSS feed: {source_name}...")
-                feed = feedparser.parse(url)
-                
-                # Fetch up to 3 stories from each feed
-                for entry in feed.entries[:3]:
-                    headline = entry.get("title", "").strip()
-                    summary = entry.get("summary", "") or entry.get("description", "")
-                    # Strip HTML tags if present in summary
-                    if summary:
-                        from html.parser import HTMLParser
-                        class HTMLStripper(HTMLParser):
-                            def __init__(self):
-                                super().__init__()
-                                self.reset()
-                                self.fed = []
-                            def handle_data(self, d):
-                                self.fed.append(d)
-                            def get_data(self):
-                                return ''.join(self.fed)
-                        stripper = HTMLStripper()
-                        stripper.feed(summary)
-                        summary = stripper.get_data().strip()[:300]
+    def get_text(self) -> str:
+        return " ".join(self._parts).strip()
 
-                    items.append({
-                        "headline": headline,
-                        "source": source_name,
-                        "summary": summary,
-                        "url": entry.get("link", "")
-                    })
-            except Exception as e:
-                print(f"[News Fetcher] Error parsing feed {source_name}: {e}")
 
+def _strip_html(html: str) -> str:
+    s = _HTMLStripper()
+    s.feed(html or "")
+    return s.get_text()
+
+
+# ------------------------------------------------------------------ #
+#  Constants                                                          #
+# ------------------------------------------------------------------ #
+
+# 20-word stop list for keyword overlap detection
+_STOP_WORDS: frozenset[str] = frozenset({
+    "about", "after", "also", "been", "from", "have", "into",
+    "more", "over", "says", "that", "their", "there", "these",
+    "they", "this", "were", "what", "which", "with",
+})
+
+RSS_SOURCES: dict[str, str] = {
+    "BBC":      "https://feeds.bbci.co.uk/news/rss.xml",
+    "Reuters":  "https://feeds.reuters.com/reuters/topNews",
+    "Guardian": "https://www.theguardian.com/world/rss",
+}
+
+_HN_TOP_URL  = "https://hacker-news.firebaseio.com/v0/topstories.json"
+_HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{}.json"
+
+_RSS_PER_SOURCE  = 5
+_HN_FETCH_LIMIT  = 10
+
+
+# ------------------------------------------------------------------ #
+#  Deduplication helpers                                              #
+# ------------------------------------------------------------------ #
+
+def _significant_words(text: str) -> set[str]:
+    """Words longer than 4 chars that are not stop words."""
+    return {
+        w for w in text.lower().split()
+        if len(w) > 4 and w not in _STOP_WORDS
+    }
+
+
+def _is_duplicate(headline: str, history: list[str]) -> bool:
+    """
+    Exact match → duplicate.
+    ≥3 significant keyword overlap → duplicate.
+    2-word overlap is NOT enough (too aggressive per spec).
+    """
+    headline_lower = headline.lower()
+    sig = _significant_words(headline)
+
+    for prev in history:
+        if headline_lower == prev.lower():
+            return True
+        if len(sig & _significant_words(prev)) >= 3:
+            return True
+    return False
+
+
+# ------------------------------------------------------------------ #
+#  Source fetchers                                                    #
+# ------------------------------------------------------------------ #
+
+def _fetch_rss(source_name: str, url: str, limit: int) -> list[dict] | None:
+    """
+    Fetch up to `limit` items from an RSS feed.
+    Returns None on failure (not empty list) so the caller can distinguish
+    'source failed' from 'source returned no items'.
+    Always passes content through requests with a 10-second timeout;
+    never calls feedparser.parse(url) directly.
+    """
+    try:
+        content = requests.get(url, timeout=10).content
+        feed = feedparser.parse(content)
+        items: list[dict] = []
+        for entry in feed.entries[:limit]:
+            title   = (entry.get("title") or "").strip()
+            summary = entry.get("summary") or entry.get("description") or ""
+            summary = _strip_html(summary)
+            if title:
+                items.append({
+                    "headline": title,
+                    "summary":  summary[:400],
+                    "source":   source_name,
+                })
         return items
+    except Exception as e:
+        print(f"[News] RSS fetch failed ({source_name}): {e}")
+        return None
 
-    def fetch_hackernews(self):
-        """Fetch top 5 HackerNews stories."""
-        items = []
+
+def _fetch_hackernews(limit: int) -> list[dict] | None:
+    """
+    Fetch up to `limit` story items from HackerNews.
+    Returns None on total failure; returns partial list on item-level failures.
+    """
+    try:
+        resp = requests.get(_HN_TOP_URL, timeout=10)
+        resp.raise_for_status()
+        story_ids: list[int] = resp.json()
+    except Exception as e:
+        print(f"[News] HackerNews top-stories fetch failed: {e}")
+        return None
+
+    items: list[dict] = []
+    # Fetch more IDs than needed to account for non-story items
+    for story_id in story_ids[: limit * 3]:
+        if len(items) >= limit:
+            break
         try:
-            print("[News Fetcher] Fetching HackerNews top stories...")
-            # Fetch top stories list
-            r = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json", timeout=10)
-            top_ids = r.json()
-            
-            # Fetch details for top 5 stories
-            for story_id in top_ids[:5]:
-                try:
-                    story_r = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json", timeout=5)
-                    story = story_r.json()
-                    if story and story.get("title"):
-                        headline = story.get("title", "").strip()
-                        summary = story.get("text", "")[:300] if story.get("text") else f"HackerNews story with {story.get('score', 0)} points."
-                        url = story.get("url", f"https://news.ycombinator.com/item?id={story_id}")
-                        items.append({
-                            "headline": headline,
-                            "source": "HackerNews",
-                            "summary": summary,
-                            "url": url
-                        })
-                except Exception as ex:
-                    print(f"[News Fetcher] Error fetching HackerNews story {story_id}: {ex}")
+            item_resp = requests.get(_HN_ITEM_URL.format(story_id), timeout=10)
+            item = item_resp.json()
+            if item and item.get("type") == "story" and item.get("title"):
+                items.append({
+                    "headline": item["title"],
+                    "summary":  item.get("url") or item.get("text") or "",
+                    "source":   "HackerNews",
+                })
         except Exception as e:
-            print(f"[News Fetcher] Error fetching HackerNews: {e}")
+            print(f"[News] HackerNews item {story_id} failed: {e}")
+            continue  # partial failure — keep going
 
-        return items
+    return items
 
-    def get_all_news(self, processed_headlines=None):
-        """Fetch from all sources, filter duplicates, and return a clean list of news items."""
-        if processed_headlines is None:
-            processed_headlines = []
-        
-        # Lowercase for robust checking
-        processed_set = {h.lower().strip() for h in processed_headlines}
-        
-        raw_items = []
-        raw_items.extend(self.fetch_rss_feeds())
-        raw_items.extend(self.fetch_hackernews())
 
-        unique_items = []
-        seen_headlines = set()
+# ------------------------------------------------------------------ #
+#  Public API                                                         #
+# ------------------------------------------------------------------ #
 
-        def get_keywords(text):
-            """Simple extraction of significant words for similarity checking."""
-            words = text.lower().split()
-            # Ignore common small words
-            stop_words = {'the', 'and', 'for', 'was', 'with', 'that', 'this', 'after', 'from', 'says', 'warns', 'in', 'on', 'at'}
-            return {w for w in words if len(w) > 3 and w not in stop_words}
+def fetch_news(history_headlines: list[str] | None = None) -> list[dict]:
+    """
+    Fetch and deduplicate news from all sources.
 
-        # Pre-calculate keywords for history
-        history_keywords = [get_keywords(h) for h in processed_headlines]
+    Args:
+        history_headlines: Headlines already seen (used for dedup).
+            Pass an empty list or None if no history.
 
-        for item in raw_items:
-            headline = item["headline"]
-            headline_lower = headline.lower().strip()
-            item_keywords = get_keywords(headline_lower)
-            
-            # 1. Exact match check
-            if headline_lower in processed_set:
-                print(f"[News Fetcher] [SKIP] Exact headline match in history: {headline}")
-                continue
-            if headline_lower in seen_headlines:
-                continue
+    Returns:
+        Deduplicated list of news items. Empty list means no new stories
+        (caller should exit cleanly, not treat as an error).
+    """
+    if history_headlines is None:
+        history_headlines = []
 
-            # 2. Topic similarity check (Keyword Overlap)
-            # Threshold: If 2 or more significant words match, it's a duplicate topic.
-            is_duplicate_topic = False
-            for prev_keywords in history_keywords:
-                overlap = item_keywords.intersection(prev_keywords)
-                if len(overlap) >= 2:
-                    print(f"[News Fetcher] [SKIP] Topic already covered (Overlap: {overlap}): {headline}")
-                    is_duplicate_topic = True
-                    break
-            
-            if is_duplicate_topic:
-                continue
-                
-            seen_headlines.add(headline_lower)
-            unique_items.append(item)
+    raw_items: list[dict] = []
+    failed_sources: list[str] = []
 
-        print(f"[News Fetcher] Total unique, unprocessed news stories fetched: {len(unique_items)}")
-        return unique_items
+    # RSS sources
+    for name, url in RSS_SOURCES.items():
+        result = _fetch_rss(name, url, _RSS_PER_SOURCE)
+        if result is None:
+            failed_sources.append(name)
+        else:
+            raw_items.extend(result)
+
+    # HackerNews
+    hn_result = _fetch_hackernews(_HN_FETCH_LIMIT)
+    if hn_result is None:
+        failed_sources.append("HackerNews")
+    else:
+        raw_items.extend(hn_result)
+
+    if failed_sources:
+        print(f"[News] Warning: sources that failed: {', '.join(failed_sources)}")
+
+    if not raw_items:
+        print("[News] Warning: all news sources failed. No stories available.")
+        return []
+
+    # Deduplicate
+    seen: list[str] = list(history_headlines)
+    unique: list[dict] = []
+    for item in raw_items:
+        headline = item["headline"]
+        if not _is_duplicate(headline, seen):
+            unique.append(item)
+            seen.append(headline)
+
+    print(f"[News] Fetched {len(raw_items)} items; {len(unique)} unique after dedup.")
+    return unique

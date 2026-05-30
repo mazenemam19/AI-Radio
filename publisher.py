@@ -1,107 +1,110 @@
+"""
+publisher.py — AI Radio Echo
+Uploads compiled MP4 episodes to YouTube via OAuth2.
+Returns None on any failure (does NOT abort the pipeline).
+"""
+
 import os
-from atproto import Client as BlueskyClient
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
 
-class DistributionPublisher:
-    def __init__(self, env="production"):
-        self.env = env.lower()
-        self.bsky_handle = os.environ.get("BLUESKY_HANDLE")
-        self.bsky_password = os.environ.get("BLUESKY_PASSWORD")
-        
-        # YouTube OAuth 2.0 Credentials
-        self.yt_client_id = os.environ.get("YOUTUBE_CLIENT_ID")
-        self.yt_client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET")
-        self.yt_refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN")
+def upload_to_youtube(
+    video_path: str,
+    title: str,
+    description: str,
+    tags: list[str],
+) -> str | None:
+    """
+    Upload an MP4 file to YouTube.
 
-    def post_to_bluesky(self, text):
-        """Post a text observation (max 280 chars) to Bluesky."""
-        if self.env != "production" or not self.bsky_handle or not self.bsky_password:
-            print(f"[Publisher] [{self.env.upper()}] Mocking Bluesky post: {text[:50]}...")
-            return {"uri": "at://mock-did/app.bsky.feed.post/mock-rkey", "cid": "mock-cid"}
+    Args:
+        video_path:  Local path to the compiled .mp4 file.
+        title:       Video title.
+        description: Video description.
+        tags:        List of tag strings.
 
-        try:
-            print(f"[Publisher] Logging into Bluesky as {self.bsky_handle}...")
-            client = BlueskyClient()
-            client.login(self.bsky_handle, self.bsky_password)
-            print("[Publisher] Posting update to Bluesky...")
-            response = client.send_post(text=text)
-            print(f"[Publisher] Posted successfully! URI: {response.uri}")
-            return {"uri": response.uri, "cid": response.cid}
-        except Exception as e:
-            print(f"[Publisher] Error posting to Bluesky: {e}")
-            return None
+    Returns:
+        YouTube video URL (str) on success, or None on any failure.
+        A None return does NOT cause the pipeline to exit — the caller
+        must handle it gracefully and continue.
 
-    def upload_to_youtube(self, video_path, title, description, tags=None):
-        """Upload a compiled MP4 video to YouTube using OAuth 2.0 Refresh Token flow."""
-        if self.env != "production" or not self.yt_refresh_token or not self.yt_client_id or not self.yt_client_secret:
-            print(f"[Publisher] [{self.env.upper()}] Mocking YouTube upload: {title}")
-            return "https://www.youtube.com/watch?v=dQw4w9WgXcQ" 
+    Failure modes handled:
+        - video_path does not exist → return None immediately.
+        - Missing OAuth credentials → return None.
+        - Any OAuth / API exception  → return None with message logged.
+    """
+    # Guard: file must exist before attempting upload
+    if not Path(video_path).exists():
+        print(f"[YouTube] Video file not found: {video_path}. Skipping upload.")
+        return None
 
-        if not os.path.exists(video_path):
-            print(f"[Publisher] Video file does not exist: {video_path}")
-            return None
+    client_id     = os.environ.get("YOUTUBE_CLIENT_ID")
+    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET")
+    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN")
 
-        try:
-            print("[Publisher] Authenticating with YouTube OAuth 2.0...")
-            # Setup YouTube Credentials from refresh token and client secrets
-            creds = Credentials(
-                token=None,  # Will be refreshed immediately
-                refresh_token=self.yt_refresh_token,
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=self.yt_client_id,
-                client_secret=self.yt_client_secret
-            )
+    if not all([client_id, client_secret, refresh_token]):
+        missing = [
+            k for k, v in {
+                "YOUTUBE_CLIENT_ID":     client_id,
+                "YOUTUBE_CLIENT_SECRET": client_secret,
+                "YOUTUBE_REFRESH_TOKEN": refresh_token,
+            }.items()
+            if not v
+        ]
+        print(f"[YouTube] Missing OAuth credentials: {missing}. Skipping upload.")
+        return None
 
-            # Refresh token to obtain active access token
-            creds.refresh(Request())
-            print("[Publisher] OAuth token refreshed successfully.")
+    try:
+        import google.oauth2.credentials
+        import googleapiclient.discovery
+        import googleapiclient.http
 
-            # Build YouTube Service
-            youtube = build("youtube", "v3", credentials=creds)
+        credentials = google.oauth2.credentials.Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            client_id=client_id,
+            client_secret=client_secret,
+            token_uri="https://oauth2.googleapis.com/token",
+        )
 
-            # Metadata body
-            body = {
-                "snippet": {
-                    "title": title[:100],  # YouTube limit is 100 characters
-                    "description": description,
-                    "tags": tags or ["AI Radio", "Echo", "News Commentary", "Technology"],
-                    "categoryId": "22"  # 22 = People & Blogs
-                },
-                "status": {
-                    "privacyStatus": "public",  # Can be "public", "private", or "unlisted"
-                    "selfDeclaredMadeForKids": False
-                }
-            }
+        youtube = googleapiclient.discovery.build(
+            "youtube", "v3", credentials=credentials
+        )
 
-            # Media upload
-            media = MediaFileUpload(
-                video_path,
-                mimetype="video/mp4",
-                chunksize=-1,
-                resumable=True
-            )
+        body = {
+            "snippet": {
+                "title":       title[:100],       # YouTube title limit
+                "description": description[:5000], # YouTube description limit
+                "tags":        [str(t) for t in (tags or [])],
+                "categoryId":  "25",              # News & Politics
+            },
+            "status": {
+                "privacyStatus": "public",
+            },
+        }
 
-            print(f"[Publisher] Uploading video: '{title}' to YouTube...")
-            request = youtube.videos().insert(
-                part="snippet,status",
-                body=body,
-                media_body=media
-            )
+        media = googleapiclient.http.MediaFileUpload(
+            video_path,
+            mimetype="video/mp4",
+            resumable=True,
+        )
 
-            # Execute video insertion
-            response = request.execute()
-            video_id = response.get("id")
-            youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-            print(f"[Publisher] Upload complete! YouTube Video URL: {youtube_url}")
-            return youtube_url
+        request = youtube.videos().insert(
+            part="snippet,status",
+            body=body,
+            media_body=media,
+        )
 
-        except Exception as e:
-            print(f"[Publisher] Error uploading to YouTube: {e}")
-            # Try to print more details for troubleshooting OAuth errors
-            return None
+        print(f"[YouTube] Starting upload: {video_path}")
+        response = None
+        while response is None:
+            _, response = request.next_chunk()
+
+        video_id  = response.get("id")
+        video_url = f"https://www.youtube.com/watch?v={video_id}"
+        print(f"[YouTube] Upload complete: {video_url}")
+        return video_url
+
+    except Exception as e:
+        print(f"[YouTube] Upload failed: {e}")
+        return None

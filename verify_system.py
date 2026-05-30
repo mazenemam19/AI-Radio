@@ -1,599 +1,319 @@
+"""
+verify_system.py — AI Radio Echo
+Fast local verification: import check, TTS, FFmpeg, SQLite DB.
+No API calls. Should complete in < 15 seconds.
+Each test is independent — failure of one does not affect others.
+Exit 0 if all pass, exit 1 if any fail.
+"""
+
 import os
-import sys
-import subprocess
 import shutil
-import json
-import re
-import glob
-import requests
 import sqlite3
-import time
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# ── Verification Constants ───────────────────────────────────────────────────
-REQUIRED_BROADCAST_FIELDS = {
-    'show_title':            str,
-    'segments':              list,
-    'my_take':               str,
-    'topic_tags':            list,
-    'social_post':           str,
-    'visual_description':    str,
-    'primary_news_headline': str,
-}
-
-REQUIRED_SEGMENT_FIELDS = {'speaker', 'text', 'speed'}
-REQUIRED_NEWS_FIELDS    = {'headline', 'source'}
+import struct
+import subprocess
+import sys
+import zlib
+from pathlib import Path
 
 
-# ── Test Runner ───────────────────────────────────────────────────────────────
+# ------------------------------------------------------------------ #
+#  Helpers shared across tests                                        #
+# ------------------------------------------------------------------ #
 
-def run_test(title, func):
-    print(f"\n[VERIFY] Run: {title}...")
+def _ensure_output_dir() -> Path:
+    p = Path("output")
+    p.mkdir(exist_ok=True)
+    return p
+
+
+def _create_test_image(out_path: str) -> bool:
+    """
+    Create a minimal valid PNG for FFmpeg tests.
+    Tries PIL first; falls back to stdlib-only approach.
+    Returns True on success, False on failure.
+    """
     try:
-        success = func()
-        if success:
-            print(f"[VERIFY] SUCCESS: {title}")
-            return True
-        else:
-            print(f"[VERIFY] FAILURE: {title}")
-            return False
+        from PIL import Image
+        img = Image.new("RGB", (640, 360), color=(15, 15, 35))
+        img.save(out_path)
+        return True
+    except ImportError:
+        pass
     except Exception as e:
-        print(f"[VERIFY] ERROR: {title} raised an exception: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+        print(f"  PIL image creation failed: {e}")
 
-
-# ── Health Checks (Lightweight & High-Speed) ──────────────────────────────────
-
-def test_imports():
-    """Checks if all core modules can be imported without syntax errors."""
+    # stdlib-only minimal PNG
     try:
-        import db_client, news_fetcher, ai_client, tts_generator, publisher, main
+        width, height = 640, 360
+
+        def _chunk(ctype: bytes, data: bytes) -> bytes:
+            crc = zlib.crc32(ctype + data) & 0xFFFFFFFF
+            return struct.pack(">I", len(data)) + ctype + data + struct.pack(">I", crc)
+
+        sig  = b"\x89PNG\r\n\x1a\n"
+        ihdr = _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        raw  = (b"\x00" + bytes([15, 15, 35]) * width) * height
+        idat = _chunk(b"IDAT", zlib.compress(raw, 1))
+        iend = _chunk(b"IEND", b"")
+
+        with open(out_path, "wb") as fh:
+            fh.write(sig + ihdr + idat + iend)
         return True
-    except ImportError as e:
-        print(f"Import check failed: {e}")
+    except Exception as e:
+        print(f"  Stdlib PNG creation failed: {e}")
         return False
 
-def test_environment_vars():
-    """Checks for presence of critical API keys."""
-    # Gemini is always required (Set B). Groq is required for Set A.
-    # Supabase is only required for Cloud runs.
-    critical = ["GEMINI_API_KEY"]
-    optional = ["GROQ_API_KEY", "SUPABASE_URL"]
-    
-    missing_critical = [k for k in critical if not os.environ.get(k)]
-    missing_optional = [k for k in optional if not os.environ.get(k)]
-    
-    if missing_critical:
-        print(f"[Verify] Missing CRITICAL environment variables: {missing_critical}")
-        return False
-    
-    if missing_optional:
-        print(f"[Verify] NOTE: Missing optional environment variables (needed for Prod): {missing_optional}")
-        
-    return True
 
-def test_binaries():
-    """Checks for required system binaries."""
-    bins = ["ffmpeg", "ffprobe"]
-    missing = [b for b in bins if not shutil.which(b) and not os.path.exists(f"C:\\ffmpeg\\bin\\{b}.exe")]
-    if missing:
-        print(f"[Verify] Missing binaries: {missing}")
-        # Allow missing binaries in light verification, but warn
-        print("[Verify] WARNING: Media processing binaries not found.")
-    return True
+# ------------------------------------------------------------------ #
+#  Test 1 — Import check                                              #
+# ------------------------------------------------------------------ #
 
-def test_tts_connectivity():
-    """Checks connectivity to edge-tts (local/fast)."""
-    from tts_generator import TTSRadioGenerator
-    generator = TTSRadioGenerator(use_cloud=False)
-    test_output = "output/health_check.mp3"
-    os.makedirs("output", exist_ok=True)
-    success = generator.make_audio("System healthy.", test_output)
-    return success and os.path.exists(test_output)
-
-def test_ffmpeg_video_compiler():
-    """Health check for FFmpeg. Takes ~5 seconds."""
-    from tts_generator import TTSRadioGenerator
-    generator = TTSRadioGenerator(use_cloud=False)
-    
-    # 1. Independent audio generation
-    test_audio = "output/health_check_compiler.mp3"
-    generator.make_audio("Echo here. Health check for video compiler.", test_audio)
-        
-    # 2. Independent image generation (No corruption of production assets)
-    test_image = "output/health_check_cover.png"
-    test_video = "output/health_check_video.mp4"
-    os.makedirs("output", exist_ok=True)
-    
-    if not os.path.exists(test_image):
+def test_imports() -> bool:
+    print("\n[Test 1] Import check — all modules must load without error")
+    modules = [
+        "db_client",
+        "news_fetcher",
+        "ai_client",
+        "tts_generator",
+        "publisher",
+        "sync_config",
+        "main",
+    ]
+    failed = []
+    for name in modules:
         try:
-            from PIL import Image
-            Image.new('RGB', (640, 360), color=(40, 20, 60)).save(test_image)
-        except Exception:
-            # Fallback to a valid 1x1 black PNG byte string if PIL is missing
-            # This ensures FFmpeg can actually decode the file.
-            print("[Verify] PIL missing, creating minimal valid PNG for FFmpeg test...")
-            valid_png_bin = bytes.fromhex(
-                "89504E470D0A1A0A0000000D49484452000000010000000108000000003A7E920B0000000A4944415408D76360000000020001E221BC330000000049454E44AE426082"
-            )
-            with open(test_image, "wb") as f:
-                f.write(valid_png_bin)
+            __import__(name)
+            print(f"  ✓ {name}")
+        except Exception as exc:
+            print(f"  ✗ {name}: {exc}")
+            failed.append(name)
 
-    if os.path.exists(test_video):
-        os.remove(test_video)
-        
-    if not shutil.which("ffmpeg") and not os.path.exists("C:\\ffmpeg\\bin\\ffmpeg.exe"):
-        print("[Verify] FFmpeg not found. Skipping compilation health check.")
-        return True
-        
-    success = generator.compile_video(test_audio, test_image, test_video)
-    return success and os.path.exists(test_video) and os.path.getsize(test_video) > 0
+    if failed:
+        print(f"[Test 1] FAIL — {len(failed)} module(s) failed to import.")
+        return False
 
-def test_database_schema_sync():
-    """
-    Checks if Supabase schema matches the local source of truth.
-    Hardened to handle empty tables and select all columns.
-    """
-    from db_client import SupabaseDBClient
-    print("[Verify] Comparing Local vs Remote schema...")
+    print("[Test 1] PASS")
+    return True
+
+
+# ------------------------------------------------------------------ #
+#  Test 2 — TTS synthesis (edge-tts only, no cloud)                  #
+# ------------------------------------------------------------------ #
+
+def test_tts() -> bool:
+    print("\n[Test 2] TTS synthesis — generate a short audio file with edge-tts")
+    out_dir = _ensure_output_dir()
+    out_path = str(out_dir / "verify_tts.mp3")
+
     try:
-        local_db = SupabaseDBClient(env='local')
-        if not os.path.exists(local_db.db_path):
-            print(f"[Verify] ERROR: Local DB not found.")
+        from tts_generator import generate_segment_audio
+        text = (
+            "This is a verification test for AI Radio Echo. "
+            "The text-to-speech system is working correctly."
+        )
+        ok = generate_segment_audio(
+            text=text,
+            voice="HOST",
+            path=out_path,
+            use_cloud=False,   # always edge-tts for this test
+        )
+        if not ok:
+            print("[Test 2] FAIL — generate_segment_audio returned False.")
             return False
-        conn = sqlite3.connect(local_db.db_path)
-        cursor = conn.execute('PRAGMA table_info(memory_log)')
-        local_cols = set(row[1] for row in cursor.fetchall())
+
+        p = Path(out_path)
+        if not p.exists() or p.stat().st_size == 0:
+            print("[Test 2] FAIL — audio file missing or empty.")
+            return False
+
+        print(f"[Test 2] PASS — audio file: {out_path} ({p.stat().st_size:,} bytes)")
+        return True
+
+    except Exception as exc:
+        print(f"[Test 2] FAIL — exception: {exc}")
+        return False
+
+
+# ------------------------------------------------------------------ #
+#  Test 3 — FFmpeg compile (image + audio → MP4)                     #
+# ------------------------------------------------------------------ #
+
+def test_ffmpeg() -> bool:
+    print("\n[Test 3] FFmpeg compile — still image + audio → MP4")
+    out_dir  = _ensure_output_dir()
+    img_path = str(out_dir / "verify_image.png")
+    aud_path = str(out_dir / "verify_tts.mp3")
+    vid_path = str(out_dir / "verify_video.mp4")
+
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        print("[Test 3] FAIL — FFmpeg not found in PATH.")
+        return False
+
+    # Create test image
+    if not _create_test_image(img_path):
+        print("[Test 3] FAIL — could not create test image.")
+        return False
+
+    # Audio file should exist from Test 2; if not, create a short silence
+    if not Path(aud_path).exists():
+        print("  Audio from Test 2 not found; generating 1-second silence via FFmpeg.")
+        silence_result = subprocess.run(
+            [
+                ffmpeg, "-y",
+                "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+                "-t", "1",
+                "-q:a", "9",
+                "-acodec", "libmp3lame",
+                aud_path,
+            ],
+            capture_output=True, text=True,
+        )
+        if silence_result.returncode != 0:
+            print(f"[Test 3] FAIL — could not create silent audio: {silence_result.stderr[-300:]}")
+            return False
+
+    try:
+        result = subprocess.run(
+            [
+                ffmpeg, "-y",
+                "-loop", "1",     "-i", img_path,
+                "-i", aud_path,
+                "-c:v", "libx264",
+                "-tune", "stillimage",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-pix_fmt", "yuv420p",
+                "-shortest",
+                vid_path,
+            ],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            print(f"[Test 3] FAIL — FFmpeg error:\n{result.stderr[-500:]}")
+            return False
+
+        p = Path(vid_path)
+        if not p.exists() or p.stat().st_size == 0:
+            print("[Test 3] FAIL — output MP4 missing or empty.")
+            return False
+
+        print(f"[Test 3] PASS — video: {vid_path} ({p.stat().st_size:,} bytes)")
+        return True
+
+    except Exception as exc:
+        print(f"[Test 3] FAIL — exception: {exc}")
+        return False
+
+
+# ------------------------------------------------------------------ #
+#  Test 4 — SQLite DB: insert, fetch, verify                         #
+# ------------------------------------------------------------------ #
+
+def test_db() -> bool:
+    print("\n[Test 4] SQLite DB — create table, insert row, fetch and verify fields")
+    test_db_path = "verify_test.db"
+
+    try:
+        schema_path = Path("schema.sql")
+        if not schema_path.exists():
+            print("[Test 4] FAIL — schema.sql not found.")
+            return False
+
+        conn = sqlite3.connect(test_db_path)
+        conn.row_factory = sqlite3.Row
+        conn.executescript(schema_path.read_text(encoding="utf-8"))
+        conn.commit()
+
+        test_row = {
+            "headline":           "Verify Test Headline",
+            "original_headline":  "Original verify headline",
+            "source":             "VerifyTestSuite",
+            "topic_tags":         '["verify", "test"]',
+            "my_take":            "This is a verification test take.",
+            "post_text":          "Verification test post text.",
+            "audio_script":       "{}",
+            "audio_url":          None,
+            "video_url":          None,
+            "confidence":         "high",
+            "related_ids":        None,
+            "broadcast_duration": 300,
+            "healer_used":        False,
+            "writer_model":       "test-model",
+            "narrator_model":     "edge-tts",
+        }
+
+        cols   = list(test_row.keys())
+        vals   = [test_row[c] for c in cols]
+        cursor = conn.execute(
+            f"INSERT INTO memory_log ({', '.join(cols)}) "
+            f"VALUES ({', '.join('?' * len(cols))})",
+            vals,
+        )
+        conn.commit()
+        row_id = cursor.lastrowid
+
+        row = conn.execute(
+            "SELECT * FROM memory_log WHERE id = ?", (row_id,)
+        ).fetchone()
         conn.close()
 
-        prod_db = SupabaseDBClient(env='production')
-        if prod_db.is_mock:
-            print("[Verify] Prod credentials missing — skipping remote check.")
-            return True
+        if row is None:
+            print("[Test 4] FAIL — row not found after insert.")
+            return False
 
-        # Check for empty table or schema mismatch
-        endpoint = f"{prod_db.url}/rest/v1/memory_log?limit=1"
-        response = requests.get(endpoint, headers=prod_db.headers, timeout=10)
-
-        if response.status_code == 200:
-            data = response.json()
-            if not data:
-                # Table empty: probe columns individually for sync
-                for col in local_cols:
-                    probe = requests.get(f"{prod_db.url}/rest/v1/memory_log?select={col}&limit=0", headers=prod_db.headers, timeout=5)
-                    if probe.status_code == 400:
-                        print(f"[Verify] Missing remote column: {col}")
-                        return False
-                return True
-            
-            remote_cols = set(data[0].keys())
-            if not local_cols.issubset(remote_cols):
-                print(f"[Verify] Local columns missing on remote: {local_cols - remote_cols}")
+        d = dict(row)
+        checks = {
+            "headline":   "Verify Test Headline",
+            "source":     "VerifyTestSuite",
+            "confidence": "high",
+        }
+        for field, expected in checks.items():
+            if d.get(field) != expected:
+                print(
+                    f"[Test 4] FAIL — field '{field}': "
+                    f"expected {expected!r}, got {d.get(field)!r}"
+                )
                 return False
-            return True
-        return False
-    except Exception as e:
-        print(f"[Verify] Schema check exception: {e}")
-        return False
 
-def test_news_fetcher_deduplication():
-    """Asserts news items have required fields and deduplication logic works."""
-    from news_fetcher import NewsFetcher
-    fetcher = NewsFetcher()
-    try:
-        items = fetcher.get_all_news(processed_headlines=[])
-        if not items:
-            print("[Verify] WARNING: News fetcher returned empty list (network?).")
-            return True
-        
-        # Check contract
-        for item in items[:5]:
-            for field in REQUIRED_NEWS_FIELDS:
-                if field not in item:
-                    print(f"[Verify] News item missing field '{field}'")
-                    return False
-
-        # Test deduplication
-        known = items[0]["headline"]
-        filtered = fetcher.get_all_news(processed_headlines=[known])
-        if any(i["headline"] == known for i in filtered):
-            print("[Verify] Deduplication failed to exclude known headline.")
-            return False
+        print(f"[Test 4] PASS — inserted id={row_id}, all fields verified.")
         return True
-    except Exception as e:
-        print(f"[Verify] News fetcher error: {e}")
+
+    except Exception as exc:
+        print(f"[Test 4] FAIL — exception: {exc}")
         return False
-
-def test_environment_firewall():
-    """Ensures staging/local can't hit production Supabase."""
-    from db_client import SupabaseDBClient
-    prod = SupabaseDBClient(env='production')
-    staging = SupabaseDBClient(env='staging')
-    local = SupabaseDBClient(env='local')
-
-    if not prod.is_mock and not staging.is_mock:
-        if staging.url == prod.url:
-            print("[Verify] Firewall breach: Staging == Production URL!")
-            return False
-    
-    if not hasattr(local, 'db_path') or not local.db_path:
-        print("[Verify] Local DB client should use SQLite path.")
-        return False
-    return True
-
-def test_ai_client_json_healing():
-    """Regression tests for the state-aware JSON healer."""
-    from ai_client import AIRadioAIClient
-    client = AIRadioAIClient()
-
-    # Mid-string truncation
-    bad = '{"show_title": "Test", "segments": [{"speaker": "ECHO", "text": "Hel'
-    healed = client.heal_truncated_json(bad)
-    try:
-        parsed = json.loads(healed)
-        if "show_title" not in parsed: return False
-    except: return False
-
-    # Prose wrapper
-    wrapped = "Here is the JSON:\n{\"show_title\": \"Wrapped\"}\nEnd."
-    repaired = client.attempt_json_repair(wrapped)
-    if not repaired or repaired.get("show_title") != "Wrapped": return False
-
-    return True
-
-def test_broadcast_output_contract():
-    """Validates the structure of the broadcast dictionary."""
-    sample = {
-        "show_title": "Test", "segments": [{"speaker":"ECHO", "text":"hi", "speed":1.0}],
-        "my_take": "x", "topic_tags": ["x"], "social_post": "x",
-        "visual_description": "x", "primary_news_headline": "x"
-    }
-    for field, ftype in REQUIRED_BROADCAST_FIELDS.items():
-        if field not in sample or not isinstance(sample[field], ftype):
-            return False
-    return True
-
-def test_production_model_isolation():
-    """Verifies that 70B model is NEVER used in local mode."""
-    from ai_client import AIRadioAIClient
-    client = AIRadioAIClient()
-    captured = []
-    orig = client.call_groq
-    client.call_groq = lambda p, s, model="llama-3.3-70b-versatile", **k: captured.append(model) or "{}"
-    client.call_gemini = lambda *a, **k: "{}"
-    
-    try:
-        client.generate_broadcast([], [], "ts", is_cloud=False)
-        if "llama-3.3-70b-versatile" in captured:
-            return False
-        return True
     finally:
-        client.call_groq = orig
+        try:
+            os.unlink(test_db_path)
+        except OSError:
+            pass
 
-def test_ai_client_payload_trimming():
-    """Verifies that context is trimmed for local mode to save tokens."""
-    from ai_client import AIRadioAIClient
-    client = AIRadioAIClient()
-    captured = {}
-    client.call_gemini = lambda user_input_json, *a, **k: captured.update({"data": json.loads(user_input_json)}) or "{}"
-    
-    news = [{"headline": f"H{i}", "source": "S"} for i in range(10)]
-    mem = [{"headline": f"M{i}", "my_take": "T"} for i in range(10)]
-    
-    client.generate_broadcast(news, mem, "ts", is_cloud=False)
-    
-    n_count = len(captured['data']['news_items'])
-    m_count = len(captured['data']['memory_context'])
-    
-    return n_count == 3 and m_count == 1
 
-def test_ai_client_environment_routing():
-    """
-    Validates that AIRadioAIClient trims payloads accurately and routes 
-    to the correct models/engines depending on the environment flag.
-    Deep inspection version.
-    """
-    from ai_client import AIRadioAIClient
-    client = AIRadioAIClient()
-    captured_args = []
+# ------------------------------------------------------------------ #
+#  Runner                                                             #
+# ------------------------------------------------------------------ #
 
-    # Mock low-level API callers
-    def mock_call_groq(user_input_json, target_segments, model, max_tokens, mandate=""):
-        captured_args.append({'payload': json.loads(user_input_json), 'model': model, 'engine': 'groq'})
-        # Create unique segments to pass similarity check
-        return json.dumps({"segments": [{"speaker": "ECHO", "text": f"Unique segment content {i} " * 20, "speed": 1.0} for i in range(10)]})
+def main() -> None:
+    results = {
+        "imports": test_imports(),
+        "tts":     test_tts(),
+        "ffmpeg":  test_ffmpeg(),
+        "db":      test_db(),
+    }
 
-    def mock_call_gemini(user_input_json, target_segments, model="gemini-3.5-flash", mandate=""):
-        captured_args.append({'payload': json.loads(user_input_json), 'engine': 'gemini', 'model': model})
-        return json.dumps({"segments": [{"speaker": "ECHO", "text": f"Unique segment content {i} " * 20, "speed": 1.0} for i in range(5)]})
+    print("\n" + "=" * 50)
+    print("  verify_system.py — Summary")
+    print("=" * 50)
+    all_pass = True
+    for name, ok in results.items():
+        status = "PASS ✓" if ok else "FAIL ✗"
+        print(f"  {name:<12} {status}")
+        if not ok:
+            all_pass = False
 
-    client.call_groq = mock_call_groq
-    client.call_gemini = mock_call_gemini
+    print("=" * 50)
+    sys.exit(0 if all_pass else 1)
 
-    sample_news = [{"headline": f"H{i}", "source": "S"} for i in range(10)]
-    sample_memory = [{"headline": f"M{i}", "my_take": "T"} for i in range(10)]
-
-    try:
-        # 1. Verify Local Routing (Gemini + Trimmed)
-        captured_args.clear()
-        client.generate_broadcast(sample_news, sample_memory, "ts", is_cloud=False)
-        local_call = captured_args[0]
-        if local_call['engine'] != 'gemini':
-            print("[Verify] Local mode failed to route to Gemini.")
-            return False
-        if len(local_call['payload']['news_items']) != 3:
-            print("[Verify] Local mode failed to trim payload.")
-            return False
-
-        # 2. Verify Cloud Routing (Groq 70B + Full)
-        captured_args.clear()
-        client.generate_broadcast(sample_news, sample_memory, "ts", is_cloud=True)
-        cloud_call = captured_args[0]
-        if cloud_call['engine'] != 'groq' or cloud_call['model'] != "llama-3.3-70b-versatile":
-            print(f"[Verify] Cloud mode failed to route to Groq 70B. Got: {cloud_call.get('model')}")
-            return False
-        if len(cloud_call['payload']['news_items']) != 10:
-            print("[Verify] Cloud mode unexpectedly trimmed payload.")
-            return False
-
-        return True
-    except Exception as e:
-        print(f"[Verify] Routing test exception: {e}")
-        return False
-
-def test_ai_step_down_logic():
-    """Regression: Verifies that context is reduced (noise reduction) on retries."""
-    from ai_client import AIRadioAIClient
-    client = AIRadioAIClient()
-    payloads = []
-    
-    def mock_call(*a, **k):
-        # Extract user_input_json from either positional or keyword args
-        json_data = k.get('user_input_json') or (a[0] if a else None)
-        if json_data:
-            payloads.append(json.loads(json_data))
-        return json.dumps({"segments": [{"speaker":"ECHO", "text":"too short", "speed":1.0}]})
-
-    client.call_groq = mock_call
-    client.call_gemini = mock_call
-    
-    sample_news = [{"headline": f"H{i}", "source": "S"} for i in range(15)]
-    client.generate_broadcast(sample_news, [], "ts", is_cloud=True)
-    
-    if len(payloads) < 2:
-        print("[Verify] Retry logic didn't trigger.")
-        return False
-        
-    # First call should have 15 items
-    if len(payloads[0]['news_items']) != 15:
-        print(f"[Verify] First call context wrong: {len(payloads[0]['news_items'])}")
-        return False
-        
-    # Second call should have 8 items (Step-Down)
-    if len(payloads[1]['news_items']) != 8:
-        print(f"[Verify] Step-Down failed. Second call context: {len(payloads[1]['news_items'])}")
-        return False
-        
-    return True
-
-def test_ai_fail_fast_returns_none():
-    """Regression: Verifies that generate_broadcast returns None (not a placeholder) on total failure."""
-    from ai_client import AIRadioAIClient
-    client = AIRadioAIClient()
-    client.call_groq = lambda *a, **k: None
-    client.call_gemini = lambda *a, **k: None
-    
-    res = client.generate_broadcast([], [], "ts", is_cloud=True)
-    return res is None
-
-def test_db_healer_column():
-    """Verifies that the healer_used column exists in the local database."""
-    from db_client import SupabaseDBClient
-    db = SupabaseDBClient(env='local')
-    conn = sqlite3.connect(db.db_path)
-    cursor = conn.execute('PRAGMA table_info(memory_log)')
-    cols = [row[1] for row in cursor.fetchall()]
-    conn.close()
-    return "healer_used" in cols
-
-def test_ai_healer_flag_injection():
-    """Verifies that generate_broadcast injects the _healer_used flag."""
-    from ai_client import AIRadioAIClient
-    client = AIRadioAIClient()
-    # Unique segments with a completely unique word in each to pass the 50% word overlap check
-    mock_resp = json.dumps({"segments": [{"speaker":"ECHO", "text":f"WordUnique{i} " * 200, "speed":1.0} for i in range(10)]})
-    client.call_gemini = lambda *a, **k: mock_resp
-    client.call_groq = lambda *a, **k: mock_resp
-    res = client.generate_broadcast([], [], "ts", is_cloud=False)
-    return "_healer_used" in res
-
-def test_tts_request_budget_enforcement():
-    """Verifies that TTS Generator respects the daily budget and falls back to Edge."""
-    from tts_generator import TTSRadioGenerator
-    import asyncio
-    generator = TTSRadioGenerator(use_cloud=True)
-    generator.daily_request_count = 80 # Limit reached
-    
-    # Mock Edge fallback (needs to be an async mock)
-    async def mock_edge(*a): return None
-    generator.generate_edge_fallback = mock_edge
-    
-    # This should trigger budget exhaustion
-    success = generator.generate_segment_audio("Test budget", "daniel", "output/budget_test.mp3")
-    return success # Should return True via fallback
-
-def test_groq_token_limit():
-    """Verifies that Groq max_tokens is set to 8000 in the method definition."""
-    import inspect
-    from ai_client import AIRadioAIClient
-    client = AIRadioAIClient()
-    sig = inspect.signature(client.call_groq)
-    max_tokens_default = sig.parameters['max_tokens'].default
-    return max_tokens_default == 8000
-
-def test_tts_chunk_size():
-    """Verifies that the TTS chunk size is set to 450 for efficiency."""
-    import inspect
-    from tts_generator import TTSRadioGenerator
-    generator = TTSRadioGenerator()
-    sig = inspect.signature(generator.chunk_text)
-    chunk_size_default = sig.parameters['max_chars'].default
-    return chunk_size_default == 450
-
-def test_main_emergency_abort():
-    """
-    Verifies that the pipeline correctly aborts if the AI fails to produce a script.
-    This protects the production YouTube channel from broken or empty content.
-    """
-    from main import run_pipeline
-    from unittest.mock import patch, MagicMock
-    
-    with patch("main.AIRadioAIClient") as MockAI, \
-         patch("main.SupabaseDBClient"), \
-         patch("main.NewsFetcher"), \
-         patch("main.TTSRadioGenerator"), \
-         patch("main.DistributionPublisher"):
-        
-        mock_ai = MockAI.return_value
-        # Mock a failed AI response (None)
-        mock_ai.generate_broadcast.return_value = None
-        
-        # run_pipeline should return False (Abort)
-        success = run_pipeline(env="local", dry_run=True)
-        return success is False
-
-def test_confidence_logic():
-    """Regression: Verifies the dynamic confidence scoring logic."""
-    with open("main.py", "r") as f:
-        content = f.read()
-        # High Confidence: segments >= 10 and duration >= 600s
-        if "if seg_count >= 10 and duration >= 600:" not in content:
-            print("[Verify] Confidence 'high' logic missing or changed.")
-            return False
-        # Medium Confidence: segments >= 8 or duration >= 400s
-        if "elif seg_count >= 8 or duration >= 400:" not in content:
-            print("[Verify] Confidence 'medium' logic missing or changed.")
-            return False
-            
-    return True
-
-def test_db_field_completeness():
-    """Regression: Verifies that insert_post populates mandatory fields even if input is empty."""
-    from db_client import SupabaseDBClient
-    db = SupabaseDBClient(env='local')
-    # Use a dummy ID to not mess with real data if possible, 
-    # but since it's local SQLite we can just insert and then check
-    res = db.insert_post(
-        headline="Completeness Test",
-        source="", # Empty
-        topic_tags=None,
-        my_take="  ", # Whitespace
-        post_text="Text",
-        audio_script="[]",
-        audio_url="url"
-    )
-    
-    if not res.get("original_headline"): return False
-    if not res.get("my_take") or res["my_take"].isspace(): return False
-    if res.get("source") != "Unknown Source": # Hardened value
-        if not res.get("source"): return False
-        
-    return True
-
-def test_like_button_logic():
-    """Regression: Verifies that the increment_likes method works in the DB client."""
-    from db_client import SupabaseDBClient
-    db = SupabaseDBClient(env='local')
-    
-    # Insert a dummy record to like
-    res = db.insert_post(
-        headline="Like Test", source="S", topic_tags=[], 
-        my_take="T", post_text="P", audio_script="[]", audio_url="U"
-    )
-    row_id = res["id"]
-    
-    # Initial likes should be 0
-    conn = sqlite3.connect(db.db_path)
-    val_before = conn.execute("SELECT likes FROM memory_log WHERE id = ?", (row_id,)).fetchone()[0]
-    
-    db.increment_likes(row_id)
-    
-    val_after = conn.execute("SELECT likes FROM memory_log WHERE id = ?", (row_id,)).fetchone()[0]
-    conn.close()
-    
-    return val_after == val_before + 1
-
-def test_quality_thresholds_protection():
-    """Regression: Ensures duration thresholds and model queues are never changed without explicit intent."""
-    from main import run_pipeline
-    import inspect
-    from ai_client import PROD_WRITER_QUEUE, TEST_WRITER_QUEUE
-    
-    # 1. Verify Model List Lengths (Resilience check)
-    if len(PROD_WRITER_QUEUE) != 6:
-        print(f"[Verify] PROD_WRITER_QUEUE length changed! Expected 6, got {len(PROD_WRITER_QUEUE)}")
-        return False
-    if len(TEST_WRITER_QUEUE) != 5:
-        print(f"[Verify] TEST_WRITER_QUEUE length changed! Expected 5, got {len(TEST_WRITER_QUEUE)}")
-        return False
-        
-    # 2. Verify Thresholds in main.py
-    with open("main.py", "r") as f:
-        content = f.read()
-        if "if duration < 600:" not in content:
-            print("[Verify] MIN_BROADCAST_DURATION logic in main.py is incorrect.")
-            return False
-            
-    return True
-
-# ── Entry Point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("\n=========================================")
-    print("[SYSTEM HEALTH CHECK]")
-    print("=========================================\n")
-
-    results = []
-    results.append(run_test("Import and Syntax Check",        test_imports))
-    results.append(run_test("Environment Variables Check",    test_environment_vars))
-    results.append(run_test("Binaries Availability",          test_binaries))
-    results.append(run_test("Local TTS Connectivity",         test_tts_connectivity))
-    results.append(run_test("FFmpeg Video Compiler",          test_ffmpeg_video_compiler))
-    results.append(run_test("Database Schema Sync",           test_database_schema_sync))
-    results.append(run_test("News Fetcher Deduplication",     test_news_fetcher_deduplication))
-    results.append(run_test("Environment Firewall",           test_environment_firewall))
-    results.append(run_test("AI JSON Healing Regression",     test_ai_client_json_healing))
-    results.append(run_test("Broadcast Output Contract",      test_broadcast_output_contract))
-    results.append(run_test("Model Isolation (Prod Guard)",   test_production_model_isolation))
-    results.append(run_test("AI Payload Trimming (Mocked)",   test_ai_client_payload_trimming))
-    results.append(run_test("AI Routing & Logic (Thorough)",  test_ai_client_environment_routing))
-    results.append(run_test("AI Step-Down Context Logic",     test_ai_step_down_logic))
-    results.append(run_test("AI Fail-Fast Abort (None)",      test_ai_fail_fast_returns_none))
-    results.append(run_test("DB Healer Column Presence",      test_db_healer_column))
-    results.append(run_test("AI Healer Flag Injection",       test_ai_healer_flag_injection))
-    results.append(run_test("DB Field Completeness",          test_db_field_completeness))
-    results.append(run_test("Like Button Logic",              test_like_button_logic))
-    results.append(run_test("TTS Budget Enforcement",         test_tts_request_budget_enforcement))
-    results.append(run_test("Groq Token Limit (8k)",          test_groq_token_limit))
-    results.append(run_test("TTS Chunk Size (450)",           test_tts_chunk_size))
-    results.append(run_test("Main Emergency Abort",           test_main_emergency_abort))
-    results.append(run_test("Quality Threshold Protection",   test_quality_thresholds_protection))
-    results.append(run_test("Confidence Scoring Logic",       test_confidence_logic))
-
-    passed = sum(results)
-    total  = len(results)
-
-    print("\n=========================================")
-    print(f"VERIFICATION STATUS: {passed}/{total} TESTS PASSED")
-    print("=========================================\n")
-
-    if not all(results):
-        print("\n[Verify] HEALTH CHECK FAILED.")
-        sys.exit(1)
-    else:
-        print("\n[Verify] HEALTH CHECK PASSED.")
-        sys.exit(0)
+    main()

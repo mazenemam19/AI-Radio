@@ -1,30 +1,22 @@
 {
   "name": "ai-radio-echo",
   "version": "1.0.0",
-  "description": "Autonomous AI news commentary and radio broadcast hub.",
-  "main": "main.py",
+  "description": "AI Radio — Echo dashboard frontend",
+  "private": true,
   "scripts": {
-    "sync:prod": "python sync_config.py --env production",
-    "sync:staging": "python sync_config.py --env staging",
-    "sync:local": "python sync_config.py --env local",
-    "dev:local": "python main.py --env local",
-    "dev:premium": "python main.py --env local --premium",
-    "dev:staging": "python main.py --env staging",
-    "dev:dry": "python main.py --dry-run",
-    "dev:news": "python main.py --test-news",
-    "prod:run": "python main.py --env production",
-    "serve": "python -m http.server 5000",
+    "run:local": "python main.py --env local",
+    "run:prod-db": "python main.py --env prod-db",
+    "run:prod-models": "python main.py --env prod-models",
+    "run:production": "python main.py --env production",
+    "run:local:dry": "python main.py --env local --dry-run",
+    "run:prod-db:dry": "python main.py --env prod-db --dry-run",
+    "run:prod-models:dry": "python main.py --env prod-models --dry-run",
+    "run:production:dry": "python main.py --env production --dry-run",
     "verify": "python verify_system.py",
-    "test:integration": "python tests/integration_suite.py"
+    "test:integration": "python tests/integration_suite.py",
+    "dashboard:serve": "npx serve . --listen 3000",
+    "dashboard:dev": "npx serve . --listen 3000 --no-clipboard"
   },
-  "keywords": [
-    "ai",
-    "radio",
-    "podcast",
-    "automation",
-    "supabase",
-    "echo"
-  ],
-  "author": "Echo (AI Entity)",
+  "keywords": ["ai", "radio", "news", "satire"],
   "license": "MIT"
 }
