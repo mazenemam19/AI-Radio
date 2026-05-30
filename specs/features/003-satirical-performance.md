@@ -9,7 +9,7 @@ To transform monotonous text into a rhythmic, "Late Night" satirical performance
 
 ## 🎙️ Synthesis (TTS)
 - **Tiered Fallback:** 
-    1. **Groq Cloud (Orpheus v1):** Primary high-fidelity engine.
+    1. **Groq Cloud (Orpheus v1):** Primary high-fidelity engine. Protected by 80 request / 14,400 char daily quota.
     2. **Google Cloud (Neural2):** Secondary fallback.
     3. **Edge-TTS:** Final local resiliency tier.
 - **Inline Tags:** Uses bracketed emotion tags `[sarcastic]`, `[angry]`, etc.

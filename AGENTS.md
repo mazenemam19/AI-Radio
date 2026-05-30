@@ -39,5 +39,5 @@ The broadcast is a dynamic, high-performance satirical duo:
 - **Memory Context:** AI receives the `my_take` of recent episodes to ensure new angles are unique.
 - **FFmpeg Resiliency:** Includes a fallback for `C:\ffmpeg\bin\ffmpeg.exe`. No hardcoded local user paths.
 - **Self-Maintenance:** System deletes records and Supabase storage files older than 7 days per run.
-- **Token Optimization:** Uses smart 190-character chunking and 8s pacing to handle Groq RPM/TPM limits.
+- **RPD Shield:** Hard 80-request / 14,400 character daily limit for Groq to protect free tier tokens.
 - **Frontend Sync:** Use `npm run sync` commands to update `config.js`. Avoid hardcoding keys in `app.js`.

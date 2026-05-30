@@ -20,13 +20,14 @@ To implement a resilient, multi-tiered AI model queue that strictly separates Pr
 - If all models in a queue fail (quality or availability), return `None`.
 - `main.py` must catch `None` and exit with code 1.
 
-### 3. Step-Down Focus
+### 4. Step-Down Focus
 - Implement an automated context reduction on retry.
 - If Attempt 1 (15 news items) fails, Attempt 2 should reduce input to 8 items to force creative depth and avoid "summary traps."
 
-### 4. Efficient TTS Budgeting
+### 5. Efficient TTS Budgeting
 - Increase TTS chunk size from 190 to 450 characters.
-- Implement an 80-request daily limit (RPD Shield) in `tts_generator.py`.
+- Implement a 14,400 character daily pre-emptive limit (RPD Shield) in `tts_generator.py`.
+
 
 ## ⚙️ Logic & Integration
 - **`ai_client.py`:** Central refactor to use a declarative strategy pattern for model queues.

@@ -305,7 +305,7 @@ def test_ai_client_environment_routing():
     def mock_call_groq(user_input_json, target_segments, model, max_tokens, mandate=""):
         captured_args.append({'payload': json.loads(user_input_json), 'model': model, 'engine': 'groq'})
         # Create unique segments to pass similarity check
-        return json.dumps({"segments": [{"speaker": "ECHO", "text": f"Unique segment content {i} " * 20, "speed": 1.0} for i in range(5)]})
+        return json.dumps({"segments": [{"speaker": "ECHO", "text": f"Unique segment content {i} " * 20, "speed": 1.0} for i in range(10)]})
 
     def mock_call_gemini(user_input_json, target_segments, model="gemini-3.5-flash", mandate=""):
         captured_args.append({'payload': json.loads(user_input_json), 'engine': 'gemini', 'model': model})
@@ -405,7 +405,7 @@ def test_ai_healer_flag_injection():
     from ai_client import AIRadioAIClient
     client = AIRadioAIClient()
     # Unique segments with a completely unique word in each to pass the 50% word overlap check
-    mock_resp = json.dumps({"segments": [{"speaker":"ECHO", "text":f"WordUnique{i} " * 200, "speed":1.0} for i in range(5)]})
+    mock_resp = json.dumps({"segments": [{"speaker":"ECHO", "text":f"WordUnique{i} " * 200, "speed":1.0} for i in range(10)]})
     client.call_gemini = lambda *a, **k: mock_resp
     client.call_groq = lambda *a, **k: mock_resp
     res = client.generate_broadcast([], [], "ts", is_cloud=False)
@@ -470,10 +470,12 @@ def test_confidence_logic():
     """Regression: Verifies the dynamic confidence scoring logic."""
     with open("main.py", "r") as f:
         content = f.read()
-        if "if seg_count >= target_seg_confidence and duration >= MIN_BROADCAST_DURATION:" not in content:
+        # High Confidence: segments >= 10 and duration >= 600s
+        if "if seg_count >= 10 and duration >= 600:" not in content:
             print("[Verify] Confidence 'high' logic missing or changed.")
             return False
-        if "elif seg_count >= (target_seg_confidence - 2) or duration >= (MIN_BROADCAST_DURATION * 0.7):" not in content:
+        # Medium Confidence: segments >= 8 or duration >= 400s
+        if "elif seg_count >= 8 or duration >= 400:" not in content:
             print("[Verify] Confidence 'medium' logic missing or changed.")
             return False
             
@@ -542,7 +544,7 @@ def test_quality_thresholds_protection():
     # 2. Verify Thresholds in main.py
     with open("main.py", "r") as f:
         content = f.read()
-        if "MIN_BROADCAST_DURATION = 600 if is_real_run else 200" not in content:
+        if "if duration < 600:" not in content:
             print("[Verify] MIN_BROADCAST_DURATION logic in main.py is incorrect.")
             return False
             

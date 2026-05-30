@@ -281,7 +281,7 @@ class AIRadioAIClient:
         return cleaned.strip()
 
     def generate_broadcast(self, news_items, memory_context, timestamp, is_cloud=False):
-        """Generates a satirical broadcast. Target: 10 segments (~11-13 mins) for production."""
+        """Generates a satirical broadcast using a multi-tier fallback queue."""
         # Select active queue
         queue = PROD_WRITER_QUEUE if is_cloud else TEST_WRITER_QUEUE
         
@@ -290,11 +290,16 @@ class AIRadioAIClient:
         min_avg_words = 150
 
         if not is_cloud:
-            # Local testing thresholds
-            target_segments = 5
-            MIN_SEGMENTS = 3
-            min_avg_words = 60
+            # Local testing thresholds - increased to hit 600s gate
+            target_segments = 10
+            MIN_SEGMENTS = 8
+            min_avg_words = 150
 
+        return self._orchestrate_writer(queue, news_items, memory_context, target_segments, MIN_SEGMENTS, min_avg_words, is_cloud)
+
+    def _orchestrate_writer(self, queue, news_items, memory_context, target_segments, MIN_SEGMENTS, min_avg_words, is_cloud):
+        """ISSUE 6: Real multi-tier fallback chain orchestration."""
+        
         def _is_sufficient(broadcast):
             if not broadcast or "segments" not in broadcast or not isinstance(broadcast["segments"], list):
                 print("[AI Client] [FAIL] Broadcast structure invalid or missing segments.")
@@ -380,9 +385,6 @@ class AIRadioAIClient:
             attempt_num = attempt_idx + 1
             
             # Step-Down Logic: Reduce context on retries to focus the model and avoid summary traps
-            # Attempt 1: Full Context (15 news)
-            # Attempt 2+: Focused Context (8 news)
-            # PRO-ACTIVE Step-Down: Some models have low TPM (Qwen, GPT-OSS) and need focused context immediately.
             is_low_tpm = "qwen" in model.lower() or "gpt-oss" in model.lower()
             use_focused = attempt_idx > 0 or is_low_tpm
             
@@ -409,7 +411,7 @@ class AIRadioAIClient:
                         mandate = f"CRITICAL: Write at least 250 words per segment. DO NOT SUMMARIZE. EXPAND AND MOCK. Generate exactly {target_segments} segments."
                     raw_output = self.call_gemini(user_input_str, target_segments, model=model, mandate=mandate)
                 else:
-                    # Groq / Mistral
+                    # Groq
                     max_tokens = 8000 if is_cloud else 4000
                     mandate = ""
                     if is_cloud:

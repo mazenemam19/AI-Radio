@@ -19,13 +19,16 @@ To codify the specific behavioral differences between Local, Staging, and Produc
 ## ⚙️ Key Mechanisms
 
 ### 1. The "Real Run" Trigger
-The choice of "Premium" AI logic (Llama 70B / Groq TTS) is strictly gated by the `is_real_run` boolean in `main.py`. This boolean is only `True` if `env == 'production'`, `dry_run == False`, and `GITHUB_ACTIONS == True`.
+The choice of "Premium" AI logic (Llama 70B / Groq TTS) is strictly gated by the environment state (`env == "production"`). This ensures production model usage is isolated from local development.
 
 ### 2. Hard Fail-Fast (Anti-Zombie)
 The system no longer produces placeholder broadcasts ("The Silent Treatment"). If all AI tiers in a set fail to return a quality script, the system returns `None` and the orchestrator exits with code 1. This prevents burning tokens on broken shows.
 
-### 3. Step-Down Focus
-On Attempt 2 (Fallback), the system automatically reduces input noise by trimming news items from 15 down to 8. This ensures the backup model has enough "cognitive space" to be verbose and avoid summary-traps.
+### 3. Duration Gate
+All environments share a strict **600-second duration gate**. If the final audio duration (probed via `ffprobe`) is shorter than 600s, the broadcast is aborted immediately to ensure content quality.
 
-### 4. Zero-Leak Tests
-Set B (Testing) contains zero references to Groq or Mistral. It is physically impossible for a test run or local development session to consume your production quotas.
+### 4. Tiered Speech Fallback
+Production speech follows a 3-tier resilient chain:
+1. **Groq Cloud (Orpheus v1)**: Primary high-fidelity engine. Protected by a 14,400 char daily pre-emptive quota.
+2. **Google Cloud (Neural2)**: Secondary high-fidelity fallback.
+3. **Edge-TTS (Cloud)**: Tertiary local resiliency tier.

@@ -81,7 +81,7 @@ Echo supports three distinct environments. Follow the steps for your desired use
 
 - **Ingestion:** Scrapes news from RSS feeds and HackerNews.
 - **AI Brain:** Echo (AI Persona) generates scripts with memory callbacks.
-- **Speech:** **Groq Cloud TTS** renders highly emotional voices with inline speech tags and advanced prosody.
+- **Speech:** **Groq Cloud TTS** renders emotional voices, falling back to **Google Cloud** or **Edge-TTS** to ensure zero-outage broadcasts.
 - **Visuals:** `FFmpeg` compiles static-image video for YouTube using unique, AI-generated **Neural Art** for every background.
 - **Frontend:** "Neon-glass" dashboard built with Vanilla JS and YouTube IFrame API. Supports automated SQLite data injection for offline use and a hybrid player for local files.
 

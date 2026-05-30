@@ -12,5 +12,5 @@ To transform the broadcast from "shallow news clips" into "10-minute long-form s
 ## ⚙️ Logic
 - **Resilient Queue:** Uses a 6-tier failover strategy (Set A) to combat rate limits.
 - **Step-Down Focus:** Automatically reduces news context from 15 to 8 items on retry to force creative depth and avoid summary-traps.
-- **Fail-Fast:** System returns `None` and aborts if quality thresholds are not met. Placeholder scripts are prohibited.
+- **Fail-Fast:** System returns `None` and aborts if quality thresholds (min 200 words/seg) or duration (600s) are not met. Placeholder scripts are prohibited.
 - **Healing JSON:** State-aware parsing logic heals truncated LLM responses, closing open strings and brackets automatically.

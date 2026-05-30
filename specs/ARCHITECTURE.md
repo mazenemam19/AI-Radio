@@ -40,8 +40,9 @@ subgraph Mastering [3. Media Mastering]
     RPD_CHECK -->|No / Exhausted| GOOGLE_TTS[Google Cloud: Neural2]
     
     GROQ_TTS -->|429 Rate Limit / Error| GOOGLE_TTS
+    GOOGLE_TTS -->|Error| EDGE_TTS[Microsoft Edge: Local]
 
-    TTS_SWITCH -->|No| EDGE_TTS[Microsoft Edge: Local]
+    TTS_SWITCH -->|No| EDGE_TTS
         GROQ_TTS & GOOGLE_TTS & EDGE_TTS --> AUD[Audio Master .mp3]
 
         MASTER_FLOW -->|Visual Description| ART[Flux Model: Pollinations]
@@ -95,7 +96,7 @@ subgraph Mastering [3. Media Mastering]
 
 | Feature | Production (Cloud) | Staging (Cloud) | Local (Shielded) |
 | :--- | :--- | :--- | :--- |
-| **Trigger** | GitHub Actions | Manual CLI | Manual CLI |
+| **Trigger** | env == 'production' | env == 'staging' | env == 'local' |
 | AI Brain | Set A: 6-Tier Resilient (Llama/Scout/Gemini/Qwen) | Set B: 5-Tier Fast (Gemini Flash) | Set B: 5-Tier Fast (Gemini Flash) |
 | **Context** | 15 News (T1) / 8 News (T2) | 3 News / 1 Memory | 3 News / 1 Memory |
 | **Speech** | Set A: 3-Tier (Orpheus / Google / Edge) | Set B: 1-Tier (Edge-TTS) | Set B: 1-Tier (Edge-TTS) |

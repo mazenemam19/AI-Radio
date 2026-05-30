@@ -55,8 +55,8 @@ def generate_neural_art(description, save_path):
 
 def run_pipeline(env="production", dry_run=False, force_premium=False):
     # 0. THE MASTER SWITCH: Determine if this is a final performance or just a test/dev run
-    is_ci_env = os.environ.get("GITHUB_ACTIONS") == "true"
-    is_real_run = (env == "production" and not dry_run and is_ci_env) or force_premium
+    is_cloud = (env == "production")
+    is_real_run = is_cloud or force_premium
     
     # QUOTA SAVER: Use Premium Cloud TTS only for real broadcasts.
     use_cloud_tts = is_real_run
@@ -83,11 +83,19 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
         print("[Main] No new stories. Staying off-air.")
         return True # Not an error, just no work
 
+    # ISSUE 5: Context trimming for local env
+    if env == "local":
+        news_items_input = news_items[:3]
+        memory_input = memory_context[:1]
+    else:
+        news_items_input = news_items[:15]
+        memory_input = memory_context
+
     # 3. AI SCRIPT (Now with Voice-Awareness)
     print(f"[Main] Invoking Echo for satirical script...")
     broadcast = ai.generate_broadcast(
-        news_items=news_items[:15],
-        memory_context=memory_context,
+        news_items=news_items_input,
+        memory_context=memory_input,
         timestamp=datetime.now(timezone.utc).isoformat(),
         is_cloud=is_real_run
     )
@@ -129,25 +137,21 @@ def run_pipeline(env="production", dry_run=False, force_premium=False):
     duration = tts.get_audio_duration(audio_path)
     print(f"[Main] Broadcast duration: {duration} seconds.")
 
-    # Duration Gate: Production requires 600s (~10m), Local/Test requires 200s
-    MIN_BROADCAST_DURATION = 600 if is_real_run else 200
-    
+    # ISSUE 1: Duration gate
+    if duration < 600:
+        print(f"[Main] ABORT: Episode too short ({duration}s). Minimum is 600s.")
+        return False
+
     # NEW: Dynamic Confidence Score (Quality metric)
     seg_count = len(broadcast["segments"])
-    target_seg_confidence = 10 if is_real_run else 5
-    
-    if seg_count >= target_seg_confidence and duration >= MIN_BROADCAST_DURATION:
+    if seg_count >= 10 and duration >= 600:
         confidence = "high"
-    elif seg_count >= (target_seg_confidence - 2) or duration >= (MIN_BROADCAST_DURATION * 0.7):
+    elif seg_count >= 8 or duration >= 400:
         confidence = "medium"
     else:
         confidence = "low"
     
     print(f"[Main] Performance Confidence: {confidence.upper()} ({seg_count} segments)")
-
-    if duration < MIN_BROADCAST_DURATION:
-        print(f"[Main] ABORT: Duration {duration}s below minimum {MIN_BROADCAST_DURATION}s. Discarding episode.")
-        return False
 
     # 5. DISTRIBUTION
     video_url = None

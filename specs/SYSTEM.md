@@ -6,14 +6,14 @@ This is the baseline "contract" for the Echo platform. It defines the foundation
 - **Broadcast Pattern:** Mono-Topic Deep Dive (~10 minutes).
 - **Client Logic:** Multi-environment aware (Local, Staging, Production).
 - **Database:** Polyglot persistence (Supabase for Cloud, SQLite for Local) with exact-match schema verification.
-- **Duration Tracking:** Automated show length calculation and database logging.
+- **Duration Tracking:** Automated show length calculation with a mandatory 600s minimum gate.
 
 ## 🛡️ Global Constraints
 - **Deduplication:** Original Source Headline tracking with Threshold-2 Keyword Overlap.
-- **Strict Provider Isolation:** Testing/Local sets (Google/Microsoft) MUST NOT overlap with Production sets (Groq/Mistral).
+- **Strict Provider Isolation:** Testing/Local sets (Google/Microsoft) MUST NOT overlap with Production sets (Groq/Mistral). Includes a hard 14,400 character daily pre-emptive quota for Groq.
 - **Resilient Multi-Tier Queue:** Implements a 6-tier failover strategy (Set A) to combat rate limits and ensure broadcast reliability.
-- **Deep Observability:** Mandatory logging of raw model outputs, quality metrics, and specific error codes (429, 413, etc.).
-- **Fail-Fast Integrity:** Placeholder scripts are prohibited. System must ABORT (code 1) if AI quality thresholds are not met.
+- **Deep Observability:** Mandatory logging of raw model outputs, quality metrics, and specific error codes (401, 429, 413, timeout).
+- **Fail-Fast Integrity:** Placeholder scripts are prohibited. System must ABORT (code 1) if AI quality thresholds (min 200 words/seg) or duration (600s) are not met.
 - **Persona:** Jon Stewart-style satirical performance with mandatory rhythm shifts and numerical suppression.
 
 ## 🔗 Feature Index

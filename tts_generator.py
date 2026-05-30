@@ -6,6 +6,7 @@ import shutil
 import time
 import requests
 import edge_tts
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,12 +30,35 @@ class TTSRadioGenerator:
         self.model = "canopylabs/orpheus-v1-english"
         self.daily_request_count = 0
         self.daily_request_limit = 80
+        self.daily_char_limit = 14400
+        self.groq_auth_failed = False
+        self.usage_file = "output/.groq_usage.json"
         
         # Google Config (Neural2)
         self.google_voice_map = {
             "daniel": "en-US-Neural2-D", # Echo
             "hannah": "en-US-Neural2-F"  # Glitch
         }
+
+    def _get_groq_usage(self):
+        today = datetime.now().strftime("%Y-%m-%d")
+        if os.path.exists(self.usage_file):
+            try:
+                with open(self.usage_file, "r") as f:
+                    data = json.load(f)
+                    if data.get("date") == today:
+                        return data.get("chars_used", 0)
+            except: pass
+        return 0
+
+    def _update_groq_usage(self, chars):
+        today = datetime.now().strftime("%Y-%m-%d")
+        chars_used = self._get_groq_usage() + chars
+        try:
+            os.makedirs("output", exist_ok=True)
+            with open(self.usage_file, "w") as f:
+                json.dump({"date": today, "chars_used": chars_used}, f)
+        except: pass
 
     def strip_tags(self, text):
         cleaned = re.sub(r'\[.*?\]', '', text)
@@ -64,13 +88,24 @@ class TTSRadioGenerator:
 
     def generate_segment_audio(self, text, voice, path):
         """Tiered Narrator Orchestrator (v3.1)"""
+        # ISSUE 8: Prevents 401 retries if auth already failed
+        if self.groq_auth_failed:
+            asyncio.run(self.generate_edge_fallback(text, voice, path))
+            return "edge"
+
         queue = PROD_VOICE_QUEUE if self.use_cloud else TEST_VOICE_QUEUE
         
         for provider in queue:
             try:
                 if provider == "groq":
-                    if not self.api_key or self.daily_request_count >= self.daily_request_limit:
-                        print(f"[TTS] Groq skipped (No Key or Budget Exhausted).")
+                    # ISSUE 2: Pre-emptive usage check
+                    chars_today = self._get_groq_usage()
+                    if chars_today >= self.daily_char_limit:
+                        print(f"[TTS] Daily char limit reached. Routing to local fallback.")
+                        continue
+
+                    if not self.api_key:
+                        print(f"[TTS] Groq skipped (No Key).")
                         continue
                     
                     chunks = self.chunk_text(text)
@@ -83,20 +118,33 @@ class TTSRadioGenerator:
                         
                         success = False
                         for attempt in range(3):
-                            r = requests.post(self.api_url, headers=headers, json=body, timeout=30)
-                            if r.status_code == 200:
-                                self.daily_request_count += 1
-                                c_path = f"{path}_chunk_{c_idx}.wav"
-                                with open(c_path, "wb") as f: f.write(r.content)
-                                chunk_files.append(c_path)
-                                success = True
-                                break
-                            elif r.status_code == 429:
-                                retry_after = int(r.headers.get("retry-after", "30"))
-                                if retry_after > 60:
-                                    print(f"[TTS] Groq Rate Limit (429) too high. Falling back.")
-                                    raise Exception("Rate Limit")
-                                time.sleep(retry_after + 1)
+                            try:
+                                r = requests.post(self.api_url, headers=headers, json=body, timeout=30)
+                                if r.status_code == 200:
+                                    # Update usage
+                                    self._update_groq_usage(len(chunk_text))
+                                    self.daily_request_count += 1
+                                    
+                                    c_path = f"{path}_chunk_{c_idx}.wav"
+                                    with open(c_path, "wb") as f: f.write(r.content)
+                                    chunk_files.append(c_path)
+                                    success = True
+                                    break
+                                elif r.status_code == 401:
+                                    print(f"[TTS] AUTH ERROR: Check GROQ_API_KEY. Falling back to local.")
+                                    self.groq_auth_failed = True
+                                    raise Exception("Auth Error")
+                                elif r.status_code == 429:
+                                    retry_after = int(r.headers.get("retry-after", "30"))
+                                    if retry_after > 60:
+                                        print(f"[TTS] Quota limit hit. Falling back to local.")
+                                        raise Exception("Quota Limit")
+                                    time.sleep(retry_after + 1)
+                                else:
+                                    raise Exception(f"API Error {r.status_code}")
+                            except requests.exceptions.Timeout:
+                                print(f"[TTS] Groq timeout. Falling back to local for this segment.")
+                                raise Exception("Timeout")
                         
                         if not success: raise Exception("Chunk Failed")
 
@@ -106,11 +154,13 @@ class TTSRadioGenerator:
                         with open(list_path, "w") as f:
                             for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
                         subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
-                        for cf in chunk_files: os.remove(cf)
-                        os.remove(list_path)
+                        for cf in chunk_files:
+                            if os.path.exists(cf): os.remove(cf)
+                        if os.path.exists(list_path): os.remove(list_path)
                         return provider # Success
 
                 elif provider == "google":
+                    # ISSUE 3: Google Cloud Neural2 fallback
                     if not self.google_key:
                         print(f"[TTS] Google Cloud skipped (No Key).")
                         continue
@@ -147,8 +197,9 @@ class TTSRadioGenerator:
                         with open(list_path, "w") as f:
                             for cf in chunk_files: f.write(f"file '{os.path.abspath(cf)}'\n")
                         subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c:a", "libmp3lame", path], check=True, capture_output=True)
-                        for cf in chunk_files: os.remove(cf)
-                        os.remove(list_path)
+                        for cf in chunk_files:
+                            if os.path.exists(cf): os.remove(cf)
+                        if os.path.exists(list_path): os.remove(list_path)
                         return provider # Success
 
                 elif provider == "edge":
@@ -156,7 +207,12 @@ class TTSRadioGenerator:
                     return provider # Success
 
             except Exception as e:
-                print(f"[TTS] Provider '{provider}' failed: {e}. Attempting next tier...")
+                # ISSUE 8: Differentiate logs
+                if "Auth Error" in str(e): pass # Logged above
+                elif "Quota Limit" in str(e): pass # Logged above
+                elif "Timeout" in str(e): pass # Logged above
+                else:
+                    print(f"[TTS] Unexpected error ({type(e).__name__}): {e}. Falling back.")
                 continue
 
         print(f"[TTS] CRITICAL: All voice tiers failed. Script at {path} could not be spoken.")
@@ -192,13 +248,20 @@ class TTSRadioGenerator:
             
             ffmpeg_cmd = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
             subprocess.run([ffmpeg_cmd, "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c", "copy", output_path], check=True, capture_output=True)
-            for tf in temp_files: os.remove(tf)
-            os.remove(list_path)
             print(f"[TTS] Broadcast Audio Mastered: {output_path} (Used: {last_provider})")
             return last_provider
         except Exception as e:
             print(f"[TTS] Mastering Error: {e}")
             return False
+        finally:
+            # ISSUE 7: Temp file leak fix
+            for tf in temp_files:
+                if os.path.exists(tf):
+                    try: os.remove(tf)
+                    except: pass
+            if os.path.exists("output/concat_list.txt"):
+                try: os.remove("output/concat_list.txt")
+                except: pass
 
     def get_audio_duration(self, audio_path):
         ffmpeg_cmd = shutil.which("ffprobe") or r"C:\ffmpeg\bin\ffprobe.exe"
