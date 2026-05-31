@@ -1,13 +1,13 @@
 # Implementation Plan - Unified Database Support
 
-## Phase 1: Serve Scripts & Backend Validation
+## Phase 1: Serve Scripts & Backend Validation [checkpoint: eebd4ff]
 - [x] Task: Create failing tests for `sync_config.py` ensuring it generates correct `config.js` for both modes. 28793bd
 - [x] Task: Update `package.json` with `serve:sqlite` and `serve:supabase`. 80ececf
 - [x] Task: Verify that running `serve:sqlite` correctly populates `config.js` with local data. d90c224
-- [~] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md) eebd4ff
 
 ## Phase 2: UI Representation for Local Artifacts
-- [ ] Task: Create a failing test for `app.js` that verifies `local://` URI resolution.
+- [~] Task: Create a failing test for `app.js` that verifies `local://` URI resolution.
 - [ ] Task: Refactor `app.js` to handle `local://` URIs for audio and video.
 - [ ] Task: Update `buildDetail` in `app.js` to render local audio/video if found.
 - [ ] Task: Ensure the UI displays a clear "LOCAL MODE" or "SUPABASE MODE" indicator.
