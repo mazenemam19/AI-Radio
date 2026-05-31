@@ -19,6 +19,6 @@
 
 
 ## Phase 3: Resilience & Final Validation
-- [ ] Task: Verify JSON Healer performance with longer AI outputs.
-- [ ] Task: Execute a full local run (`npm run start`) to confirm 10-minute target achievement.
+- [x] Task: Verify JSON Healer performance with longer AI outputs.
+- [~] Task: Execute a full local run (`npm run start`) to confirm 10-minute target achievement.
 - [ ] Task: Conductor - User Manual Verification 'Resilience & Final Validation' (Protocol in workflow.md)
