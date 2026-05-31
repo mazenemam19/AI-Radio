@@ -14,6 +14,13 @@ import json
 import os
 from pathlib import Path
 
+# ── dotenv (optional — CI has no .env file) ───────────────────────────────────
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 _CONFIG_PATH = Path("config.js")
 _SQLITE_ENVS: frozenset[str] = frozenset({"local", "prod-models"})
 _SUPABASE_ENVS: frozenset[str] = frozenset({"prod-db", "production"})

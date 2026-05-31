@@ -14,12 +14,20 @@ Exit 1 = one or more tests failed.
 """
 
 import asyncio
+import os
 import shutil
 import sqlite3
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+# ── dotenv (optional — CI has no .env file) ───────────────────────────────────
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Track results: test_name → passed?
 _results: dict[str, bool] = {}
