@@ -1,0 +1,23 @@
+# Implementation Plan: Volume Pressure Logic
+
+## Phase 0: Self-Assessment Infrastructure
+- [ ] Task: Create `tests/gate_checks.py` to automate comparison against Run 74 (Baseline: 372s, full metadata).
+- [ ] Task: Integrate `gate_checks.py` into the end of `main.py` to provide immediate pass/fail signal.
+- [ ] Task: Conductor - User Manual Verification 'Self-Assessment Infrastructure' (Protocol in workflow.md)
+
+## Phase 1: Environment & Baseline
+- [ ] Task: Audit current `ai_client.py` and `main.py` duration gates.
+- [ ] Task: Create a baseline integration test to measure current segment/word averages.
+- [ ] Task: Conductor - User Manual Verification 'Environment & Baseline' (Protocol in workflow.md)
+
+## Phase 2: Core Logic Update (TDD)
+- [ ] Task: Write failing unit tests for `validate_broadcast` requiring 12-15 segments.
+- [ ] Task: Update `validate_broadcast` in `ai_client.py` to pass the new segment count requirement.
+- [ ] Task: Refactor the system prompt in `_build_prompt` to demand higher volume (12-15 segments, >100 words/segment).
+- [ ] Task: Update the `main.py` duration constants to align with production targets (600s).
+- [ ] Task: Conductor - User Manual Verification 'Core Logic Update' (Protocol in workflow.md)
+
+## Phase 3: Resilience & Final Validation
+- [ ] Task: Verify JSON Healer performance with longer AI outputs.
+- [ ] Task: Execute a full local run (`npm run start`) to confirm 10-minute target achievement.
+- [ ] Task: Conductor - User Manual Verification 'Resilience & Final Validation' (Protocol in workflow.md)
