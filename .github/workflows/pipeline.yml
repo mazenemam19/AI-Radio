@@ -1,0 +1,111 @@
+name: AI Radio Echo
+
+on:
+  # ── Scheduled production run — every 6 hours ──────────────────────────────
+  # 4 runs/day × 10 Groq TTS requests = 40 RPD (well clear of 100 RPD wall)
+  # 4 runs/day × 2.5 min compute × 30 days ≈ 300 min/month (15% of free tier)
+  schedule:
+    - cron: "0 */6 * * *"
+
+  # ── CI: runs on every push and pull request ───────────────────────────────
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+  # ── Manual trigger ────────────────────────────────────────────────────────
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Environment profile"
+        required: false
+        default: "production"
+        type: choice
+        options:
+          - local
+          - prod-db
+          - prod-models
+          - production
+      dry_run:
+        description: "Dry run (skip AI + DB)"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # ── CI job: zero API keys, zero cloud dependencies ────────────────────────
+  ci:
+    name: CI — dry-run (local)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run dry-run pipeline (CI gate)
+        run: python main.py --env local --dry-run
+
+      - name: Run integration suite
+        run: python tests/integration_suite.py
+
+  # ── Production job: full run every 6 hours ─────────────────────────────────
+  broadcast:
+    name: Broadcast — ${{ github.event.inputs.env || 'production' }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline
+        env:
+          GEMINI_API_KEY:           ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:             ${{ secrets.GROQ_API_KEY }}
+          SUPABASE_URL:             ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:             ${{ secrets.SUPABASE_KEY }}
+          YOUTUBE_CLIENT_ID:        ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET:    ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN:    ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          WEBSITE_URL:              ${{ secrets.WEBSITE_URL }}
+        run: |
+          ENV="${{ github.event.inputs.env || 'production' }}"
+          DRY="${{ github.event.inputs.dry_run || 'false' }}"
+          if [ "$DRY" = "true" ]; then
+            python main.py --env "$ENV" --dry-run
+          else
+            python main.py --env "$ENV"
+          fi
+
+      - name: Upload output artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: episode-output-${{ github.run_number }}
+          path: output/
+          retention-days: 7

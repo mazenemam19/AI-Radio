@@ -1,10 +1,48 @@
+# AI Radio — Echo  |  .gitignore
+
+# ── Secrets & credentials ─────────────────────────────────────────────────────
 .env
-output/
-__pycache__/
 config.js
-assets/*
-*.mp3
-*.mp4
-*.pyc
-ai_radio_dev.db
-.gemini/ralph/*
+
+# ── Database ──────────────────────────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+
+# ── Pipeline output ───────────────────────────────────────────────────────────
+output/
+assets/art_*
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo

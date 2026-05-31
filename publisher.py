@@ -1,107 +1,134 @@
+"""
+publisher.py — AI Radio Echo
+YouTube upload via Google OAuth2.
+
+Spec rules:
+  - If video_path does not exist → return None immediately with a clear log.
+  - All OAuth errors → return None with the specific exception message logged.
+  - All upload errors → return None (logged). Never raises.
+"""
+
 import os
-from atproto import Client as BlueskyClient
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from dotenv import load_dotenv
+from pathlib import Path
+from typing import Optional
 
-load_dotenv()
 
-class DistributionPublisher:
-    def __init__(self, env="production"):
-        self.env = env.lower()
-        self.bsky_handle = os.environ.get("BLUESKY_HANDLE")
-        self.bsky_password = os.environ.get("BLUESKY_PASSWORD")
-        
-        # YouTube OAuth 2.0 Credentials
-        self.yt_client_id = os.environ.get("YOUTUBE_CLIENT_ID")
-        self.yt_client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET")
-        self.yt_refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN")
+def upload_to_youtube(
+    video_path: str,
+    title: str,
+    description: str,
+    tags: list[str],
+) -> Optional[str]:
+    """
+    Upload an MP4 to YouTube using the Data API v3.
 
-    def post_to_bluesky(self, text):
-        """Post a text observation (max 280 chars) to Bluesky."""
-        if self.env != "production" or not self.bsky_handle or not self.bsky_password:
-            print(f"[Publisher] [{self.env.upper()}] Mocking Bluesky post: {text[:50]}...")
-            return {"uri": "at://mock-did/app.bsky.feed.post/mock-rkey", "cid": "mock-cid"}
+    Returns the full YouTube watch URL on success, None on any failure.
+    Every error path is logged with the specific exception message.
+    No exception is ever re-raised from this function.
 
-        try:
-            print(f"[Publisher] Logging into Bluesky as {self.bsky_handle}...")
-            client = BlueskyClient()
-            client.login(self.bsky_handle, self.bsky_password)
-            print("[Publisher] Posting update to Bluesky...")
-            response = client.send_post(text=text)
-            print(f"[Publisher] Posted successfully! URI: {response.uri}")
-            return {"uri": response.uri, "cid": response.cid}
-        except Exception as e:
-            print(f"[Publisher] Error posting to Bluesky: {e}")
+    Args:
+        video_path:   Absolute or relative path to the MP4 file.
+        title:        Video title (truncated to 100 chars per YouTube limit).
+        description:  Video description (truncated to 5000 chars).
+        tags:         Tag list (each tag max 500 chars total combined).
+
+    Returns:
+        "https://www.youtube.com/watch?v=VIDEO_ID" on success, None otherwise.
+    """
+    # Guard: file must exist before any OAuth work
+    path = Path(video_path)
+    if not path.exists():
+        print(f"[YouTube] Video file not found: {video_path!r} — skipping upload.")
+        return None
+
+    # Credential check
+    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip()
+    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip()
+
+    if not all([client_id, client_secret, refresh_token]):
+        missing = [
+            k for k, v in {
+                "YOUTUBE_CLIENT_ID": client_id,
+                "YOUTUBE_CLIENT_SECRET": client_secret,
+                "YOUTUBE_REFRESH_TOKEN": refresh_token,
+            }.items()
+            if not v
+        ]
+        print(
+            f"[YouTube] Missing OAuth credential(s): {', '.join(missing)}. "
+            "Skipping upload."
+        )
+        return None
+
+    # Import guard
+    try:
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaFileUpload
+        import google.auth.transport.requests as google_auth_requests
+    except ImportError as exc:
+        print(f"[YouTube] google-api-python-client not installed: {exc}")
+        return None
+
+    # OAuth token refresh
+    try:
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+        creds.refresh(google_auth_requests.Request())
+    except Exception as exc:
+        print(f"[YouTube] OAuth token refresh failed: {exc}")
+        return None
+
+    # Upload
+    try:
+        youtube = build("youtube", "v3", credentials=creds)
+
+        body = {
+            "snippet": {
+                "title": title[:100],
+                "description": description[:5000],
+                "tags": tags,
+                "categoryId": "28",  # Science & Technology
+            },
+            "status": {
+                "privacyStatus": "public",
+            },
+        }
+
+        media = MediaFileUpload(
+            str(path),
+            mimetype="video/mp4",
+            resumable=True,
+            chunksize=1024 * 1024,  # 1 MB chunks
+        )
+
+        insert_request = youtube.videos().insert(
+            part=",".join(body.keys()),
+            body=body,
+            media_body=media,
+        )
+
+        response = None
+        while response is None:
+            status, response = insert_request.next_chunk()
+            if status:
+                print(f"[YouTube] Upload progress: {int(status.progress() * 100)}%")
+
+        video_id = response.get("id")
+        if not video_id:
+            print("[YouTube] Upload completed but no video ID in response.")
             return None
 
-    def upload_to_youtube(self, video_path, title, description, tags=None):
-        """Upload a compiled MP4 video to YouTube using OAuth 2.0 Refresh Token flow."""
-        if self.env != "production" or not self.yt_refresh_token or not self.yt_client_id or not self.yt_client_secret:
-            print(f"[Publisher] [{self.env.upper()}] Mocking YouTube upload: {title}")
-            return "https://www.youtube.com/watch?v=dQw4w9WgXcQ" 
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        print(f"[YouTube] Upload successful → {url}")
+        return url
 
-        if not os.path.exists(video_path):
-            print(f"[Publisher] Video file does not exist: {video_path}")
-            return None
-
-        try:
-            print("[Publisher] Authenticating with YouTube OAuth 2.0...")
-            # Setup YouTube Credentials from refresh token and client secrets
-            creds = Credentials(
-                token=None,  # Will be refreshed immediately
-                refresh_token=self.yt_refresh_token,
-                token_uri="https://oauth2.googleapis.com/token",
-                client_id=self.yt_client_id,
-                client_secret=self.yt_client_secret
-            )
-
-            # Refresh token to obtain active access token
-            creds.refresh(Request())
-            print("[Publisher] OAuth token refreshed successfully.")
-
-            # Build YouTube Service
-            youtube = build("youtube", "v3", credentials=creds)
-
-            # Metadata body
-            body = {
-                "snippet": {
-                    "title": title[:100],  # YouTube limit is 100 characters
-                    "description": description,
-                    "tags": tags or ["AI Radio", "Echo", "News Commentary", "Technology"],
-                    "categoryId": "22"  # 22 = People & Blogs
-                },
-                "status": {
-                    "privacyStatus": "public",  # Can be "public", "private", or "unlisted"
-                    "selfDeclaredMadeForKids": False
-                }
-            }
-
-            # Media upload
-            media = MediaFileUpload(
-                video_path,
-                mimetype="video/mp4",
-                chunksize=-1,
-                resumable=True
-            )
-
-            print(f"[Publisher] Uploading video: '{title}' to YouTube...")
-            request = youtube.videos().insert(
-                part="snippet,status",
-                body=body,
-                media_body=media
-            )
-
-            # Execute video insertion
-            response = request.execute()
-            video_id = response.get("id")
-            youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-            print(f"[Publisher] Upload complete! YouTube Video URL: {youtube_url}")
-            return youtube_url
-
-        except Exception as e:
-            print(f"[Publisher] Error uploading to YouTube: {e}")
-            # Try to print more details for troubleshooting OAuth errors
-            return None
+    except Exception as exc:
+        print(f"[YouTube] Upload failed: {exc}")
+        return None

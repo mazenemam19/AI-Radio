@@ -1,10 +1,26 @@
-feedparser>=6.0.10
-requests>=2.31.0
-atproto>=0.0.48
-edge-tts>=6.1.9
-google-api-python-client>=2.115.0
-google-auth-oauthlib>=1.2.0
-google-auth-httplib2>=0.2.0
-google-genai>=0.1.1
-python-dotenv>=1.0.1
-Pillow>=10.0.0
+# AI Radio — Echo
+# Python dependencies
+# Install: pip install -r requirements.txt
+
+# ── Core pipeline ──────────────────────────────────────────────────────────────
+feedparser>=6.0.11          # RSS feed parsing
+requests>=2.31.0            # HTTP client (RSS fetch + Supabase schema validation)
+python-dotenv>=1.0.0        # .env file loading (optional; CI injects secrets directly)
+
+# ── AI providers ──────────────────────────────────────────────────────────────
+google-generativeai>=0.7.0  # Gemini (mandatory for all envs — local fallback)
+groq>=0.11.0                # Groq LLM + Orpheus TTS (prod-models, production only)
+
+# ── TTS ───────────────────────────────────────────────────────────────────────
+edge-tts>=6.1.9             # Local TTS fallback (all envs including CI)
+
+# ── Database ──────────────────────────────────────────────────────────────────
+supabase>=2.4.0             # Supabase REST client (prod-db, production only)
+
+# ── Video / image ─────────────────────────────────────────────────────────────
+Pillow>=10.3.0              # Cover image generation (optional; falls back to FFmpeg lavfi)
+
+# ── YouTube upload ────────────────────────────────────────────────────────────
+google-api-python-client>=2.126.0   # YouTube Data API v3
+google-auth>=2.29.0                 # OAuth2 credential management
+google-auth-httplib2>=0.2.0         # HTTP transport for google-auth

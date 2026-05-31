@@ -1,30 +1,31 @@
 {
   "name": "ai-radio-echo",
   "version": "1.0.0",
-  "description": "Autonomous AI news commentary and radio broadcast hub.",
-  "main": "main.py",
+  "description": "AI Radio Echo — automated satirical radio pipeline (AI → TTS → MP4 → YouTube)",
+  "private": true,
   "scripts": {
-    "sync:prod": "python sync_config.py --env production",
-    "sync:staging": "python sync_config.py --env staging",
-    "sync:local": "python sync_config.py --env local",
-    "dev:local": "python main.py --env local",
-    "dev:premium": "python main.py --env local --premium",
-    "dev:staging": "python main.py --env staging",
-    "dev:dry": "python main.py --dry-run",
-    "dev:news": "python main.py --test-news",
-    "prod:run": "python main.py --env production",
-    "serve": "python -m http.server 5000",
-    "verify": "python verify_system.py",
-    "test:integration": "python tests/integration_suite.py"
+    "start":        "python main.py --env local",
+    "dry-run":      "python main.py --env local --dry-run",
+    "prod":         "python main.py --env production",
+    "prod:dry":     "python main.py --env production --dry-run",
+    "verify":       "python verify_system.py",
+    "test":         "python tests/integration_suite.py",
+    "test:ci":      "python main.py --env local --dry-run",
+    "setup":        "pip install -r requirements.txt"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "ai",
     "radio",
+    "tts",
     "podcast",
     "automation",
-    "supabase",
-    "echo"
+    "youtube",
+    "gemini",
+    "groq",
+    "ffmpeg"
   ],
-  "author": "Echo (AI Entity)",
   "license": "MIT"
 }
