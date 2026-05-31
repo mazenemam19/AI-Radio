@@ -404,80 +404,22 @@
         const isProduction = mode === 'production' || mode === 'supabase';
 
         if (isProduction) {
-            console.log('[Echo FM] Entering production mode...');
-            setModePill('production', 'PRODUCTION — SUPABASE');
-            await loadProduction(cfg);
+            setModePill('production', 'PRODUCTION — BAKED DATA');
         } else {
-            console.log('[Echo FM] Entering local mode...');
             setModePill('local', 'LOCAL — SQLITE');
-            loadLocal(cfg);
         }
-    }
 
-    function loadLocal(cfg) {
         const episodes = Array.isArray(cfg.episodes) ? cfg.episodes : [];
-        console.log(`[Echo FM] Loaded ${episodes.length} local episodes.`);
+        console.log(`[Echo FM] Loaded ${episodes.length} episodes.`);
         _episodes = episodes;
         updateStats(episodes);
         renderFeed(episodes);
-        document.getElementById('header-freq').textContent =
-            `SERVING LOCAL SQLITE — ${episodes.length} EP${episodes.length !== 1 ? 'S' : ''}`;
-    }
 
-    async function loadProduction(cfg) {
-        console.log('[Echo FM] Loading production data from Supabase...');
-        // Support both camelCase (spec) and snake_case (older sync_config.py)
-        const supabaseUrl = cfg.supabaseUrl || cfg.supabase_url || '';
-        const supabaseKey = cfg.supabaseKey || cfg.supabase_key || '';
-
-        if (!supabaseUrl || !supabaseKey) {
-            console.error('[Echo FM] Supabase credentials missing from config.');
-            setModePill('error', 'CONFIG ERROR');
-            const loadEl = showFullscreenState('error', 'CREDENTIALS MISSING',
-                'config.js is in production mode but supabaseUrl or supabaseKey is absent.<br><br>' +
-                'Re-run the pipeline with a valid --env prod-db or --env production profile.'
-            );
-            return;
-        }
-
-        const loadEl = showFullscreenState('loading', 'CONNECTING TO SUPABASE', 'Establishing secure channel...');
-
-        try {
-            console.log('[Echo FM] Fetching Supabase library...');
-            // Inject Supabase CDN dynamically
-            await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
-
-            console.log('[Echo FM] Supabase library loaded. Initialising client...');
-            const client = window.supabase.createClient(supabaseUrl, supabaseKey);
-            const { data, error } = await client
-                .from('memory_log')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(20);
-
-            if (error) throw error;
-
-            console.log(`[Echo FM] Successfully fetched ${data ? data.length : 0} episodes from Supabase.`);
-
-            // Restore app, populate UI
-            loadEl.remove();
-            document.getElementById('app').style.display = '';
-            document.getElementById('header-freq').textContent = `SUPABASE — LIVE DATA`;
-
-            _episodes = data || [];
-            updateStats(_episodes);
-            renderFeed(_episodes);
-
-        } catch (err) {
-            console.error('[Echo FM] Supabase connection error:', err);
-            loadEl.innerHTML = `
-        <div class="fs-logo">ECHO FM</div>
-        <div class="fs-title error">SUPABASE ERROR</div>
-        <div class="fs-body">${esc(String(err.message || err))}<br><br>
-          Check your Supabase credentials and that the memory_log table exists.
-        </div>
-      `;
-            setModePill('error', 'DB ERROR');
+        if (!isProduction) {
+            document.getElementById('header-freq').textContent =
+                `SERVING LOCAL SQLITE — ${episodes.length} EP${episodes.length !== 1 ? 'S' : ''}`;
+        } else {
+            document.getElementById('header-freq').textContent = `PRODUCTION — LIVE DATA`;
         }
     }
 

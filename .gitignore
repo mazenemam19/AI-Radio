@@ -2,6 +2,7 @@
 
 # ── Secrets & credentials ─────────────────────────────────────────────────────
 .env
+# ── Dynamic Configuration (ignored to prevent local/prod data conflicts) ──────
 config.json
 
 # ── Database ──────────────────────────────────────────────────────────────────
