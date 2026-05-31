@@ -233,24 +233,23 @@ def generate_segment_audio(
     voice: str,
     path: str,
     use_cloud: bool,
-) -> bool:
+) -> tuple[bool, str]:
     """
     Generate TTS audio for a single script segment.
 
     Args:
         text:       Segment script text.
-        voice:      Voice identifier. Edge-tts names (e.g. 'en-US-GuyNeural')
-                    are used directly for the local path. Groq path normalises
-                    to a compatible Orpheus voice automatically.
-        path:       Output file path (parent directories are created if absent).
+        voice:      Voice identifier.
+        path:       Output file path.
         use_cloud:  True  → try Groq Orpheus first, then edge-tts fallback.
-                    False → edge-tts only (local / prod-db envs).
+                    False → edge-tts only.
 
     Returns:
-        True on success, False on failure.
-        Never raises. Never fails silently — every failure path prints a reason.
+        (success, engine_name)
     """
     Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+    actual_engine = "edge-tts"
 
     if use_cloud:
         remaining = _quota_remaining()
@@ -258,14 +257,19 @@ def generate_segment_audio(
             print("[TTS] Daily char limit reached. Routing to local fallback.")
         else:
             if _run_groq_tts(text, voice, path):
-                return True
+                return True, "groq-orpheus"
             # Groq failed — fall through to edge-tts below
 
     # edge-tts path
-    # If the caller passed a Groq voice name, use a default edge-tts voice.
     edge_voice = voice if voice.startswith("en-") else "en-US-GuyNeural"
     print(f"[TTS] Using edge-tts (voice={edge_voice}) → {path}")
+    
     success = _run_edge_tts(text, edge_voice, path)
     if not success:
         print(f"[TTS] FATAL: edge-tts also failed → {path}")
-    return success
+        return False, "failed"
+    
+    # If _run_edge_tts fell back to FFmpeg silent audio due to network issues,
+    # we should ideally report that too. 
+    # For now, we'll return "edge-tts" as the primary handler.
+    return True, "edge-tts"

@@ -4,7 +4,7 @@ LLM orchestration for satirical radio broadcast generation.
 
 Model queues (set by --env, never inferred):
   Set A (prod-models, production): llama-3.3-70b-versatile → gemini-3.5-flash → gemini-3.1-flash-lite
-  Set B (local, prod-db):          gemini-3.5-flash only
+  Set B (local, prod-db):          gemini-3.5-flash → gemini-3.1-flash-lite
 
 Step-down: first attempt uses 15 news items; each subsequent model drops to 8.
 JSON healing attempted once on parse failure — no regex repair ever.
@@ -23,7 +23,7 @@ GEMINI_PRIMARY = "gemini-3.5-flash"
 GEMINI_FALLBACK = "gemini-3.1-flash-lite"
 
 MODEL_SET_A: list[str] = [GROQ_MODEL, GEMINI_PRIMARY, GEMINI_FALLBACK]
-MODEL_SET_B: list[str] = [GEMINI_PRIMARY]
+MODEL_SET_B: list[str] = [GEMINI_PRIMARY, GEMINI_FALLBACK]
 
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
 

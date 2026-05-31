@@ -600,12 +600,14 @@ def main() -> None:
     from tts_generator import generate_segment_audio
 
     segment_files: list[Path] = []
+    engines_used: set[str] = set()
+
     for i, seg in enumerate(segments):
         speaker: str = seg.get("speaker", "ANCHOR")
         voice: str = SPEAKER_VOICES.get(speaker, _DEFAULT_VOICE)
         seg_path = OUTPUT_DIR / f"ep_{timestamp}_seg_{i:02d}.mp3"
 
-        success = generate_segment_audio(
+        success, engine = generate_segment_audio(
             text=seg["text"],
             voice=voice,
             path=str(seg_path),
@@ -615,7 +617,14 @@ def main() -> None:
             _fail(f"TTS generation failed for segment {i} (speaker={speaker}).")
 
         segment_files.append(seg_path)
-        print(f"  [{i+1}/{len(segments)}] {speaker} → {seg_path.name}")
+        engines_used.add(engine)
+        print(f"  [{i+1}/{len(segments)}] {speaker} → {seg_path.name} ({engine})")
+
+    # Determine narrator model name for metadata
+    if len(engines_used) == 1:
+        actual_narrator_model = list(engines_used)[0]
+    else:
+        actual_narrator_model = f"mixed ({', '.join(sorted(engines_used))})"
 
     # ── Step 4: Concatenate audio ─────────────────────────────────────────────
     print("[4/10] Concatenating audio segments...")
@@ -690,7 +699,7 @@ def main() -> None:
             video_url=final_video_url,
             healer_used=bool(broadcast.get("_healer_used", False)),
             writer_model=broadcast.get("_writer_model", "unknown"),
-            narrator_model="groq-orpheus" if use_cloud_tts else "edge-tts",
+            narrator_model=actual_narrator_model,
         )
         row = db.insert_post(post_data)
         if row is None:
