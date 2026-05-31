@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [~] **Track: Unified Database Support in UI and Serve Scripts**
+- [x] **Track: Unified Database Support in UI and Serve Scripts**
   *Link: [./tracks/db_unified_20260531/](./tracks/db_unified_20260531/)*
