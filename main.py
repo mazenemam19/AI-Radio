@@ -656,6 +656,12 @@ def main() -> None:
     from sync_config import sync_env_to_config
     sync_env_to_config(env)
 
+    # ── Step 11: Self-Assessment (New) ────────────────────────────────────────
+    if not dry_run:
+        from tests.gate_checks import check_latest_run
+        if not check_latest_run(env):
+            _fail("Episode failed self-assessment gate checks. See log for details.")
+
     print(
         f"\n{'='*60}\n"
         f"  ✅  Pipeline complete\n"

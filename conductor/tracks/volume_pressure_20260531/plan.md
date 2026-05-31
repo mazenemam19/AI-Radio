@@ -1,8 +1,8 @@
 # Implementation Plan: Volume Pressure Logic
 
 ## Phase 0: Self-Assessment Infrastructure
-- [ ] Task: Create `tests/gate_checks.py` to automate comparison against Run 74 (Baseline: 372s, full metadata).
-- [ ] Task: Integrate `gate_checks.py` into the end of `main.py` to provide immediate pass/fail signal.
+- [x] Task: Create `tests/gate_checks.py` to automate comparison against Run 74 (Baseline: 372s, full metadata).
+- [~] Task: Integrate `gate_checks.py` into the end of `main.py` to provide immediate pass/fail signal.
 - [ ] Task: Conductor - User Manual Verification 'Self-Assessment Infrastructure' (Protocol in workflow.md)
 
 ## Phase 1: Environment & Baseline
