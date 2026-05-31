@@ -53,6 +53,11 @@
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    /**
+     * Resolves a URL, mapping local:// URIs to the local output directory.
+     * @param {string} url The URL to resolve.
+     * @return {string|null} The resolved URL or null.
+     */
     function resolveUrl(url) {
         if (!url) return null;
         if (typeof url !== 'string') return url;
@@ -200,8 +205,11 @@
         const audioUrl = resolveUrl(ep.audio_url);
         const videoUrl = resolveUrl(ep.video_url);
 
-        const hasAudio = audioUrl && !audioUrl.includes('placeholder') && (audioUrl.startsWith('http') || audioUrl.startsWith('output/'));
-        const hasVideo = videoUrl && (videoUrl.startsWith('http') || videoUrl.startsWith('output/'));
+        const hasAudio = audioUrl && 
+                         !audioUrl.includes('placeholder') && 
+                         (audioUrl.startsWith('http') || audioUrl.startsWith('output/'));
+        const hasVideo = videoUrl && 
+                         (videoUrl.startsWith('http') || videoUrl.startsWith('output/'));
 
         if (hasAudio) {
             console.log('[Echo FM] Rendering audio player with URL:', audioUrl);

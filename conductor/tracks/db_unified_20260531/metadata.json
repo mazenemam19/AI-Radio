@@ -1,8 +1,0 @@
-{
-  "track_id": "db_unified_20260531",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2026-05-31T20:00:00Z",
-  "updated_at": "2026-05-31T20:00:00Z",
-  "description": "app should be able to read from supabase and sqlite on localhost same as it is able to write into both using different scripts currently serve script is serving data from sqlite on localhost but UI isn't ready to render that correctly. we need two serve scripts in package json one to serve data from supabase and one to serve data from sqlite and we need to have UI being able to represent both"
-}
