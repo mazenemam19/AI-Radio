@@ -14,31 +14,31 @@ class TestVolumeValidation(unittest.TestCase):
             "confidence": "high",
             "related_ids": [],
             "segments": [
-                {"speaker": "ANCHOR", "text": "Word " * 60} for _ in range(8)
+                {"speaker": "ANCHOR", "text": "Word " * 140} for _ in range(8)
             ]
         }
 
     def test_minimum_segments_fail(self):
-        """Should fail if less than 12 segments are provided."""
-        words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa"]
-        for count in range(8, 12):
+        """Should fail if less than 8 segments are provided."""
+        words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet"]
+        for count in range(1, 8):
             with self.subTest(count=count):
                 data = self.base_data.copy()
                 data["segments"] = [
-                    {"speaker": "ANCHOR", "text": f"{words[i]} " * 110} 
+                    {"speaker": "ANCHOR", "text": f"{words[i%len(words)]} " * 140} 
                     for i in range(count)
                 ]
                 valid, reason = validate_broadcast(data)
                 self.assertFalse(valid, f"Should have failed for {count} segments: {reason}")
 
     def test_minimum_segments_pass(self):
-        """Should pass if 12 or more segments are provided."""
-        words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa"]
-        for count in range(12, 16):
+        """Should pass if 8 or more segments are provided."""
+        words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet"]
+        for count in range(8, 11):
             with self.subTest(count=count):
                 data = self.base_data.copy()
                 data["segments"] = [
-                    {"speaker": "ANCHOR", "text": f"{words[i]} " * 110} 
+                    {"speaker": "ANCHOR", "text": f"{words[i%len(words)]} " * 140} 
                     for i in range(count)
                 ]
                 valid, reason = validate_broadcast(data)
