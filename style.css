@@ -30,8 +30,8 @@
     --green-dim: rgba(0, 255, 136, 0.08);
 
     --text-hi: #eeeee4;
-    --text-mid: #888898;
-    --text-lo: #383848;
+    --text-mid: #b0b0c0; 
+    --text-lo: #808090; 
 
     --font: 'Azeret Mono', 'Courier New', monospace;
     --font-display: 'Barlow Condensed', sans-serif;
@@ -112,6 +112,12 @@ body {
             rgba(0, 0, 0, 0.12) 3px, rgba(0, 0, 0, 0.12) 4px);
     pointer-events: none;
     z-index: 1;
+    animation: scanline 10s linear infinite;
+}
+
+@keyframes scanline {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100%; }
 }
 
 /* Horizontal signal stripe at top edge */
@@ -327,13 +333,32 @@ body {
 .ep-card.active {
     background: var(--active);
     border-left-color: var(--lime);
+    box-shadow: inset 0 0 20px var(--lime-dim);
 }
 
 .ep-card-row1 {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 4px; /* Reduced for signal bar */
+}
+
+/* Signal Bar (Duration Metric) */
+.signal-wrap {
+    width: 100%;
+    height: 3px;
+    background: var(--void);
+    margin-bottom: 8px;
+    border-radius: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.signal-bar {
+    height: 100%;
+    background: var(--lime);
+    box-shadow: 0 0 10px var(--lime);
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ep-headline {
@@ -547,6 +572,29 @@ body {
 .media-offline::before {
     content: '//';
     color: var(--text-lo);
+}
+
+/* Video Player */
+.video-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+    height: 0;
+    overflow: hidden;
+    border: 1px solid var(--border-active);
+    border-radius: var(--radius);
+    background: #000;
+    box-shadow: 0 0 15px rgba(184, 255, 0, 0.1);
+    margin-bottom: 10px;
+}
+
+.video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
 }
 
 /* My take */

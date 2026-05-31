@@ -13,26 +13,6 @@
 <body>
 
 <!-- ════════════════════════════════════════════════════════════
-     CONFIG FILE: load before app renders
-════════════════════════════════════════════════════════════ -->
-<script>
-  // Try to load config.js synchronously. Handles:
-  //   window.DASHBOARD_CONFIG = {...}  (spec / updated sync_config.py)
-  //   const CONFIG = {...}             (older sync_config.py output — top-level const IS global)
-  (function() {
-    if (typeof window.DASHBOARD_CONFIG === 'undefined') {
-      try {
-        // Fallback: access bare global (top-level const in classic script)
-        if (typeof CONFIG !== 'undefined') {
-          window.DASHBOARD_CONFIG = CONFIG;
-        }
-      } catch(e) { /* CONFIG not defined */ }
-    }
-  })();
-</script>
-<script src="config.js" onerror="window.__configMissing = true"></script>
-
-<!-- ════════════════════════════════════════════════════════════
      APP SHELL
 ════════════════════════════════════════════════════════════ -->
 <div id="app">
