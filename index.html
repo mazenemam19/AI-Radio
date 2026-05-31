@@ -987,13 +987,23 @@
 
     /* Media section */
     let mediaHtml = '';
-    if (ep.audio_url) {
-      mediaHtml = `<div class="media-wrap"><audio controls src="${esc(ep.audio_url)}"></audio></div>`;
-    } else if (ep.video_url) {
-      const isYT = /youtube\.com|youtu\.be/.test(ep.video_url);
+    const hasAudio = ep.audio_url && !ep.audio_url.includes('placeholder') && ep.audio_url.startsWith('http');
+    const hasVideo = ep.video_url && ep.video_url.startsWith('http');
+
+    if (hasAudio) {
+      console.log('[Echo FM] Rendering audio player with URL:', ep.audio_url);
+      mediaHtml = `
+        <div class="media-wrap">
+          <audio controls preload="metadata" onplay="console.log('[Echo FM] Audio play started')" onerror="console.error('[Echo FM] Audio error:', this.error)">
+            <source src="${ep.audio_url}" type="audio/mpeg">
+            Your browser does not support the audio element.
+          </audio>
+        </div>`;
+    } else if (hasVideo) {
+      console.log('[Echo FM] Rendering video link:', ep.video_url);
       mediaHtml = `<div class="media-wrap">
         <a href="${esc(ep.video_url)}" target="_blank" rel="noopener" class="media-yt-btn">
-          ${isYT ? '▶ Watch on YouTube' : '▶ Open Video Link'}
+          ${'▶ Watch on YouTube'}
         </a>
       </div>`;
     } else {
