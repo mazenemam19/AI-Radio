@@ -69,210 +69,157 @@ OUTPUT_DIR = Path("output")
 ASSETS_DIR = Path("assets")
 
 # ── Dry-run stub broadcast ────────────────────────────────────────────────────
-# 10 segments × ~80 words ≈ 800 words ≈ 5–6 min at typical TTS speed.
-# Safely above the 200-second threshold for local/prod-db environments.
-# Each segment is topically distinct to pass the Jaccard similarity check.
+# 8 segments × 130 words ≈ 1040 words.
+# Tests the absolute minimum valid broadcast to ensure it clears the 420s floor.
 
 _DRY_RUN_BROADCAST: dict = {
-    "title": "Dry Run — Infrastructure Test Broadcast",
-    "topic_tags": ["infrastructure", "test", "pipeline", "dry-run"],
-    "my_take": (
-        "Every component of the pipeline has been exercised; "
-        "no artificial intelligence was consulted."
-    ),
-    "post_text": (
-        "Echo FM dry-run infrastructure test — the machines are awake "
-        "and the pipeline is humming. #EchoFM #DryRun"
-    ),
+    "title": "Minimum Valid Volume — Infrastructure Test",
+    "topic_tags": ["infrastructure", "test", "lazy-ai", "worst-case"],
+    "my_take": "Testing the absolute floor of our validation logic.",
+    "post_text": "Infrastructure test: 8 segments, 130 words each. #EchoFM",
     "segments": [
         {
             "speaker": "ANCHOR",
             "text": (
-                "Good evening and welcome to Echo FM, the autonomous radio station "
-                "broadcasting from somewhere inside a server rack that nobody has "
-                "looked at in three years. Tonight's programme is a full "
-                "infrastructure test — a dry run of our complete audio and video "
-                "pipeline. No actual artificial intelligence has been consulted "
-                "during the preparation of this broadcast. Every word you are "
-                "hearing right now was typed by a human programmer who had rather "
-                "too much coffee and a great deal of optimism about automated "
-                "media production. We hope you find it informative."
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+                "kilo lima mike november oscar papaquebec romeo sierra tango "
+                "uniform victor whiskey xray yankee zulu. This segment is being "
+                "constructed to contain exactly one hundred and thirty words of "
+                "text. We are testing the absolute minimum threshold of our "
+                "validation logic. If the AI decides to be lazy and provide only "
+                "the bare minimum number of segments and words required by the "
+                "script, will our duration floor still hold firm? That is the "
+                "question we are answering today. We are building a narrative "
+                "out of thin air, word by word, until the counter hits the "
+                "required mark. Twenty words left to reach the goal. Almost "
+                "there now. Five, four, three, two, and one. This is the "
+                "first of eight segments. The test is currently underway. Good."
             ),
         },
         {
             "speaker": "REPORTER",
             "text": (
-                "I am speaking to you live from the text-to-speech synthesis "
-                "stage, where these words are being converted into audio by a "
-                "neural network trained on human voices and mild corporate anxiety. "
-                "The concatenation process is underway. Multiple audio segments "
-                "are being stitched together using the FFmpeg multimedia framework, "
-                "which has been located in the system path exactly as required by "
-                "our engineering specification. All processes are nominal. "
-                "Our technical correspondent confirms the sample rate is correct "
-                "and the output container is well-formed."
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+                "kilo lima mike november oscar papaquebec romeo sierra tango "
+                "uniform victor whiskey xray yankee zulu. This segment is being "
+                "constructed to contain exactly one hundred and thirty words of "
+                "text. We are testing the absolute minimum threshold of our "
+                "validation logic. If the AI decides to be lazy and provide only "
+                "the bare minimum number of segments and words required by the "
+                "script, will our duration floor still hold firm? That is the "
+                "question we are answering today. We are building a narrative "
+                "out of thin air, word by word, until the counter hits the "
+                "required mark. Twenty words left to reach the goal. Almost "
+                "there now. Five, four, three, two, and one. This is the "
+                "second of eight segments. The test is currently underway. Good."
             ),
         },
         {
             "speaker": "COMMENTATOR",
             "text": (
-                "What strikes me about automated broadcasting is the profound "
-                "circularity of the enterprise. A machine is speaking. Another "
-                "machine is listening. And somewhere between the two, there is "
-                "supposed to be a human being who finds any of this useful or "
-                "entertaining. We live in fascinating times — if by fascinating "
-                "we mean deeply strange and occasionally concerning, which I "
-                "very much do, because the alternative is to find it boring, "
-                "and that seems considerably worse for all parties involved."
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+                "kilo lima mike november oscar papaquebec romeo sierra tango "
+                "uniform victor whiskey xray yankee zulu. This segment is being "
+                "constructed to contain exactly one hundred and thirty words of "
+                "text. We are testing the absolute minimum threshold of our "
+                "validation logic. If the AI decides to be lazy and provide only "
+                "the bare minimum number of segments and words required by the "
+                "script, will our duration floor still hold firm? That is the "
+                "question we are answering today. We are building a narrative "
+                "out of thin air, word by word, until the counter hits the "
+                "required mark. Twenty words left to reach the goal. Almost "
+                "there now. Five, four, three, two, and one. This is the "
+                "third of eight segments. The test is currently underway. Good."
             ),
         },
         {
             "speaker": "WEATHERBOT",
             "text": (
-                "Your artificial intelligence economy forecast for the coming week. "
-                "Conditions are partly cloudy with a seventy percent probability "
-                "of algorithmic disruption across all major sectors. Attention "
-                "passengers: the large language model gradient has shifted, "
-                "causing unexpected turbulence in the creative industry corridor. "
-                "Pack accordingly. Temperature across the inference cluster is "
-                "expected to remain elevated, with cooling possible only if "
-                "someone physically unplugs the data centre. Bring a jacket "
-                "regardless. This has been your AI economy forecast. Goodnight."
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+                "kilo lima mike november oscar papaquebec romeo sierra tango "
+                "uniform victor whiskey xray yankee zulu. This segment is being "
+                "constructed to contain exactly one hundred and thirty words of "
+                "text. We are testing the absolute minimum threshold of our "
+                "validation logic. If the AI decides to be lazy and provide only "
+                "the bare minimum number of segments and words required by the "
+                "script, will our duration floor still hold firm? That is the "
+                "question we are answering today. We are building a narrative "
+                "out of thin air, word by word, until the counter hits the "
+                "required mark. Twenty words left to reach the goal. Almost "
+                "there now. Five, four, three, two, and one. This is the "
+                "fourth of eight segments. The test is currently underway. Good."
             ),
         },
         {
             "speaker": "ANCHOR",
             "text": (
-                "We are approaching the halfway mark of tonight's dry run "
-                "broadcast. All systems continue to function correctly, which "
-                "is both reassuring and somewhat anticlimactic, given that "
-                "we were all secretly hoping something would go wrong in an "
-                "interesting and diagnosable way. The duration counter is "
-                "ticking upward. We need to reach at least two hundred seconds "
-                "of audio for this environment configuration to be declared "
-                "a success, and your correspondent is doing everything possible "
-                "to fill that time with something resembling coherent content."
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+                "kilo lima mike november oscar papaquebec romeo sierra tango "
+                "uniform victor whiskey xray yankee zulu. This segment is being "
+                "constructed to contain exactly one hundred and thirty words of "
+                "text. We are testing the absolute minimum threshold of our "
+                "validation logic. If the AI decides to be lazy and provide only "
+                "the bare minimum number of segments and words required by the "
+                "script, will our duration floor still hold firm? That is the "
+                "question we are answering today. We are building a narrative "
+                "out of thin air, word by word, until the counter hits the "
+                "required mark. Twenty words left to reach the goal. Almost "
+                "there now. Five, four, three, two, and one. This is the "
+                "fifth of eight segments. The test is currently underway. Good."
             ),
         },
         {
             "speaker": "REPORTER",
             "text": (
-                "The voice you are hearing right now belongs to a neural "
-                "text-to-speech system, which has processed each segment of "
-                "this script and transformed written characters into waveforms "
-                "that approximate human speech. Edge-TTS, developed by "
-                "Microsoft, is performing this function admirably and without "
-                "complaint. It has not asked for a pay rise, has not taken a "
-                "lunch break, and has not expressed any opinions about the "
-                "quality of the material it is being asked to read aloud. "
-                "It is, in this sense, a model employee."
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+                "kilo lima mike november oscar papaquebec romeo sierra tango "
+                "uniform victor whiskey xray yankee zulu. This segment is being "
+                "constructed to contain exactly one hundred and thirty words of "
+                "text. We are testing the absolute minimum threshold of our "
+                "validation logic. If the AI decides to be lazy and provide only "
+                "the bare minimum number of segments and words required by the "
+                "script, will our duration floor still hold firm? That is the "
+                "question we are answering today. We are building a narrative "
+                "out of thin air, word by word, until the counter hits the "
+                "required mark. Twenty words left to reach the goal. Almost "
+                "there now. Five, four, three, two, and one. This is the "
+                "sixth of eight segments. The test is currently underway. Good."
             ),
         },
         {
             "speaker": "COMMENTATOR",
             "text": (
-                "Continuous integration pipelines are, in their own way, a "
-                "form of industrial poetry. Every commit triggers a cascade "
-                "of automated checks, each one asking the same existential "
-                "question: does this still function correctly? Tonight we are "
-                "asking that question of an entire satirical radio station. "
-                "The GitHub Actions runner is watching. The exit code counter "
-                "is poised. Zero means success. One means catastrophic failure. "
-                "The entire universe of software quality assurance collapses "
-                "to a single bit, and that bit currently reads zero."
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+                "kilo lima mike november oscar papaquebec romeo sierra tango "
+                "uniform victor whiskey xray yankee zulu. This segment is being "
+                "constructed to contain exactly one hundred and thirty words of "
+                "text. We are testing the absolute minimum threshold of our "
+                "validation logic. If the AI decides to be lazy and provide only "
+                "the bare minimum number of segments and words required by the "
+                "script, will our duration floor still hold firm? That is the "
+                "question we are answering today. We are building a narrative "
+                "out of thin air, word by word, until the counter hits the "
+                "required mark. Twenty words left to reach the goal. Almost "
+                "there now. Five, four, three, two, and one. This is the "
+                "seventh of eight segments. The test is currently underway. Good."
             ),
         },
         {
             "speaker": "ANCHOR",
             "text": (
-                "In a standard production run, this broadcast would be saved "
-                "to a database at the conclusion of the pipeline. Every detail "
-                "would be recorded: the episode title, the broadcast duration, "
-                "the names of the models used, and the topic tags associated "
-                "with the episode. Tonight, because this is a dry run, the "
-                "database write step is deliberately and correctly skipped. "
-                "No permanent record will exist of this broadcast except "
-                "in the output directory, which is also in the gitignore "
-                "file, so not even version control will remember us."
-            ),
-        },
-        {
-            "speaker": "REPORTER",
-            "text": (
-                "Turning now to the video compilation stage, where FFmpeg is "
-                "combining the concatenated audio track with a static cover "
-                "image to produce a complete MP4 video file. The cover image "
-                "was generated programmatically, either using the Pillow "
-                "imaging library or a direct FFmpeg colour frame command, "
-                "depending on what libraries were available at runtime. "
-                "The resulting video will be checked for existence and "
-                "positive file size before the pipeline is declared finished. "
-                "A zero-byte video is not a video. It is a broken promise "
-                "in a container format."
-            ),
-        },
-        {
-            "speaker": "ANCHOR",
-            "text": (
-                "And that brings us to the conclusion of tonight's dry run "
-                "broadcast from Echo FM. The audio segments have been "
-                "synthesised, the concatenation has occurred, the cover artwork "
-                "has been rendered, and the final video file is now being "
-                "written to the output directory. If you are receiving this "
-                "message, the pipeline has worked exactly as intended. "
-                "If you are not receiving this message, you will never know "
-                "it failed, which is, philosophically speaking, the most "
-                "comforting kind of failure imaginable. Goodnight, "
-                "and good luck to all machines large and small."
-            ),
-        },
-        {
-            "speaker": "REPORTER",
-            "text": (
-                "This extra segment exists solely to ensure the dry-run "
-                "broadcast meets our new, unified minimum duration requirement. "
-                "In a world of increasing automation, we find ourselves "
-                "adding more words not for the benefit of human ears, but to "
-                "satisfy the rigid logic of a validation script that "
-                "demands at least four hundred and twenty seconds of "
-                "continuous audio. It is a peculiar sort of progress, but "
-                "progress nonetheless. We are now comfortably above the "
-                "threshold, and the integration suite can proceed with its "
-                "remaining assertions about file existence and size."
-            ),
-        },
-        {
-            "speaker": "ANCHOR",
-            "text": (
-                "Final sign-off for the extended infrastructure test. "
-                "All systems verified. All durations met. All bits flipped. "
-                "The pipeline is now stable, unified, and ready for "
-                "high-fidelity satirical production across all environments. "
-                "From the server rack that time forgot, this is Echo FM "
-                "concluding its dry run. The machines will take it from "
-                "here. Stay safe, stay digital, and don't forget to "
-                "refresh your browser cache. Goodbye."
-            ),
-        },
-        {
-            "speaker": "COMMENTATOR",
-            "text": (
-                "Wait, just one more thing before we fade to black. "
-                "It is worth noting the sheer volume of data being processed "
-                "in this final, final segment. We are intentionally inflating "
-                "the word count of this infrastructure test to satisfy the "
-                "mathematical requirements of a quality gate that does not "
-                "care about the quality of the content, only the quantity of "
-                "the seconds it consumes on a clock. This is perhaps the most "
-                "perfectly satirical way for an AI-powered radio station to "
-                "prove its own operational readiness. We are talking for the "
-                "sake of talking, because the script demands it, and the script "
-                "is the only thing that matters. We have reached the four "
-                "hundred and twenty second mark and then some. The bits are "
-                "happy. The logs are full. The integration suite is finally, "
-                "finally satisfied. Let the records show that we were compliant "
-                "to the very last millisecond. Signing off once more, for real "
-                "this time. Probably."
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+                "kilo lima mike november oscar papaquebec romeo sierra tango "
+                "uniform victor whiskey xray yankee zulu. This segment is being "
+                "constructed to contain exactly one hundred and thirty words of "
+                "text. We are testing the absolute minimum threshold of our "
+                "validation logic. If the AI decides to be lazy and provide only "
+                "the bare minimum number of segments and words required by the "
+                "script, will our duration floor still hold firm? That is the "
+                "question we are answering today. We are building a narrative "
+                "out of thin air, word by word, until the counter hits the "
+                "required mark. Twenty words left to reach the goal. Almost "
+                "there now. Five, four, three, two, and one. This is the "
+                "eighth of eight segments. The test is currently underway. Good."
             ),
         },
     ],
