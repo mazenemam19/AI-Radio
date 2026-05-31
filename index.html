@@ -1084,6 +1084,7 @@
 
   /* ── Main init ─────────────────────────────────────────────── */
   async function init() {
+    console.log('[Echo FM] Initialising dashboard...');
     startClock();
 
     // Normalise config — handle both variable names and both mode strings
@@ -1091,6 +1092,8 @@
     try { cfg = window.DASHBOARD_CONFIG; } catch(e) {}
     if (!cfg) { try { cfg = window.CONFIG; } catch(e) {} }
     if (!cfg && typeof CONFIG !== 'undefined') { try { cfg = CONFIG; } catch(e) {} }
+
+    console.log('[Echo FM] Config detected:', cfg ? { mode: cfg.mode, env: cfg.env } : 'null');
 
     // Mobile back button
     const detailPanel = document.getElementById('detail-panel');
@@ -1105,6 +1108,7 @@
 
     // No config.js at all
     if (window.__configMissing || !cfg) {
+      console.warn('[Echo FM] Configuration missing or failed to load.');
       setModePill('error', 'NO CONFIG');
       showFullscreenState('warn', 'SIGNAL OFFLINE',
         `config.js not found in this directory.<br><br>` +
@@ -1120,9 +1124,11 @@
     const isProduction = mode === 'production' || mode === 'supabase';
 
     if (isProduction) {
+      console.log('[Echo FM] Entering production mode...');
       setModePill('production', 'PRODUCTION — LIVE');
       await loadProduction(cfg);
     } else {
+      console.log('[Echo FM] Entering local mode...');
       setModePill('local', 'LOCAL');
       loadLocal(cfg);
     }
@@ -1130,6 +1136,7 @@
 
   function loadLocal(cfg) {
     const episodes = Array.isArray(cfg.episodes) ? cfg.episodes : [];
+    console.log(`[Echo FM] Loaded ${episodes.length} local episodes.`);
     _episodes = episodes;
     updateStats(episodes);
     renderFeed(episodes);
@@ -1138,11 +1145,13 @@
   }
 
   async function loadProduction(cfg) {
+    console.log('[Echo FM] Loading production data from Supabase...');
     // Support both camelCase (spec) and snake_case (older sync_config.py)
     const supabaseUrl = cfg.supabaseUrl || cfg.supabase_url || '';
     const supabaseKey = cfg.supabaseKey || cfg.supabase_key || '';
 
     if (!supabaseUrl || !supabaseKey) {
+      console.error('[Echo FM] Supabase credentials missing from config.');
       setModePill('error', 'CONFIG ERROR');
       const loadEl = showFullscreenState('error', 'CREDENTIALS MISSING',
         'config.js is in production mode but supabaseUrl or supabaseKey is absent.<br><br>' +
@@ -1154,9 +1163,11 @@
     const loadEl = showFullscreenState('loading', 'CONNECTING TO SUPABASE', 'Establishing secure channel...');
 
     try {
+      console.log('[Echo FM] Fetching Supabase library...');
       // Inject Supabase CDN dynamically
       await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
 
+      console.log('[Echo FM] Supabase library loaded. Initialising client...');
       const client = window.supabase.createClient(supabaseUrl, supabaseKey);
       const { data, error } = await client
         .from('memory_log')
@@ -1165,6 +1176,8 @@
         .limit(20);
 
       if (error) throw error;
+
+      console.log(`[Echo FM] Successfully fetched ${data ? data.length : 0} episodes from Supabase.`);
 
       // Restore app, populate UI
       loadEl.remove();
@@ -1176,6 +1189,7 @@
       renderFeed(_episodes);
 
     } catch (err) {
+      console.error('[Echo FM] Supabase connection error:', err);
       loadEl.innerHTML = `
         <div class="fs-logo">ECHO FM</div>
         <div class="fs-title error">SUPABASE ERROR</div>

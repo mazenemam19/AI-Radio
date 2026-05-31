@@ -57,7 +57,7 @@ def _write_sqlite_config(env: str) -> None:
         "episodes": episodes,
     }
 
-    js = _HEADER + f"const CONFIG = {json.dumps(config, indent=2, default=str)};\n"
+    js = _HEADER + f"window.CONFIG = {json.dumps(config, indent=2, default=str)};\n"
     _CONFIG_PATH.write_text(js, encoding="utf-8")
     print(
         f"[Config] config.js written (SQLite mode, {len(episodes)} episode(s)) "
@@ -76,20 +76,21 @@ def _write_supabase_config(env: str) -> None:
 
     if not supabase_url or not supabase_key:
         print(
-            "[Config] SUPABASE_URL / SUPABASE_KEY not set — "
+            "[Config] ERROR: SUPABASE_URL / SUPABASE_KEY not set — "
             "cannot write Supabase config.js."
         )
-        return
+        import sys
+        sys.exit(1)
 
     config = {
-        "mode": "supabase",
+        "mode": "production",
         "env": env,
         "website_url": website_url,
         "supabase_url": supabase_url,
         "supabase_key": supabase_key,
     }
 
-    js = _HEADER + f"const CONFIG = {json.dumps(config, indent=2)};\n"
+    js = _HEADER + f"window.CONFIG = {json.dumps(config, indent=2)};\n"
     _CONFIG_PATH.write_text(js, encoding="utf-8")
     print(
         f"[Config] config.js written (Supabase mode → {supabase_url}) "
