@@ -174,16 +174,17 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
   "segments": [
     {{
       "speaker": "ANCHOR",
-      "text": "At least 50 words of satirical radio copy. No exceptions."
+      "text": "At least 140 words of satirical radio copy. No exceptions."
     }}
   ]
 }}
 
 HARD REQUIREMENTS — violation will cause the episode to be rejected:
-- Minimum 8 segments (more is better — aim for 10–12).
+- Target 8–10 segments. Total script volume must be ~1400 words.
 - Speaker must be one of: ANCHOR, REPORTER, COMMENTATOR, WEATHERBOT.
-- Every segment text MUST contain at least 50 words.
+- Every segment text MUST contain at least 140 words.
 - Include exactly one WEATHERBOT segment: a surreal forecast for the AI economy.
+
 - Do NOT summarise the news. Satirise, exaggerate, find the absurdity.
 - Vary speakers. Do not use the same speaker more than 3 times in a row.
 - Tone: dry wit, British-radio gravitas meets Silicon Valley anxiety.
@@ -244,9 +245,10 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
             return False, f"Segment {i} missing 'text'"
 
         word_count = len(seg["text"].split())
-        if word_count < 50:
+        min_words = 130 if _PRODUCTION_ENVS else 100
+        if word_count < min_words:
             return False, (
-                f"Segment {i} ({seg['speaker']}) has only {word_count} word(s) — need ≥ 50"
+                f"Segment {i} ({seg['speaker']}) has only {word_count} word(s) — need ≥ {min_words}"
             )
 
         # Repetition / Jaccard similarity check
@@ -324,8 +326,8 @@ def generate_broadcast(
         # Validate structure + repetition
         valid, reason = validate_broadcast(data)
         if not valid:
-            print(f"[AI] Validation failed: {reason}. Returning None (caller retries).")
-            return None
+            print(f"[AI] Validation failed: {reason}. Trying next model.")
+            continue
 
         # Attach pipeline metadata
         data["_writer_model"] = model

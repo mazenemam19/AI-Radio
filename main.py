@@ -44,10 +44,10 @@ VALID_ENVS: tuple[str, ...] = ("local", "prod-db", "prod-models", "production")
 
 # Minimum acceptable broadcast duration per env group
 _MIN_DURATION: dict[str, int] = {
-    "local":       200,   # local-model envs
-    "prod-db":     200,
-    "prod-models": 600,   # high-tier production-model envs
-    "production":  600,
+    "local":       300,   # ~5m
+    "prod-db":     300,
+    "prod-models": 420,   # ~7m (7-10m sweet spot)
+    "production":  420,
 }
 
 # Cloud TTS: Groq Orpheus; local TTS: edge-tts only
@@ -628,13 +628,10 @@ def main() -> None:
     else:
         print("[9/10] Saving episode to database...")
         
-        # Register artifacts (Local URI or Supabase Upload)
+        # Register artifacts (Local URI or Cloud URL)
+        # Note: We prioritize YouTube for videos to avoid Supabase storage limits.
         final_audio_url = db.upload_file(audio_path)
-        final_video_url = db.upload_file(video_path)
-
-        # Prioritise YouTube link if it exists
-        if video_url:
-            final_video_url = video_url
+        final_video_url = video_url if video_url else db.upload_file(video_path)
 
         post_data = build_episode_metadata(
             news_items=news,
@@ -655,6 +652,12 @@ def main() -> None:
     print("[10/10] Syncing config.js...")
     from sync_config import sync_env_to_config
     sync_env_to_config(env)
+
+    # ── Step 11: Self-Assessment (New) ────────────────────────────────────────
+    if not dry_run:
+        from tests.gate_checks import check_latest_run
+        if not check_latest_run(env):
+            _fail("Episode failed self-assessment gate checks. See log for details.")
 
     print(
         f"\n{'='*60}\n"
