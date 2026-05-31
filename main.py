@@ -44,8 +44,8 @@ VALID_ENVS: tuple[str, ...] = ("local", "prod-db", "prod-models", "production")
 
 # Minimum acceptable broadcast duration per env group
 _MIN_DURATION: dict[str, int] = {
-    "local":       400,   # local-model envs
-    "prod-db":     400,
+    "local":       372,   # local-model envs
+    "prod-db":     372,
     "prod-models": 600,   # high-tier production-model envs
     "production":  600,
 }

@@ -164,7 +164,7 @@ TODAY'S NEWS FEED:
 Write a COMPLETE live radio broadcast script. Return ONLY a single valid JSON object
 with this EXACT structure — no markdown fences, no preamble, no commentary:
 
-{{{{
+{{
   "title": "Episode title (punchy, satirical, max 10 words)",
   "topic_tags": ["tag1", "tag2", "tag3"],
   "confidence": "high/medium/low based on news factual density",
@@ -172,12 +172,12 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
   "my_take": "One punchy editorial sentence summarising the AI's read on today's news.",
   "post_text": "A social-media-ready 280-character teaser for this episode.",
   "segments": [
-    {{{{
+    {{
       "speaker": "ANCHOR",
       "text": "At least 100 words of satirical radio copy. No exceptions."
-    }}}}
+    }}
   ]
-}}}}
+}}
 
 HARD REQUIREMENTS — violation will cause the episode to be rejected:
 - Target 12–15 segments. Total script volume must be ~1500 words.
