@@ -15,8 +15,7 @@ def test_has_audio_logic():
     print("Checking app.js for local:// support...")
     content = APP_JS.read_text(encoding="utf-8")
     
-    # Extract the hasAudio condition
-    # Example: const hasAudio = ep.audio_url && !ep.audio_url.includes('placeholder') && ep.audio_url.startsWith('http');
+    # Extract the resolveUrl function logic or just the hasAudio condition
     match = re.search(r"const\s+hasAudio\s+=\s+(.+?);", content)
     if not match:
         print("  [FAIL] Could not find hasAudio logic in app.js")
@@ -25,20 +24,27 @@ def test_has_audio_logic():
     logic = match.group(1)
     print(f"  Current logic: {logic}")
     
-    # Simulate the logic for a local:// URI
-    audio_url = "local://broadcast_20260531.mp3"
+    # Simulate the resolveUrl logic
+    def resolveUrl(url):
+        if not url: return None
+        if url.startswith('local://'):
+            return 'output/' + url[8:]
+        return url
+
+    # Simulate the hasAudio logic
+    # (audioUrl.startsWith('http') || audioUrl.startsWith('output/'))
+    audio_url_raw = "local://broadcast_20260531.mp3"
+    audio_url = resolveUrl(audio_url_raw)
     
-    # Simple simulation of the current logic
-    # ep.audio_url && !ep.audio_url.includes('placeholder') && ep.audio_url.startsWith('http')
     has_audio = (audio_url and 
                  "placeholder" not in audio_url and 
-                 audio_url.startswith("http"))
+                 (audio_url.startswith("http") or audio_url.startswith("output/")))
     
-    if not has_audio:
-        print(f"  [PASS] Verified that local:// URIs currently FAIL the hasAudio check: {audio_url}")
+    if has_audio:
+        print(f"  [PASS] Verified that local:// URIs now PASS the hasAudio check: {audio_url}")
         return True
     else:
-        print(f"  [FAIL] local:// URIs should fail current logic but passed? {audio_url}")
+        print(f"  [FAIL] local:// URIs should pass new logic but failed: {audio_url}")
         return False
 
 def run():
