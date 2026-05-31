@@ -12,7 +12,9 @@
     "test":         "python tests/integration_suite.py",
     "test:ci":      "python main.py --env local --dry-run",
     "setup":        "pip install -r requirements.txt",
-    "serve":        "python -m http.server 8080"
+    "serve":        "python -m http.server 8080",
+    "serve:sqlite": "python sync_config.py --env local && python -m http.server 8080",
+    "serve:supabase": "python sync_config.py --env production && python -m http.server 8080"
   },
   "engines": {
     "node": ">=18.0.0"
