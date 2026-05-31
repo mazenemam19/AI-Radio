@@ -53,6 +53,20 @@
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    /**
+     * Resolves a URL, mapping local:// URIs to the local output directory.
+     * @param {string} url The URL to resolve.
+     * @return {string|null} The resolved URL or null.
+     */
+    function resolveUrl(url) {
+        if (!url) return null;
+        if (typeof url !== 'string') return url;
+        if (url.startsWith('local://')) {
+            return 'output/' + url.substring(8);
+        }
+        return url;
+    }
+
     function loadScript(src) {
         return new Promise((resolve, reject) => {
             const s = document.createElement('script');
@@ -188,22 +202,28 @@
 
         /* Media section */
         let mediaHtml = '';
-        const hasAudio = ep.audio_url && !ep.audio_url.includes('placeholder') && ep.audio_url.startsWith('http');
-        const hasVideo = ep.video_url && ep.video_url.startsWith('http');
+        const audioUrl = resolveUrl(ep.audio_url);
+        const videoUrl = resolveUrl(ep.video_url);
+
+        const hasAudio = audioUrl && 
+                         !audioUrl.includes('placeholder') && 
+                         (audioUrl.startsWith('http') || audioUrl.startsWith('output/'));
+        const hasVideo = videoUrl && 
+                         (videoUrl.startsWith('http') || videoUrl.startsWith('output/'));
 
         if (hasAudio) {
-            console.log('[Echo FM] Rendering audio player with URL:', ep.audio_url);
+            console.log('[Echo FM] Rendering audio player with URL:', audioUrl);
             mediaHtml = `
         <div class="media-wrap">
           <audio controls preload="metadata" onplay="console.log('[Echo FM] Audio play started')" onerror="console.error('[Echo FM] Audio error:', this.error)">
-            <source src="${ep.audio_url}" type="audio/mpeg">
+            <source src="${audioUrl}" type="audio/mpeg">
             Your browser does not support the audio element.
           </audio>
         </div>`;
         } else if (hasVideo) {
-            console.log('[Echo FM] Rendering video link:', ep.video_url);
+            console.log('[Echo FM] Rendering video link:', videoUrl);
             mediaHtml = `<div class="media-wrap">
-        <a href="${esc(ep.video_url)}" target="_blank" rel="noopener" class="media-yt-btn">
+        <a href="${esc(videoUrl)}" target="_blank" rel="noopener" class="media-yt-btn">
           ${'▶ Watch on YouTube'}
         </a>
       </div>`;
@@ -336,11 +356,11 @@
 
         if (isProduction) {
             console.log('[Echo FM] Entering production mode...');
-            setModePill('production', 'PRODUCTION — LIVE');
+            setModePill('production', 'PRODUCTION — SUPABASE');
             await loadProduction(cfg);
         } else {
             console.log('[Echo FM] Entering local mode...');
-            setModePill('local', 'LOCAL');
+            setModePill('local', 'LOCAL — SQLITE');
             loadLocal(cfg);
         }
     }
