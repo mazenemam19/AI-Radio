@@ -67,6 +67,12 @@
         return url;
     }
 
+    function getYoutubeId(url) {
+        if (!url) return null;
+        const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/);
+        return match ? match[1] : null;
+    }
+
     function loadScript(src) {
         return new Promise((resolve, reject) => {
             const s = document.createElement('script');
@@ -100,6 +106,17 @@
         }
         tick();
         setInterval(tick, 1000);
+    }
+
+    function startHeartbeat() {
+        const el = document.getElementById('header-freq');
+        const base = 88.5;
+        function pulse() {
+            const dev = (Math.random() * 0.4) - 0.2;
+            el.textContent = `SIGNAL: ${(base + dev).toFixed(1)} MHZ`;
+        }
+        pulse();
+        setInterval(pulse, 3000);
     }
 
     /* ── Mode pill ─────────────────────────────────────────────── */
@@ -142,11 +159,19 @@
             list.innerHTML = '<div class="feed-no-ep">No broadcasts generated yet.<br>Run the pipeline to see episodes here.</div>';
             return;
         }
-        list.innerHTML = episodes.map((ep, i) => `
+        list.innerHTML = episodes.map((ep, i) => {
+            // Target is 10 minutes (600s). Bar fills up to 100% at 10m.
+            const targetSecs = 600;
+            const progress = Math.min(100, Math.round((Number(ep.broadcast_duration) || 0) / targetSecs * 100));
+            
+            return `
       <div class="ep-card" data-idx="${i}" tabindex="0" role="button" aria-label="Episode: ${esc(ep.headline)}">
         <div class="ep-card-row1">
           <div class="ep-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
           <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
+        </div>
+        <div class="signal-wrap">
+          <div class="signal-bar" style="width: ${progress}%"></div>
         </div>
         <div class="ep-card-row2">
           <span class="ep-source">${esc(ep.source || '—')}</span>
@@ -154,7 +179,7 @@
           <span class="ep-duration">${fmtDuration(ep.broadcast_duration)}</span>
         </div>
       </div>
-    `).join('');
+    `}).join('');
 
         // Card click handlers
         list.querySelectorAll('.ep-card').forEach(card => {
@@ -221,12 +246,35 @@
           </audio>
         </div>`;
         } else if (hasVideo) {
-            console.log('[Echo FM] Rendering video link:', videoUrl);
-            mediaHtml = `<div class="media-wrap">
-        <a href="${esc(videoUrl)}" target="_blank" rel="noopener" class="media-yt-btn">
-          ${'▶ Watch on YouTube'}
-        </a>
-      </div>`;
+            const ytId = getYoutubeId(videoUrl);
+            if (ytId) {
+                console.log('[Echo FM] Rendering YouTube iframe for ID:', ytId);
+                mediaHtml = `
+            <div class="video-container">
+              <iframe 
+                src="https://www.youtube.com/embed/${ytId}" 
+                title="YouTube video player" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allowfullscreen>
+              </iframe>
+            </div>`;
+            } else if (videoUrl.startsWith('output/')) {
+                console.log('[Echo FM] Rendering local video player:', videoUrl);
+                mediaHtml = `
+            <div class="media-wrap">
+              <video controls width="100%" preload="metadata" style="display:block; border-radius:var(--radius); border: 1px solid var(--border-active);">
+                <source src="${videoUrl}" type="video/mp4">
+                Your browser does not support the video element.
+              </video>
+            </div>`;
+            } else {
+                console.log('[Echo FM] Rendering external video link:', videoUrl);
+                mediaHtml = `<div class="media-wrap">
+            <a href="${esc(videoUrl)}" target="_blank" rel="noopener" class="media-yt-btn">
+              ${'▶ Watch on YouTube'}
+            </a>
+          </div>`;
+            }
         } else {
             mediaHtml = `<div class="media-wrap"><div class="media-offline">Media Archive Offline (Dry Run / Local Mode)</div></div>`;
         }
@@ -317,14 +365,7 @@
     async function init() {
         console.log('[Echo FM] Initialising dashboard...');
         startClock();
-
-        // Normalise config — handle both variable names and both mode strings
-        let cfg = null;
-        try { cfg = window.DASHBOARD_CONFIG; } catch (e) { }
-        if (!cfg) { try { cfg = window.CONFIG; } catch (e) { } }
-        if (!cfg && typeof CONFIG !== 'undefined') { try { cfg = CONFIG; } catch (e) { } }
-
-        console.log('[Echo FM] Config detected:', cfg ? { mode: cfg.mode, env: cfg.env } : 'null');
+        startHeartbeat();
 
         // Mobile back button
         const detailPanel = document.getElementById('detail-panel');
@@ -337,12 +378,18 @@
         });
         detailPanel.insertBefore(backBtn, detailPanel.firstChild);
 
-        // No config.js at all
-        if (window.__configMissing || !cfg) {
-            console.warn('[Echo FM] Configuration missing or failed to load.');
+        // Fetch config.json (Cache-safe)
+        let cfg = null;
+        try {
+            console.log('[Echo FM] Fetching configuration...');
+            const response = await fetch('config.json', { cache: 'no-store' });
+            if (!response.ok) throw new Error('Config fetch failed');
+            cfg = await response.json();
+        } catch (err) {
+            console.warn('[Echo FM] Configuration missing or failed to load:', err);
             setModePill('error', 'NO CONFIG');
             showFullscreenState('warn', 'SIGNAL OFFLINE',
-                `config.js not found in this directory.<br><br>` +
+                `config.json not found or corrupted.<br><br>` +
                 `Run the pipeline to generate it:<br>` +
                 `<code>python main.py --env local --dry-run</code><br><br>` +
                 `Then serve this directory with:<br>` +
@@ -350,6 +397,8 @@
             );
             return;
         }
+
+        console.log('[Echo FM] Config loaded:', { mode: cfg.mode, env: cfg.env });
 
         const mode = (cfg.mode || 'local').toLowerCase();
         const isProduction = mode === 'production' || mode === 'supabase';
