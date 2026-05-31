@@ -18,7 +18,10 @@
 - [x] Task: Conductor - User Manual Verification 'Core Logic Update' (Protocol in workflow.md)
 
 
-## Phase 3: Resilience & Final Validation
+## Phase 3: Resilience & Final Validation [checkpoint: cad10df]
 - [x] Task: Verify JSON Healer performance with longer AI outputs.
-- [~] Task: Execute a full local run (`npm run start`) to confirm 10-minute target achievement.
-- [ ] Task: Conductor - User Manual Verification 'Resilience & Final Validation' (Protocol in workflow.md)
+- [x] Task: Execute a full local run (`npm run start`) to confirm 10-minute target achievement.
+- [x] Task: Conductor - User Manual Verification 'Resilience & Final Validation' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 975f48c
