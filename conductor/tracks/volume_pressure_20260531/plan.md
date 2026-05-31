@@ -5,10 +5,10 @@
 - [x] Task: Integrate `gate_checks.py` into the end of `main.py` to provide immediate pass/fail signal.
 - [x] Task: Conductor - User Manual Verification 'Self-Assessment Infrastructure' (Protocol in workflow.md)
 
-## Phase 1: Environment & Baseline
+## Phase 1: Environment & Baseline [checkpoint: a5f3baf]
 - [x] Task: Audit current `ai_client.py` and `main.py` duration gates.
-- [~] Task: Create a baseline integration test to measure current segment/word averages.
-- [ ] Task: Conductor - User Manual Verification 'Environment & Baseline' (Protocol in workflow.md)
+- [x] Task: Create a baseline integration test to measure current segment/word averages.
+- [x] Task: Conductor - User Manual Verification 'Environment & Baseline' (Protocol in workflow.md)
 
 ## Phase 2: Core Logic Update (TDD)
 - [ ] Task: Write failing unit tests for `validate_broadcast` requiring 12-15 segments.
