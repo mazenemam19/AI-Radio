@@ -12,6 +12,7 @@ Public interface is identical across all backends.
 """
 
 import json
+import mimetypes
 import os
 import re
 import sqlite3
@@ -309,3 +310,44 @@ class DBClient:
                 print(f"[DB] Pruned Supabase episodes older than {days_to_keep} day(s).")
             except Exception as exc:
                 print(f"[DB] delete_old_episodes failed (Supabase): {exc}")
+
+    def upload_file(self, local_path: Path, bucket: str = "broadcasts") -> Optional[str]:
+        """
+        Register a file artifact.
+        In local/prod-models: returns a 'local://' URI reference.
+        In prod-db/production: uploads to Supabase Storage and returns the public URL.
+        """
+        if not local_path.exists():
+            print(f"[DB] upload_file failed: {local_path} does not exist.")
+            return None
+
+        if self.env in SQLITE_ENVS:
+            # Dashboard handles local:// URIs relative to the output folder.
+            return f"local://{local_path.name}"
+
+        # Supabase Storage logic
+        file_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{local_path.name}"
+        url = f"{self._supabase_url}/storage/v1/object/{bucket}/{file_name}"
+
+        mime_type, _ = mimetypes.guess_type(str(local_path))
+        headers = {
+            "apikey": self._supabase_key,
+            "Authorization": f"Bearer {self._supabase_key}",
+            "Content-Type": mime_type or "application/octet-stream",
+        }
+
+        try:
+            with open(local_path, "rb") as f:
+                import requests
+                resp = requests.post(url, headers=headers, data=f, timeout=60)
+
+            if resp.status_code == 200:
+                public_url = f"{self._supabase_url}/storage/v1/object/public/{bucket}/{file_name}"
+                print(f"[DB] Artifact uploaded to Supabase: {public_url}")
+                return public_url
+
+            print(f"[DB] Supabase upload failed ({resp.status_code}): {resp.text}")
+            return None
+        except Exception as e:
+            print(f"[DB] upload_file error: {e}")
+            return None

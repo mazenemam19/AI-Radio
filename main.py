@@ -229,6 +229,8 @@ _DRY_RUN_BROADCAST: dict = {
     ],
     "_writer_model": "stub",
     "_healer_used": False,
+    "confidence": "high",
+    "related_ids": [],
 }
 
 
@@ -435,6 +437,43 @@ def _generate_cover_image(title: str, path: Path) -> bool:
         return False
 
 
+# ── Episode metadata helper ────────────────────────────────────────────────────
+
+def build_episode_metadata(
+    news_items: list[dict],
+    broadcast: dict,
+    duration: float,
+    audio_url: Optional[str],
+    video_url: Optional[str],
+    healer_used: bool,
+    writer_model: str,
+    narrator_model: str,
+) -> dict:
+    """Assemble the dict for insert_post."""
+    headline = broadcast.get("title") or (news_items[0]["headline"] if news_items else "AI Radio Echo — Automated Broadcast")
+    sources  = list({item.get("source", "") for item in news_items[:10] if item.get("source")})
+
+    return {
+        "headline":          headline,
+        "original_headline": news_items[0]["headline"] if news_items else headline,
+        "source":            news_items[0].get("source", "") if news_items else "",
+        "topic_tags":        broadcast.get("topic_tags", sources),
+        "my_take":           broadcast.get("my_take", ""),
+        "post_text":         broadcast.get("post_text", ""),
+        "audio_script":      json.dumps([s["text"] for s in broadcast.get("segments", [])]),
+        "audio_url":         audio_url,
+        "video_url":         video_url,
+        "confidence":        broadcast.get("confidence", "high"),
+        "related_ids":       broadcast.get("related_ids", []),
+        "likes":             0,
+        "plays":             0,
+        "broadcast_duration": int(duration),
+        "healer_used":       healer_used,
+        "writer_model":      writer_model,
+        "narrator_model":    narrator_model,
+    }
+
+
 # ── Main pipeline ──────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -588,24 +627,26 @@ def main() -> None:
         print("[9/10] DRY RUN — skipping DB write.")
     else:
         print("[9/10] Saving episode to database...")
-        row = db.insert_post({
-            "headline": title,
-            "original_headline": news[0]["headline"] if news else title,
-            "source": news[0].get("source", "") if news else "",
-            "topic_tags": broadcast.get("topic_tags", []),
-            "my_take": broadcast.get("my_take", ""),
-            "post_text": broadcast.get("post_text", ""),
-            "audio_script": json.dumps([s["text"] for s in segments]),
-            # audio_url: no cloud audio upload — never save a fake URL (spec rule)
-            "audio_url": None,
-            "video_url": video_url,
-            "confidence": "high",
-            "related_ids": [],
-            "broadcast_duration": int(duration),
-            "healer_used": bool(broadcast.get("_healer_used", False)),
-            "writer_model": broadcast.get("_writer_model", "unknown"),
-            "narrator_model": "groq-orpheus" if use_cloud_tts else "edge-tts",
-        })
+        
+        # Register artifacts (Local URI or Supabase Upload)
+        final_audio_url = db.upload_file(audio_path)
+        final_video_url = db.upload_file(video_path)
+
+        # Prioritise YouTube link if it exists
+        if video_url:
+            final_video_url = video_url
+
+        post_data = build_episode_metadata(
+            news_items=news,
+            broadcast=broadcast,
+            duration=duration,
+            audio_url=final_audio_url,
+            video_url=final_video_url,
+            healer_used=bool(broadcast.get("_healer_used", False)),
+            writer_model=broadcast.get("_writer_model", "unknown"),
+            narrator_model="groq-orpheus" if use_cloud_tts else "edge-tts",
+        )
+        row = db.insert_post(post_data)
         if row is None:
             _fail("DB insert_post returned None — episode metadata not persisted.")
         print(f"[9/10] Episode saved → id={row.get('id')}")

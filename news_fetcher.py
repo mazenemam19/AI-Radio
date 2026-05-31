@@ -9,6 +9,7 @@ feedparser:      always via requests (10s timeout) — never feedparser.parse(ur
 HTMLStripper:    defined once at module level, not inside any loop.
 """
 
+import random
 import re
 from html.parser import HTMLParser
 from typing import Optional
@@ -192,8 +193,10 @@ def _fetch_hackernews(limit: int, history: list[str]) -> tuple[list[dict], bool]
 
 _RSS_SOURCES: list[tuple[str, str]] = [
     ("BBC",      "http://feeds.bbci.co.uk/news/rss.xml"),
-    ("Reuters",  "https://feeds.reuters.com/reuters/topNews"),
     ("Guardian", "https://www.theguardian.com/world/rss"),
+    ("Ars",      "https://feeds.arstechnica.com/arstechnica/index"),
+    ("TechCrunch", "https://techcrunch.com/feed/"),
+    ("NASA",     "https://www.nasa.gov/rss/dyn/breaking_news.rss"),
 ]
 
 
@@ -243,4 +246,6 @@ def fetch_news(history: list[str]) -> list[dict]:
         else:
             print(f"[NEWS] Some sources failed: {', '.join(failed_sources)}")
 
+    # Randomise the order of items so the 'primary' source varies in DB metadata
+    random.shuffle(all_items)
     return all_items

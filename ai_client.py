@@ -148,14 +148,14 @@ def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
     ) or "  (No news items available today.)"
 
     memory_block = "\n".join(
-        f"  - {m.get('headline', '?')} (tags: {m.get('topic_tags', [])})"
+        f"  ID: {m.get('id', '?')} | {m.get('headline', '?')} (tags: {m.get('topic_tags', [])})"
         for m in memory[:5]
     ) or "  No recent episodes on file."
 
     return f"""You are the head writer for "Echo FM" — a satirical AI-powered radio station
 covering tech, AI, and the general absurdity of modern civilisation.
 
-RECENT EPISODES (do NOT repeat these topics):
+RECENT EPISODES (do NOT repeat these topics; use these IDs for 'related_ids'):
 {memory_block}
 
 TODAY'S NEWS FEED:
@@ -167,6 +167,8 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
 {{
   "title": "Episode title (punchy, satirical, max 10 words)",
   "topic_tags": ["tag1", "tag2", "tag3"],
+  "confidence": "high/medium/low based on news factual density",
+  "related_ids": [list of IDs from RECENT EPISODES that share themes],
   "my_take": "One punchy editorial sentence summarising the AI's read on today's news.",
   "post_text": "A social-media-ready 280-character teaser for this episode.",
   "segments": [
@@ -206,7 +208,7 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
     Validate the parsed broadcast JSON against all spec rules.
 
     Checks (in order):
-      1. data is a dict with a 'segments' key.
+      1. data is a dict with required keys.
       2. segments is a list with ≥ 8 items.
       3. Each segment has 'speaker' and 'text' keys.
       4. Each segment text has ≥ 50 words.
@@ -216,8 +218,14 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
     """
     if not isinstance(data, dict):
         return False, "Response is not a dict"
-    if "segments" not in data:
-        return False, "Missing 'segments' key"
+    
+    required_keys = ["title", "segments", "confidence", "related_ids"]
+    for k in required_keys:
+        if k not in data:
+            return False, f"Missing '{k}' key"
+
+    if data["confidence"] not in ("high", "medium", "low"):
+        return False, f"Invalid confidence value: {data['confidence']}"
 
     segments = data["segments"]
     if not isinstance(segments, list):

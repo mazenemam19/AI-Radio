@@ -27,9 +27,14 @@ GROQ_TTS_MODEL = "canopylabs/orpheus-v1-english"
 USAGE_FILE = Path("output") / ".groq_usage.json"
 DAILY_CHAR_LIMIT = 14_400
 
-# Groq Orpheus supports exactly these voice identifiers.
-_GROQ_VOICES: frozenset[str] = frozenset({"tara", "leo", "leah", "jess", "zac", "zoe"})
-_GROQ_DEFAULT_VOICE = "tara"
+# Groq Orpheus support exactly these voice identifiers.
+_GROQ_VOICES: dict[str, str] = {
+    "ANCHOR":      "daniel",
+    "REPORTER":    "daniel",
+    "COMMENTATOR": "hannah",
+    "WEATHERBOT":  "hannah",
+}
+_GROQ_DEFAULT_VOICE = "daniel"
 
 # ── Daily quota helpers ────────────────────────────────────────────────────────
 
@@ -199,11 +204,11 @@ def _run_groq_tts(text: str, voice: str, path: str) -> bool:
             model=GROQ_TTS_MODEL,
             voice=groq_voice,
             input=text,
-            response_format="mp3",
+            response_format="wav",
         )
 
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        response.stream_to_file(path)
+        response.write_to_file(path)
 
         _increment_usage(len(text))
         print(
