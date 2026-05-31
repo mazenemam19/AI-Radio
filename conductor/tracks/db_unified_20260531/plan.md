@@ -8,10 +8,10 @@
 
 ## Phase 2: UI Representation for Local Artifacts
 - [x] Task: Create a failing test for `app.js` that verifies `local://` URI resolution. d75ea96
-- [~] Task: Refactor `app.js` to handle `local://` URIs for audio and video.
-- [ ] Task: Update `buildDetail` in `app.js` to render local audio/video if found.
-- [ ] Task: Ensure the UI displays a clear "LOCAL MODE" or "SUPABASE MODE" indicator.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
+- [x] Task: Refactor `app.js` to handle `local://` URIs for audio and video. 44a4a84
+- [x] Task: Update `buildDetail` in `app.js` to render local audio/video if found. 44a4a84
+- [x] Task: Ensure the UI displays a clear "LOCAL MODE" or "SUPABASE MODE" indicator. 44a4a84
+- [~] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
 ## Phase 3: Final Integration & Cleanup
 - [ ] Task: Verify end-to-end flow for both `serve:sqlite` and `serve:supabase`.
