@@ -44,8 +44,8 @@ VALID_ENVS: tuple[str, ...] = ("local", "prod-db", "prod-models", "production")
 
 # Minimum acceptable broadcast duration per env group
 _MIN_DURATION: dict[str, int] = {
-    "local":       200,   # local-model envs
-    "prod-db":     200,
+    "local":       372,   # local-model envs
+    "prod-db":     372,
     "prod-models": 600,   # high-tier production-model envs
     "production":  600,
 }
@@ -655,6 +655,12 @@ def main() -> None:
     print("[10/10] Syncing config.js...")
     from sync_config import sync_env_to_config
     sync_env_to_config(env)
+
+    # ── Step 11: Self-Assessment (New) ────────────────────────────────────────
+    if not dry_run:
+        from tests.gate_checks import check_latest_run
+        if not check_latest_run(env):
+            _fail("Episode failed self-assessment gate checks. See log for details.")
 
     print(
         f"\n{'='*60}\n"
