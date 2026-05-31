@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECHO FM — Control Terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Azeret Mono: distinctive terminal monospace. Barlow Condensed: broadcast numerals. -->
+  <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       DESIGN TOKENS — Phosphor Terminal Palette
+       Primary: Chartreuse (#b8ff00) — old phosphor CRT glow
+       Secondary: Cold Cyan (#00e0ff) — telemetry / signal data
+       Danger: Hot Coral (#ff3d5a)
+       Warning: Amber (#ffaa00)
+       ═══════════════════════════════════════════════════════════ */
+    :root {
+      --void:          #05050d;
+      --surface:       #090912;
+      --card:          #0d0d1a;
+      --card-hover:    #111122;
+      --active:        #14142e;
+      --raised:        #17172f;
+
+      --border:        rgba(184,255,0,0.07);
+      --border-mid:    rgba(184,255,0,0.14);
+      --border-active: rgba(184,255,0,0.4);
+
+      --lime:          #b8ff00;
+      --lime-glow:     rgba(184,255,0,0.18);
+      --lime-dim:      rgba(184,255,0,0.08);
+      --cyan:          #00e0ff;
+      --cyan-dim:      rgba(0,224,255,0.08);
+      --coral:         #ff3d5a;
+      --coral-dim:     rgba(255,61,90,0.08);
+      --amber:         #ffaa00;
+      --amber-dim:     rgba(255,170,0,0.08);
+      --green:         #00ff88;
+      --green-dim:     rgba(0,255,136,0.08);
+
+      --text-hi:       #eeeee4;
+      --text-mid:      #888898;
+      --text-lo:       #383848;
+
+      --font:          'Azeret Mono', 'Courier New', monospace;
+      --font-display:  'Barlow Condensed', sans-serif;
+      --radius:        2px;
+      --ease:          140ms ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 13px; height: 100%; }
+
+    body {
+      font-family: var(--font);
+      background-color: var(--void);
+      color: var(--text-hi);
+      height: 100%;
+      overflow: hidden;
+      /* Dot-matrix grid — subtle phosphor screen texture */
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(184,255,0,0.035) 1px, transparent 0);
+      background-size: 20px 20px;
+    }
+
+    #app {
+      display: grid;
+      grid-template-rows: 52px 52px 1fr;
+      height: 100vh;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--text-lo); border-radius: 2px; }
+    * { scrollbar-width: thin; scrollbar-color: var(--text-lo) transparent; }
+
+    /* ══════════════════════════════════════════════════════════
+       HEADER
+    ══════════════════════════════════════════════════════════ */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-mid);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* CRT scanline overlay */
+    .header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Horizontal signal stripe at top edge */
+    .header::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--lime), var(--cyan), transparent);
+      opacity: 0.6;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--lime);
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      text-shadow: 0 0 24px rgba(184,255,0,0.5), 0 0 48px rgba(184,255,0,0.2);
+      position: relative;
+      z-index: 2;
+      flex-shrink: 0;
+    }
+
+    .logo-sub {
+      font-family: var(--font);
+      font-size: 8px;
+      font-weight: 400;
+      color: var(--text-lo);
+      letter-spacing: 3px;
+      display: block;
+      margin-top: 1px;
+    }
+
+    .h-sep {
+      width: 1px;
+      height: 28px;
+      background: var(--border-mid);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 10px;
+      border-radius: 1px;
+      font-size: 9px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      border: 1px solid;
+      position: relative;
+      z-index: 2;
+    }
+    .mode-pill.local      { color: var(--cyan);  border-color: rgba(0,224,255,0.3);  background: var(--cyan-dim);  }
+    .mode-pill.production { color: var(--lime);  border-color: rgba(184,255,0,0.3);  background: var(--lime-dim);  }
+    .mode-pill.error      { color: var(--coral); border-color: rgba(255,61,90,0.3);  background: var(--coral-dim); }
+
+    .blink-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: blink 2s step-end infinite;
+      flex-shrink: 0;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    .header-freq {
+      font-size: 9px;
+      color: var(--text-lo);
+      letter-spacing: 2px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .header-clock {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-mid);
+      letter-spacing: 1.5px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       STATS BAR
+    ══════════════════════════════════════════════════════════ */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .stat {
+      padding: 10px 20px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .stat:last-child { border-right: none; }
+
+    .stat-lbl {
+      font-size: 8px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-bottom: 2px;
+    }
+
+    .stat-val {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--lime);
+      line-height: 1;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       MAIN GRID
+    ══════════════════════════════════════════════════════════ */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      overflow: hidden;
+    }
+
+    /* ── Feed panel ─────────────────────────────────────────── */
+    .feed-panel {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .feed-top {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .feed-top-label {
+      font-size: 8px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--text-lo);
+    }
+
+    .feed-top-count {
+      font-size: 9px;
+      color: var(--text-lo);
+    }
+
+    .feed-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .ep-card {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background var(--ease), border-left-color var(--ease);
+      border-left: 2px solid transparent;
+      position: relative;
+    }
+    .ep-card:hover  { background: var(--card-hover); border-left-color: rgba(184,255,0,0.25); }
+    .ep-card.active { background: var(--active);     border-left-color: var(--lime); }
+
+    .ep-card-row1 {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .ep-headline {
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: var(--text-hi);
+      flex: 1;
+    }
+
+    .conf-badge {
+      font-size: 8px;
+      letter-spacing: 1px;
+      padding: 2px 5px;
+      border-radius: var(--radius);
+      white-space: nowrap;
+      flex-shrink: 0;
+      border: 1px solid;
+      margin-top: 1px;
+    }
+    .conf-badge.high   { color: var(--green);  border-color: rgba(0,255,136,0.3);  background: var(--green-dim);  }
+    .conf-badge.medium { color: var(--amber);  border-color: rgba(255,170,0,0.3);  background: var(--amber-dim);  }
+    .conf-badge.low    { color: var(--coral);  border-color: rgba(255,61,90,0.3);   background: var(--coral-dim);  }
+    .conf-badge.null   { color: var(--text-lo); border-color: var(--border);        background: transparent;       }
+
+    .ep-card-row2 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 9.5px;
+      color: var(--text-lo);
+    }
+
+    .ep-source { color: var(--cyan); }
+
+    .ep-duration::before { content: '▶ '; }
+
+    /* ── Detail panel ────────────────────────────────────────── */
+    .detail-panel {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .detail-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: var(--text-lo);
+      text-align: center;
+      padding: 40px;
+    }
+
+    .detail-empty-glyph {
+      font-size: 40px;
+      line-height: 1;
+      opacity: 0.25;
+      font-family: var(--font-display);
+      letter-spacing: 8px;
+    }
+
+    .detail-empty-label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    /* Detail content */
+    .detail-inner {
+      padding: 22px 26px;
+      flex: 1;
+    }
+
+    .detail-headline {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-hi);
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+
+    .detail-orig {
+      font-size: 10px;
+      color: var(--text-lo);
+      font-style: italic;
+      margin-bottom: 14px;
+    }
+
+    .detail-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 22px;
+    }
+
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 9.5px;
+      color: var(--text-mid);
+    }
+    .meta-chip .lbl { color: var(--text-lo); }
+
+    /* ── Sections ─────────────────────────────────────────── */
+    .d-section {
+      margin-bottom: 22px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--border);
+    }
+    .d-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+    .d-section-lbl {
+      font-size: 8px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .d-section-lbl::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Media */
+    .media-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 14px;
+      border-radius: var(--radius);
+    }
+
+    .media-wrap audio {
+      width: 100%;
+      height: 30px;
+      outline: none;
+    }
+
+    .media-yt-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--cyan);
+      text-decoration: none;
+      font-size: 11px;
+      border: 1px solid rgba(0,224,255,0.25);
+      padding: 7px 12px;
+      border-radius: var(--radius);
+      transition: background var(--ease), border-color var(--ease);
+      letter-spacing: 0.5px;
+    }
+    .media-yt-btn:hover { background: var(--cyan-dim); border-color: rgba(0,224,255,0.5); }
+
+    .media-offline {
+      font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .media-offline::before {
+      content: '//';
+      color: var(--text-lo);
+    }
+
+    /* My take */
+    .my-take {
+      font-size: 13px;
+      color: var(--lime);
+      line-height: 1.65;
+      border-left: 2px solid var(--lime);
+      padding-left: 12px;
+      text-shadow: 0 0 20px rgba(184,255,0,0.15);
+    }
+
+    .post-text {
+      font-size: 11px;
+      color: var(--text-mid);
+      line-height: 1.65;
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--border-mid);
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 12px;
+    }
+
+    .tag {
+      font-size: 9px;
+      padding: 3px 7px;
+      border-radius: var(--radius);
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--cyan);
+      cursor: default;
+      letter-spacing: 0.5px;
+      transition: border-color var(--ease), background var(--ease);
+    }
+    .tag:hover { border-color: rgba(0,224,255,0.4); background: var(--cyan-dim); }
+
+    /* Telemetry */
+    .telem-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+    }
+
+    .telem-cell {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 9px 10px;
+    }
+
+    .telem-k {
+      font-size: 7.5px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      margin-bottom: 4px;
+    }
+
+    .telem-v {
+      font-size: 10px;
+      color: var(--text-mid);
+      word-break: break-all;
+    }
+
+    .healer-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 8px;
+      padding: 2px 5px;
+      border-radius: var(--radius);
+      border: 1px solid;
+    }
+    .healer-chip.healed    { color: var(--amber); border-color: rgba(255,170,0,0.35); background: var(--amber-dim); }
+    .healer-chip.not-healed{ color: var(--text-lo); border-color: var(--border);       background: transparent; }
+
+    /* Accordion */
+    .accordion {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .accordion-btn {
+      width: 100%;
+      background: var(--card);
+      border: none;
+      padding: 11px 14px;
+      text-align: left;
+      color: var(--text-mid);
+      font-family: var(--font);
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      letter-spacing: 1px;
+      transition: background var(--ease), color var(--ease);
+    }
+    .accordion-btn:hover { background: var(--card-hover); color: var(--text-hi); }
+
+    .accordion-chevron {
+      transition: transform 180ms ease;
+      color: var(--text-lo);
+    }
+    .accordion.open .accordion-chevron { transform: rotate(180deg); }
+
+    .accordion-body {
+      display: none;
+      background: var(--void);
+      border-top: 1px solid var(--border);
+    }
+    .accordion.open .accordion-body { display: block; }
+
+    .script-seg {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .script-seg:last-child { border-bottom: none; }
+
+    .script-speaker {
+      font-size: 8px;
+      letter-spacing: 3px;
+      color: var(--lime);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .script-text {
+      font-size: 11px;
+      color: var(--text-mid);
+      line-height: 1.75;
+    }
+
+    .script-no-data {
+      padding: 16px;
+      font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: 1px;
+      text-align: center;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       FULLSCREEN STATES (loading, error, no-config)
+    ══════════════════════════════════════════════════════════ */
+    .fs-state {
+      position: fixed;
+      inset: 0;
+      background: var(--void);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      text-align: center;
+      padding: 40px;
+      z-index: 9999;
+    }
+
+    .fs-logo {
+      font-family: var(--font-display);
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: 10px;
+      color: var(--lime);
+      text-shadow: 0 0 30px rgba(184,255,0,0.4);
+    }
+
+    .fs-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+    .fs-title.error   { color: var(--coral); }
+    .fs-title.loading { color: var(--lime);  }
+    .fs-title.warn    { color: var(--amber); }
+
+    .fs-body {
+      font-size: 10px;
+      color: var(--text-lo);
+      letter-spacing: 1.5px;
+      max-width: 480px;
+      line-height: 2;
+      text-transform: uppercase;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 2px solid var(--border-mid);
+      border-top-color: var(--lime);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Feed empty */
+    .feed-no-ep {
+      padding: 40px 16px;
+      text-align: center;
+      color: var(--text-lo);
+      font-size: 9.5px;
+      letter-spacing: 1.5px;
+      line-height: 2;
+      text-transform: uppercase;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════════════════ */
+    @media (max-width: 860px) {
+      .main-grid { grid-template-columns: 1fr; }
+
+      .detail-panel {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: var(--void);
+        overflow-y: auto;
+      }
+      .detail-panel.mobile-open { display: flex; flex-direction: column; }
+
+      .mobile-back-btn {
+        display: flex !important;
+      }
+    }
+
+    .mobile-back-btn {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      font-size: 10px;
+      color: var(--cyan);
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      letter-spacing: 1px;
+    }
+    .mobile-back-btn:hover { background: var(--card-hover); }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     CONFIG FILE: load before app renders
+════════════════════════════════════════════════════════════ -->
+<script>
+  // Try to load config.js synchronously. Handles:
+  //   window.DASHBOARD_CONFIG = {...}  (spec / updated sync_config.py)
+  //   const CONFIG = {...}             (older sync_config.py output — top-level const IS global)
+  (function() {
+    if (typeof window.DASHBOARD_CONFIG === 'undefined') {
+      try {
+        // Fallback: access bare global (top-level const in classic script)
+        if (typeof CONFIG !== 'undefined') {
+          window.DASHBOARD_CONFIG = CONFIG;
+        }
+      } catch(e) { /* CONFIG not defined */ }
+    }
+  })();
+</script>
+<script src="config.js" onerror="window.__configMissing = true"></script>
+
+<!-- ════════════════════════════════════════════════════════════
+     APP SHELL
+════════════════════════════════════════════════════════════ -->
+<div id="app">
+  <header class="header">
+    <div class="logo">ECHO FM<span class="logo-sub">AI RADIO — CONTROL TERMINAL</span></div>
+    <div class="h-sep"></div>
+    <div class="mode-pill" id="mode-pill">
+      <span class="blink-dot"></span>
+      <span id="mode-label">INITIALISING</span>
+    </div>
+    <div class="header-freq" id="header-freq">——</div>
+    <div class="header-clock" id="header-clock">——:——:——</div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-lbl">Total Broadcasts</div>
+      <div class="stat-val" id="stat-count">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Total Plays</div>
+      <div class="stat-val" id="stat-plays">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Total Likes</div>
+      <div class="stat-val" id="stat-likes">—</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <!-- Feed -->
+    <div class="feed-panel">
+      <div class="feed-top">
+        <span class="feed-top-label">Episode Feed</span>
+        <span class="feed-top-count" id="feed-count">—</span>
+      </div>
+      <div class="feed-list" id="feed-list">
+        <div class="feed-no-ep">Awaiting signal...</div>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-empty" id="detail-empty">
+        <div class="detail-empty-glyph">▶ FM</div>
+        <div class="detail-empty-label">Select a broadcast to inspect</div>
+      </div>
+      <div class="detail-inner" id="detail-inner" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     DASHBOARD SCRIPT
+════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ── Utilities ─────────────────────────────────────────────── */
+
+  function fmtDuration(secs) {
+    if (!secs && secs !== 0) return '—';
+    const s = Math.round(Number(secs));
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${m}:${String(rem).padStart(2, '0')}`;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString(undefined, {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch { return iso; }
+  }
+
+  function parseTags(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; }
+    catch { return String(raw).split(',').map(t => t.trim()).filter(Boolean); }
+  }
+
+  function parseAudioScript(raw) {
+    if (!raw) return [];
+    let parsed = raw;
+    if (typeof parsed === 'string') {
+      try { parsed = JSON.parse(raw); } catch { return [{ speaker: 'SEGMENT 01', text: raw }]; }
+    }
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item, i) => {
+      if (typeof item === 'string') return { speaker: `SEGMENT ${String(i+1).padStart(2,'0')}`, text: item };
+      if (item && typeof item === 'object') return {
+        speaker: (item.speaker || `SEGMENT ${String(i+1).padStart(2,'0')}`).toUpperCase(),
+        text: item.text || ''
+      };
+      return null;
+    }).filter(Boolean);
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load: ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  function showFullscreenState(type, title, body) {
+    document.getElementById('app').style.display = 'none';
+    const el = document.createElement('div');
+    el.className = 'fs-state';
+    el.innerHTML = `
+      <div class="fs-logo">ECHO FM</div>
+      ${type === 'loading' ? '<div class="spinner"></div>' : ''}
+      <div class="fs-title ${type}">${esc(title)}</div>
+      <div class="fs-body">${body}</div>
+    `;
+    document.body.appendChild(el);
+    return el;
+  }
+
+  /* ── Clock ─────────────────────────────────────────────────── */
+  function startClock() {
+    const el = document.getElementById('header-clock');
+    function tick() {
+      const now = new Date();
+      el.textContent = now.toLocaleTimeString(undefined, { hour12: false });
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  /* ── Mode pill ─────────────────────────────────────────────── */
+  function setModePill(mode, label) {
+    const pill = document.getElementById('mode-pill');
+    const lbl  = document.getElementById('mode-label');
+    pill.className = 'mode-pill ' + mode;
+    lbl.textContent = label;
+  }
+
+  /* ── Stats ─────────────────────────────────────────────────── */
+  function updateStats(episodes) {
+    document.getElementById('stat-count').textContent = episodes.length;
+    document.getElementById('stat-plays').textContent =
+      episodes.reduce((a, e) => a + (Number(e.plays) || 0), 0).toLocaleString();
+    document.getElementById('stat-likes').textContent =
+      episodes.reduce((a, e) => a + (Number(e.likes) || 0), 0).toLocaleString();
+    document.getElementById('header-freq').textContent =
+      `${episodes.length} EPISODE${episodes.length !== 1 ? 'S' : ''} ON RECORD`;
+    document.getElementById('feed-count').textContent =
+      `${episodes.length} / 20`;
+  }
+
+  /* ── Feed rendering ────────────────────────────────────────── */
+  let _episodes = [];
+  let _selectedIdx = null;
+
+  function confClass(c) {
+    if (!c) return 'null';
+    return ['high','medium','low'].includes(c) ? c : 'null';
+  }
+  function confLabel(c) {
+    if (!c) return '—';
+    return { high: 'HIGH', medium: 'MED', low: 'LOW' }[c] || c.toUpperCase();
+  }
+
+  function renderFeed(episodes) {
+    const list = document.getElementById('feed-list');
+    if (!episodes.length) {
+      list.innerHTML = '<div class="feed-no-ep">No broadcasts generated yet.<br>Run the pipeline to see episodes here.</div>';
+      return;
+    }
+    list.innerHTML = episodes.map((ep, i) => `
+      <div class="ep-card" data-idx="${i}" tabindex="0" role="button" aria-label="Episode: ${esc(ep.headline)}">
+        <div class="ep-card-row1">
+          <div class="ep-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
+          <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
+        </div>
+        <div class="ep-card-row2">
+          <span class="ep-source">${esc(ep.source || '—')}</span>
+          <span>${esc(fmtDate(ep.created_at))}</span>
+          <span class="ep-duration">${fmtDuration(ep.broadcast_duration)}</span>
+        </div>
+      </div>
+    `).join('');
+
+    // Card click handlers
+    list.querySelectorAll('.ep-card').forEach(card => {
+      function select() {
+        const idx = parseInt(card.dataset.idx, 10);
+        selectEpisode(idx);
+      }
+      card.addEventListener('click', select);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') select(); });
+    });
+  }
+
+  /* ── Detail rendering ──────────────────────────────────────── */
+  function selectEpisode(idx) {
+    _selectedIdx = idx;
+    const ep = _episodes[idx];
+
+    // Mark active card
+    document.querySelectorAll('.ep-card').forEach((c, i) => {
+      c.classList.toggle('active', i === idx);
+    });
+
+    document.getElementById('detail-empty').style.display = 'none';
+    const inner = document.getElementById('detail-inner');
+    inner.style.display = 'block';
+
+    // Mobile: show detail panel
+    document.getElementById('detail-panel').classList.add('mobile-open');
+
+    inner.innerHTML = buildDetail(ep);
+
+    // Accordion toggle
+    inner.querySelectorAll('.accordion-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const acc = btn.closest('.accordion');
+        acc.classList.toggle('open');
+      });
+    });
+  }
+
+  function buildDetail(ep) {
+    const tags = parseTags(ep.topic_tags);
+    const segments = parseAudioScript(ep.audio_script);
+    const origDiff = ep.original_headline && ep.original_headline !== ep.headline;
+
+    /* Media section */
+    let mediaHtml = '';
+    if (ep.audio_url) {
+      mediaHtml = `<div class="media-wrap"><audio controls src="${esc(ep.audio_url)}"></audio></div>`;
+    } else if (ep.video_url) {
+      const isYT = /youtube\.com|youtu\.be/.test(ep.video_url);
+      mediaHtml = `<div class="media-wrap">
+        <a href="${esc(ep.video_url)}" target="_blank" rel="noopener" class="media-yt-btn">
+          ${isYT ? '▶ Watch on YouTube' : '▶ Open Video Link'}
+        </a>
+      </div>`;
+    } else {
+      mediaHtml = `<div class="media-wrap"><div class="media-offline">Media Archive Offline (Dry Run / Local Mode)</div></div>`;
+    }
+
+    /* Tags */
+    const tagsHtml = tags.length
+      ? `<div class="tags">${tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>`
+      : '<div style="font-size:10px;color:var(--text-lo);margin-top:8px;">No tags</div>';
+
+    /* Telemetry */
+    const healed = ep.healer_used === true || ep.healer_used === 1 || ep.healer_used === 'true';
+    const healedHtml = healed
+      ? `<span class="healer-chip healed">⚠ HEALED</span>`
+      : `<span class="healer-chip not-healed">CLEAN</span>`;
+
+    /* Audio script segments */
+    const scriptHtml = segments.length
+      ? segments.map(seg => `
+          <div class="script-seg">
+            <div class="script-speaker">${esc(seg.speaker)}</div>
+            <div class="script-text">${esc(seg.text)}</div>
+          </div>`).join('')
+      : `<div class="script-no-data">// No audio script recorded for this episode</div>`;
+
+    return `
+      <div class="detail-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
+      ${origDiff ? `<div class="detail-orig">↳ orig: ${esc(ep.original_headline)}</div>` : ''}
+
+      <div class="detail-meta">
+        <span class="meta-chip"><span class="lbl">SRC</span> ${esc(ep.source || '—')}</span>
+        <span class="meta-chip"><span class="lbl">DATE</span> ${esc(fmtDate(ep.created_at))}</span>
+        <span class="meta-chip"><span class="lbl">DURATION</span> ${fmtDuration(ep.broadcast_duration)}</span>
+        <span class="meta-chip"><span class="lbl">PLAYS</span> ${ep.plays ?? 0}</span>
+        <span class="meta-chip"><span class="lbl">LIKES</span> ${ep.likes ?? 0}</span>
+        <span class="conf-badge ${confClass(ep.confidence)}" style="font-size:9px">${confLabel(ep.confidence)}</span>
+      </div>
+
+      <!-- MEDIA -->
+      <div class="d-section">
+        <div class="d-section-lbl">// Transmission Archive</div>
+        ${mediaHtml}
+      </div>
+
+      <!-- AI INSIGHTS -->
+      <div class="d-section">
+        <div class="d-section-lbl">// AI Insights</div>
+        ${ep.my_take ? `<div class="my-take">${esc(ep.my_take)}</div>` : ''}
+        ${ep.post_text ? `<div class="post-text">${esc(ep.post_text)}</div>` : ''}
+        ${tagsHtml}
+      </div>
+
+      <!-- MODEL TELEMETRY -->
+      <div class="d-section">
+        <div class="d-section-lbl">// Model Telemetry</div>
+        <div class="telem-grid">
+          <div class="telem-cell">
+            <div class="telem-k">Writer Model</div>
+            <div class="telem-v">${esc(ep.writer_model || '—')}</div>
+          </div>
+          <div class="telem-cell">
+            <div class="telem-k">Narrator Model</div>
+            <div class="telem-v">${esc(ep.narrator_model || '—')}</div>
+          </div>
+          <div class="telem-cell">
+            <div class="telem-k">JSON Healer</div>
+            <div class="telem-v">${healedHtml}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUDIO SCRIPT ACCORDION -->
+      <div class="d-section">
+        <div class="d-section-lbl">// Raw Broadcast Script</div>
+        <div class="accordion" id="script-accordion">
+          <button class="accordion-btn" aria-expanded="false">
+            <span>SHOW DIALOGUE — ${segments.length} SEGMENT${segments.length !== 1 ? 'S' : ''}</span>
+            <svg class="accordion-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div class="accordion-body">${scriptHtml}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ── Main init ─────────────────────────────────────────────── */
+  async function init() {
+    startClock();
+
+    // Normalise config — handle both variable names and both mode strings
+    let cfg = null;
+    try { cfg = window.DASHBOARD_CONFIG; } catch(e) {}
+    if (!cfg) { try { cfg = window.CONFIG; } catch(e) {} }
+    if (!cfg && typeof CONFIG !== 'undefined') { try { cfg = CONFIG; } catch(e) {} }
+
+    // Mobile back button
+    const detailPanel = document.getElementById('detail-panel');
+    const backBtn = document.createElement('div');
+    backBtn.className = 'mobile-back-btn';
+    backBtn.innerHTML = '← Back to feed';
+    backBtn.addEventListener('click', () => {
+      detailPanel.classList.remove('mobile-open');
+      _selectedIdx = null;
+    });
+    detailPanel.insertBefore(backBtn, detailPanel.firstChild);
+
+    // No config.js at all
+    if (window.__configMissing || !cfg) {
+      setModePill('error', 'NO CONFIG');
+      showFullscreenState('warn', 'SIGNAL OFFLINE',
+        `config.js not found in this directory.<br><br>` +
+        `Run the pipeline to generate it:<br>` +
+        `<code>python main.py --env local --dry-run</code><br><br>` +
+        `Then serve this directory with:<br>` +
+        `<code>python -m http.server 8080</code>`
+      );
+      return;
+    }
+
+    const mode = (cfg.mode || 'local').toLowerCase();
+    const isProduction = mode === 'production' || mode === 'supabase';
+
+    if (isProduction) {
+      setModePill('production', 'PRODUCTION — LIVE');
+      await loadProduction(cfg);
+    } else {
+      setModePill('local', 'LOCAL');
+      loadLocal(cfg);
+    }
+  }
+
+  function loadLocal(cfg) {
+    const episodes = Array.isArray(cfg.episodes) ? cfg.episodes : [];
+    _episodes = episodes;
+    updateStats(episodes);
+    renderFeed(episodes);
+    document.getElementById('header-freq').textContent =
+      `SERVING LOCAL SQLITE — ${episodes.length} EP${episodes.length !== 1 ? 'S' : ''}`;
+  }
+
+  async function loadProduction(cfg) {
+    // Support both camelCase (spec) and snake_case (older sync_config.py)
+    const supabaseUrl = cfg.supabaseUrl || cfg.supabase_url || '';
+    const supabaseKey = cfg.supabaseKey || cfg.supabase_key || '';
+
+    if (!supabaseUrl || !supabaseKey) {
+      setModePill('error', 'CONFIG ERROR');
+      const loadEl = showFullscreenState('error', 'CREDENTIALS MISSING',
+        'config.js is in production mode but supabaseUrl or supabaseKey is absent.<br><br>' +
+        'Re-run the pipeline with a valid --env prod-db or --env production profile.'
+      );
+      return;
+    }
+
+    const loadEl = showFullscreenState('loading', 'CONNECTING TO SUPABASE', 'Establishing secure channel...');
+
+    try {
+      // Inject Supabase CDN dynamically
+      await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
+
+      const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+      const { data, error } = await client
+        .from('memory_log')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      // Restore app, populate UI
+      loadEl.remove();
+      document.getElementById('app').style.display = '';
+      document.getElementById('header-freq').textContent = `SUPABASE — LIVE DATA`;
+
+      _episodes = data || [];
+      updateStats(_episodes);
+      renderFeed(_episodes);
+
+    } catch (err) {
+      loadEl.innerHTML = `
+        <div class="fs-logo">ECHO FM</div>
+        <div class="fs-title error">SUPABASE ERROR</div>
+        <div class="fs-body">${esc(String(err.message || err))}<br><br>
+          Check your Supabase credentials and that the memory_log table exists.
+        </div>
+      `;
+      setModePill('error', 'DB ERROR');
+    }
+  }
+
+  /* ── Boot ──────────────────────────────────────────────────── */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+</body>
+</html>
