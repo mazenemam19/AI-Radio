@@ -14,6 +14,6 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md) 67c222d
 
 ## Phase 3: Final Integration & Cleanup
-- [~] Task: Verify end-to-end flow for both `serve:sqlite` and `serve:supabase`.
-- [ ] Task: Ensure all Quality Gates are met.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
+- [x] Task: Verify end-to-end flow for both `serve:sqlite` and `serve:supabase`. 3ff096f
+- [x] Task: Ensure all Quality Gates are met. 3ff096f
+- [~] Task: Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)
