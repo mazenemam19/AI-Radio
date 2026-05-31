@@ -4,9 +4,9 @@ Writes config.js for the frontend HTML dashboard.
 
 Routing (controlled by --env, never inferred):
   local / prod-models → read SQLite, embed 20 most recent episodes as JS data.
-  prod-db / production → write Supabase credentials to config.js for direct querying.
+  prod-db / production → write baked episode data from Supabase.
 
-config.js must be listed in .gitignore (credentials must never be committed).
+config.json must be listed in .gitignore to avoid data conflicts between environments.
 All failures are logged but non-fatal — config sync does not abort the pipeline.
 """
 
@@ -73,32 +73,32 @@ def _write_sqlite_config(env: str) -> None:
 
 def _write_supabase_config(env: str) -> None:
     """
-    Write Supabase credentials to config.json.
-    The frontend uses these to query the Supabase REST API directly.
+    Connect to Supabase, fetch recent episodes, and bake them into config.json.
+    This ensures no credentials are ever exposed to the user's browser.
     """
-    supabase_url = os.environ.get("SUPABASE_URL", "").strip()
-    supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
-    website_url = os.environ.get("WEBSITE_URL", "").strip()
-
-    if not supabase_url or not supabase_key:
-        print(
-            "[Config] ERROR: SUPABASE_URL / SUPABASE_KEY not set — "
-            "cannot write Supabase config.json."
-        )
+    from db_client import DBClient
+    
+    # DBClient automatically pulls URL/KEY from environment
+    try:
+        db = DBClient(env)
+        episodes = db.fetch_recent_memory(limit=20)
+    except Exception as exc:
+        print(f"[Config] ERROR: Could not fetch from Supabase: {exc}")
         import sys
         sys.exit(1)
+    
+    website_url = os.environ.get("WEBSITE_URL", "").strip()
 
     config = {
         "mode": "production",
         "env": env,
         "website_url": website_url,
-        "supabase_url": supabase_url,
-        "supabase_key": supabase_key,
+        "episodes": episodes,
     }
 
-    _CONFIG_PATH.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    _CONFIG_PATH.write_text(json.dumps(config, indent=2, default=str), encoding="utf-8")
     print(
-        f"[Config] config.json written (Supabase mode → {supabase_url}) "
+        f"[Config] config.json written (Production/Baked mode, {len(episodes)} episode(s)) "
         f"→ {_CONFIG_PATH.resolve()}"
     )
 
