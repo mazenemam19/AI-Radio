@@ -7,8 +7,8 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md) eebd4ff
 
 ## Phase 2: UI Representation for Local Artifacts
-- [~] Task: Create a failing test for `app.js` that verifies `local://` URI resolution.
-- [ ] Task: Refactor `app.js` to handle `local://` URIs for audio and video.
+- [x] Task: Create a failing test for `app.js` that verifies `local://` URI resolution. d75ea96
+- [~] Task: Refactor `app.js` to handle `local://` URIs for audio and video.
 - [ ] Task: Update `buildDetail` in `app.js` to render local audio/video if found.
 - [ ] Task: Ensure the UI displays a clear "LOCAL MODE" or "SUPABASE MODE" indicator.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
