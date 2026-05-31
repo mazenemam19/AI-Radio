@@ -10,12 +10,13 @@
 - [x] Task: Create a baseline integration test to measure current segment/word averages.
 - [x] Task: Conductor - User Manual Verification 'Environment & Baseline' (Protocol in workflow.md)
 
-## Phase 2: Core Logic Update (TDD)
+## Phase 2: Core Logic Update (TDD) [checkpoint: a5261c7]
 - [x] Task: Write failing unit tests for `validate_broadcast` requiring 12-15 segments.
 - [x] Task: Update `validate_broadcast` in `ai_client.py` to pass the new segment count requirement.
 - [x] Task: Refactor the system prompt in `_build_prompt` to demand higher volume (12-15 segments, >100 words/segment).
-- [~] Task: Update the `main.py` duration constants to align with production targets (600s).
-- [ ] Task: Conductor - User Manual Verification 'Core Logic Update' (Protocol in workflow.md)
+- [x] Task: Update the `main.py` duration constants to align with production targets (600s).
+- [x] Task: Conductor - User Manual Verification 'Core Logic Update' (Protocol in workflow.md)
+
 
 ## Phase 3: Resilience & Final Validation
 - [ ] Task: Verify JSON Healer performance with longer AI outputs.
