@@ -3,8 +3,8 @@
 ## Phase 1: Serve Scripts & Backend Validation
 - [x] Task: Create failing tests for `sync_config.py` ensuring it generates correct `config.js` for both modes. 28793bd
 - [x] Task: Update `package.json` with `serve:sqlite` and `serve:supabase`. 80ececf
-- [~] Task: Verify that running `serve:sqlite` correctly populates `config.js` with local data.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
+- [x] Task: Verify that running `serve:sqlite` correctly populates `config.js` with local data. d90c224
+- [~] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: UI Representation for Local Artifacts
 - [ ] Task: Create a failing test for `app.js` that verifies `local://` URI resolution.
