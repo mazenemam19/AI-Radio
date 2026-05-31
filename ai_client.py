@@ -245,7 +245,7 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
             return False, f"Segment {i} missing 'text'"
 
         word_count = len(seg["text"].split())
-        min_words = 130 if _PRODUCTION_ENVS else 100
+        min_words = 130
         if word_count < min_words:
             return False, (
                 f"Segment {i} ({seg['speaker']}) has only {word_count} word(s) — need ≥ {min_words}"

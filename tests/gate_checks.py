@@ -9,11 +9,17 @@ Exit code 1: Regression detected.
 import sys
 import json
 from pathlib import Path
+
+# ── Import Fix ────────────────────────────────────────────────────────────────
+PROJ_ROOT = Path(__file__).parent.parent
+if str(PROJ_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJ_ROOT))
+
 from db_client import DBClient
 
 # ── Baseline Constants (Run 74) ───────────────────────────────────────────────
 BASELINE_ID = 74
-BASELINE_DURATION = 372
+BASELINE_DURATION = 420
 REQUIRED_METADATA_FIELDS = [
     "confidence",
     "related_ids",
