@@ -174,15 +174,15 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
   "segments": [
     {{
       "speaker": "ANCHOR",
-      "text": "At least 100 words of satirical radio copy. No exceptions."
+      "text": "At least 140 words of satirical radio copy. No exceptions."
     }}
   ]
 }}
 
 HARD REQUIREMENTS — violation will cause the episode to be rejected:
-- Target 12–15 segments. Total script volume must be ~1500 words.
+- Target 8–10 segments. Total script volume must be ~1400 words.
 - Speaker must be one of: ANCHOR, REPORTER, COMMENTATOR, WEATHERBOT.
-- Every segment text MUST contain at least 100 words.
+- Every segment text MUST contain at least 140 words.
 - Include exactly one WEATHERBOT segment: a surreal forecast for the AI economy.
 
 - Do NOT summarise the news. Satirise, exaggerate, find the absurdity.
@@ -231,8 +231,8 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
     segments = data["segments"]
     if not isinstance(segments, list):
         return False, "'segments' is not a list"
-    if len(segments) < 12:
-        return False, f"Only {len(segments)} segment(s) — need ≥ 12"
+    if len(segments) < 8:
+        return False, f"Only {len(segments)} segment(s) — need ≥ 8"
 
     seen_word_sets: list[set] = []
 
@@ -245,9 +245,10 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
             return False, f"Segment {i} missing 'text'"
 
         word_count = len(seg["text"].split())
-        if word_count < 100:
+        min_words = 130 if _PRODUCTION_ENVS else 100
+        if word_count < min_words:
             return False, (
-                f"Segment {i} ({seg['speaker']}) has only {word_count} word(s) — need ≥ 100"
+                f"Segment {i} ({seg['speaker']}) has only {word_count} word(s) — need ≥ {min_words}"
             )
 
         # Repetition / Jaccard similarity check
@@ -325,8 +326,8 @@ def generate_broadcast(
         # Validate structure + repetition
         valid, reason = validate_broadcast(data)
         if not valid:
-            print(f"[AI] Validation failed: {reason}. Returning None (caller retries).")
-            return None
+            print(f"[AI] Validation failed: {reason}. Trying next model.")
+            continue
 
         # Attach pipeline metadata
         data["_writer_model"] = model

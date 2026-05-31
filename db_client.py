@@ -311,43 +311,33 @@ class DBClient:
             except Exception as exc:
                 print(f"[DB] delete_old_episodes failed (Supabase): {exc}")
 
-    def upload_file(self, local_path: Path, bucket: str = "broadcasts") -> Optional[str]:
+    def upload_file(self, local_path: Path) -> Optional[str]:
         """
         Register a file artifact.
-        In local/prod-models: returns a 'local://' URI reference.
-        In prod-db/production: uploads to Supabase Storage and returns the public URL.
+        
+        Logic:
+          - Local/Prod-Models: Returns 'local://' URI.
+          - Production/Prod-DB: 
+            - Video: Usually handled by YouTube URL in main.py.
+            - Audio: Returns 'placeholder' (Supabase Storage is disabled).
         """
         if not local_path.exists():
             print(f"[DB] upload_file failed: {local_path} does not exist.")
             return None
 
+        # Base case: return local URI for local/dev envs
         if self.env in SQLITE_ENVS:
-            # Dashboard handles local:// URIs relative to the output folder.
             return f"local://{local_path.name}"
 
-        # Supabase Storage logic
-        file_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{local_path.name}"
-        url = f"{self._supabase_url}/storage/v1/object/{bucket}/{file_name}"
-
-        mime_type, _ = mimetypes.guess_type(str(local_path))
-        headers = {
-            "apikey": self._supabase_key,
-            "Authorization": f"Bearer {self._supabase_key}",
-            "Content-Type": mime_type or "application/octet-stream",
-        }
-
-        try:
-            with open(local_path, "rb") as f:
-                import requests
-                resp = requests.post(url, headers=headers, data=f, timeout=60)
-
-            if resp.status_code == 200:
-                public_url = f"{self._supabase_url}/storage/v1/object/public/{bucket}/{file_name}"
-                print(f"[DB] Artifact uploaded to Supabase: {public_url}")
-                return public_url
-
-            print(f"[DB] Supabase upload failed ({resp.status_code}): {resp.text}")
-            return None
-        except Exception as e:
-            print(f"[DB] upload_file error: {e}")
-            return None
+        # Production/Cloud DB case
+        # We no longer use Supabase buckets (workaround for free-tier limits).
+        # Videos are stored on YouTube; Audio is not currently cloud-hosted.
+        is_audio = local_path.suffix.lower() in (".mp3", ".wav", ".ogg")
+        
+        if is_audio:
+            print(f"[DB] Audio upload skipped (env={self.env}) — using placeholder.")
+            return "placeholder"
+        else:
+            # For non-audio (like images or video fallbacks), we return local URI
+            # so the system doesn't break, though YouTube should be used for video.
+            return f"local://{local_path.name}"
