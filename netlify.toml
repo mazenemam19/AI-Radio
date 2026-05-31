@@ -1,0 +1,6 @@
+[build]
+  command = "pip install -r requirements.txt && python sync_config.py --env production"
+  publish = "."
+
+[build.environment]
+  PYTHON_VERSION = "3.11"

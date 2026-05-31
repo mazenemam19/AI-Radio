@@ -95,3 +95,18 @@ def _write_supabase_config(env: str) -> None:
         f"[Config] config.js written (Supabase mode → {supabase_url}) "
         f"→ {_CONFIG_PATH.resolve()}"
     )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Sync config.js for the dashboard.")
+    parser.add_argument(
+        "--env",
+        choices=["local", "prod-db", "prod-models", "production"],
+        default="local",
+        help="Environment profile to sync.",
+    )
+    args = parser.parse_args()
+
+    sync_env_to_config(args.env)
