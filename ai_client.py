@@ -18,12 +18,22 @@ from typing import Optional
 
 # ── Model constants (exact strings — do not alter) ────────────────────────────
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+DEEPSEEK_MODEL = "deepseek-r1-distill-llama-70b"
+LLAMA_3_3 = "llama-3.3-70b-versatile"
+LLAMA_4_SCOUT = "llama-4-scout-17b-instruct"
 GEMINI_PRIMARY = "gemini-3.5-flash"
 GEMINI_FALLBACK = "gemini-3.1-flash-lite"
 
-MODEL_SET_A: list[str] = [GROQ_MODEL, GEMINI_PRIMARY, GEMINI_FALLBACK]
+MODEL_SET_A: list[str] = [
+    DEEPSEEK_MODEL,
+    LLAMA_3_3,
+    LLAMA_4_SCOUT,
+    GEMINI_PRIMARY,
+    GEMINI_FALLBACK
+]
 MODEL_SET_B: list[str] = [GEMINI_PRIMARY, GEMINI_FALLBACK]
+
+GROQ_MODELS: frozenset[str] = frozenset({DEEPSEEK_MODEL, LLAMA_3_3, LLAMA_4_SCOUT})
 
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
 
@@ -298,7 +308,7 @@ def generate_broadcast(
     for attempt, model in enumerate(model_queue):
         news_limit = 15 if attempt == 0 else 8
         prompt = _build_prompt(news, memory, news_limit)
-        is_groq = model == GROQ_MODEL
+        is_groq = model in GROQ_MODELS
 
         print(
             f"[AI] Attempt {attempt + 1}/{len(model_queue)}: {model} "

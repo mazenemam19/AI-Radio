@@ -7,8 +7,10 @@ Echo FM utilizes a hybrid local/cloud stack designed for high availability and z
 - **Node.js (npm):** Used for task orchestration and pipeline management (via `package.json`).
 
 ## Artificial Intelligence & Synthesis
-- **Google Gemini:** Primary LLM for satirical script generation.
-- **Groq Orpheus:** High-tier Text-to-Speech synthesis for production environments.
+- **Google Gemini:** 3.5/3.1 series used for stable, high-quota script generation.
+- **Groq:** Primary provider for high-tier models including **DeepSeek R1** (Reasoning), **Llama 3.3 70B**, and **Llama 4 Scout** (High Speed).
+- **Groq Orpheus:** Gold-standard Text-to-Speech synthesis for production environments.
+- **Cartesia Sonic:** High-emotion cloud TTS provider used as a primary cloud fallback.
 - **edge-tts:** Local-first, network-resilient TTS fallback for development and CI/CD.
 
 ## Data Persistence & Infrastructure
