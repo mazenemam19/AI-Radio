@@ -31,12 +31,12 @@ _CARTESIA_DEFAULT_VOICE = "c8f7835e-28a3-4f0c-80d7-c1302ac62aae"
 
 # Kokoro-82M curated voices (June 2026)
 _KOKORO_VOICES: dict[str, str] = {
-    "ANCHOR":      "af_heart",    # Formal/Clear
-    "REPORTER":    "bf_emma",   # British/Professional
-    "COMMENTATOR": "af_nicole",   # Deep/Thoughtful
-    "WEATHERBOT":  "af_bella",  # Soft/Ethereal
+    "ANCHOR":      "bm_george", # British Male (Matches Alistair)
+    "REPORTER":    "bf_emma",   # British Female (Matches Victoria)
+    "COMMENTATOR": "am_adam",   # American Male (Matches Ronald)
+    "WEATHERBOT":  "bm_lewis",  # British Male (Matches Casper)
 }
-_KOKORO_DEFAULT_VOICE = "af_heart"
+_KOKORO_DEFAULT_VOICE = "bm_george"
 
 # ── Network-error detection ───────────────────────────────────────────────────
 
@@ -304,16 +304,18 @@ def generate_segment_audio(
     voice: str,
     path: str,
     use_cloud: bool,
+    forced_engine: Optional[str] = None,
 ) -> tuple[bool, str]:
     """
     Generate TTS audio for a single script segment with duration guarding.
 
     Args:
-        text:       Segment script text.
-        voice:      Voice identifier.
-        path:       Output file path.
-        use_cloud:  True  → try Cartesia first, then Kokoro, then edge-tts.
-                    False → edge-tts only.
+        text:           Segment script text.
+        voice:          Voice identifier.
+        path:           Output file path.
+        use_cloud:      True  → try Cartesia first, then Kokoro, then edge-tts.
+                        False → edge-tts only.
+        forced_engine:  If provided, skips the priority loop and tries ONLY this engine.
 
     Returns:
         (success, engine_name)
@@ -323,6 +325,22 @@ def generate_segment_audio(
     preview = (text[:47] + "...") if len(text) > 50 else text
     print(f"[TTS] Narrating {word_count} words: \"{preview}\"")
 
+    # ── Handle Forced Engine (Sticky Mode) ───────────────────────────────────
+    if forced_engine:
+        if forced_engine == "cartesia-sonic":
+            if _run_cartesia_tts(text, voice, path) and _is_audio_valid(path, word_count):
+                return True, "cartesia-sonic"
+        elif forced_engine == "kokoro-cloud":
+            if _run_kokoro_tts(text, voice, path) and _is_audio_valid(path, word_count):
+                return True, "kokoro-cloud"
+        elif forced_engine == "edge-tts":
+            edge_voice = voice if voice.startswith("en-") else "en-US-GuyNeural"
+            if _run_edge_tts(text, edge_voice, path) and _is_audio_valid(path, word_count):
+                return True, "edge-tts"
+        
+        print(f"[TTS] Forced engine '{forced_engine}' failed. Reverting to priority loop.")
+
+    # ── Priority Loop ────────────────────────────────────────────────────────
     if use_cloud:
         if _run_cartesia_tts(text, voice, path):
             if _is_audio_valid(path, word_count):

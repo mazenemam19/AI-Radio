@@ -548,6 +548,7 @@ def main() -> None:
 
     segment_files: list[Path] = []
     engines_used: set[str] = set()
+    locked_engine: Optional[str] = None
 
     for i, seg in enumerate(segments):
         speaker: str = seg.get("speaker", "ANCHOR")
@@ -559,9 +560,15 @@ def main() -> None:
             voice=voice,
             path=str(seg_path),
             use_cloud=use_cloud_tts,
+            forced_engine=locked_engine,
         )
         if not success:
             _fail(f"TTS generation failed for segment {i} (speaker={speaker}).")
+
+        # Lock the engine after the first successful segment to ensure vocal consistency
+        if locked_engine is None:
+            locked_engine = engine
+            print(f"[TTS] Engine Locked: Using '{locked_engine}' for the entire episode.")
 
         segment_files.append(seg_path)
         engines_used.add(engine)
