@@ -3,8 +3,8 @@ ai_client.py — AI Radio Echo
 LLM orchestration for satirical radio broadcast generation.
 
 Model queues (set by --env, never inferred):
-  Set A (prod-models, production): llama-3.3-70b-versatile → gemini-3.5-flash → gemini-3.1-flash-lite
-  Set B (local, prod-db):          gemini-3.5-flash → gemini-3.1-flash-lite
+  Set A (prod-models, production): llama-3.3-70b-versatile → meta-llama/llama-4-scout-17b-16e-instruct → gemini-3.5-flash 
+  Set B (local, prod-db):          gemini-3.1-flash-lite → gemini-2.5-flash
 
 Step-down: first attempt uses 15 news items; each subsequent model drops to 8.
 JSON healing attempted once on parse failure — no regex repair ever.
@@ -18,22 +18,23 @@ from typing import Optional
 
 # ── Model constants (exact strings — do not alter) ────────────────────────────
 
-DEEPSEEK_MODEL = "deepseek-r1-distill-llama-70b"
 LLAMA_3_3 = "llama-3.3-70b-versatile"
-LLAMA_4_SCOUT = "llama-4-scout-17b-instruct"
+LLAMA_4_SCOUT = "meta-llama/llama-4-scout-17b-16e-instruct"
+LLAMA_3_LEGACY = "llama3-70b-8192"
 GEMINI_PRIMARY = "gemini-3.5-flash"
-GEMINI_FALLBACK = "gemini-3.1-flash-lite"
+GEMINI_FALLBACK1 = "gemini-3.1-flash-lite"
+GEMINI_FALLBACK2 = "gemini-2.5-flash"
 
 MODEL_SET_A: list[str] = [
-    DEEPSEEK_MODEL,
     LLAMA_3_3,
     LLAMA_4_SCOUT,
     GEMINI_PRIMARY,
-    GEMINI_FALLBACK
+    GEMINI_FALLBACK1,
+    GEMINI_FALLBACK2
 ]
-MODEL_SET_B: list[str] = [GEMINI_PRIMARY, GEMINI_FALLBACK]
+MODEL_SET_B: list[str] = [GEMINI_FALLBACK1, GEMINI_FALLBACK2]
 
-GROQ_MODELS: frozenset[str] = frozenset({DEEPSEEK_MODEL, LLAMA_3_3, LLAMA_4_SCOUT})
+GROQ_MODELS: frozenset[str] = frozenset({LLAMA_3_3, LLAMA_4_SCOUT, LLAMA_3_LEGACY})
 
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
 

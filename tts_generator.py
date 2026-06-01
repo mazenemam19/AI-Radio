@@ -2,7 +2,7 @@
 tts_generator.py — AI Radio Echo
 Text-to-speech generation.
 
-Cloud path (use_cloud=True):  Groq Orpheus TTS → Cartesia Sonic → edge-tts fallback
+Cloud path (use_cloud=True):  Groq Orpheus TTS → Cartesia Sonic → Kokoro Cloud → edge-tts fallback
 Local path (use_cloud=False): edge-tts only
 
 Quota tracking: output/.groq_usage.json  {"date": "YYYY-MM-DD", "chars_used": N}
@@ -44,6 +44,15 @@ _CARTESIA_VOICES: dict[str, str] = {
     "WEATHERBOT":  "4f7f1324-1853-48a6-b294-4e78e8036a83", # Casper (Wistful British Male)
 }
 _CARTESIA_DEFAULT_VOICE = "c8f7835e-28a3-4f0c-80d7-c1302ac62aae"
+
+# Kokoro-82M curated voices (June 2026)
+_KOKORO_VOICES: dict[str, str] = {
+    "ANCHOR":      "af_heart",    # Formal/Clear
+    "REPORTER":    "bf_emma",   # British/Professional
+    "COMMENTATOR": "af_nicole",   # Deep/Thoughtful
+    "WEATHERBOT":  "af_bella",  # Soft/Ethereal
+}
+_KOKORO_DEFAULT_VOICE = "af_heart"
 
 # ── Daily quota helpers ────────────────────────────────────────────────────────
 
@@ -245,6 +254,7 @@ def _run_cartesia_tts(text: str, voice: str, path: str) -> bool:
     """
     api_key = os.environ.get("CARTESIA_API_KEY", "").strip()
     if not api_key:
+        print("[TTS] CARTESIA_API_KEY not set — skipping Cartesia Sonic.")
         return False
 
     cartesia_voice = _CARTESIA_VOICES.get(voice, _CARTESIA_DEFAULT_VOICE)
@@ -282,6 +292,44 @@ def _run_cartesia_tts(text: str, voice: str, path: str) -> bool:
 
     except Exception as exc:
         print(f"[TTS] Cartesia error: {exc}")
+        return False
+
+
+# ── Kokoro Cloud (fal.ai / OpenAI-Compatible) ────────────────────────────────
+
+def _run_kokoro_tts(text: str, voice: str, path: str) -> bool:
+    """
+    Submit text to Kokoro Cloud TTS and write audio to `path`.
+    Uses an OpenAI-compatible endpoint (common for Kokoro providers in 2026).
+    
+    On any error: return False (caller falls through).
+    """
+    api_key = os.environ.get("KOKORO_API_KEY", "").strip()
+    base_url = os.environ.get("KOKORO_BASE_URL", "https://api.fal.ai/v1/openai").strip()
+    
+    if not api_key:
+        print("[TTS] KOKORO_API_KEY not set — skipping Kokoro Cloud.")
+        return False
+
+    kokoro_voice = _KOKORO_VOICES.get(voice, _KOKORO_DEFAULT_VOICE)
+
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url=base_url)
+
+        response = client.audio.speech.create(
+            model="kokoro",
+            voice=kokoro_voice,
+            input=text,
+        )
+
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        response.stream_to_file(path)
+        print(f"[TTS] Kokoro Cloud OK → {path} (voice={kokoro_voice})")
+        return True
+
+    except Exception as exc:
+        print(f"[TTS] Kokoro error: {exc}")
         return False
 
 
@@ -358,7 +406,7 @@ def generate_segment_audio(
         text:       Segment script text.
         voice:      Voice identifier.
         path:       Output file path.
-        use_cloud:  True  → try Groq Orpheus first, then Cartesia, then edge-tts fallback.
+        use_cloud:  True  → try Groq Orpheus first, then Cartesia, then Kokoro, then edge-tts.
                     False → edge-tts only.
 
     Returns:
@@ -381,6 +429,12 @@ def generate_segment_audio(
                 return True, "cartesia-sonic"
             else:
                 print(f"[TTS] Cartesia output failed quality check. Falling back.")
+
+        if _run_kokoro_tts(text, voice, path):
+            if _is_audio_valid(path, word_count):
+                return True, "kokoro-cloud"
+            else:
+                print(f"[TTS] Kokoro output failed quality check. Falling back.")
 
     # edge-tts path
     edge_voice = voice if voice.startswith("en-") else "en-US-GuyNeural"
