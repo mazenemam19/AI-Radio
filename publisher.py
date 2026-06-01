@@ -25,9 +25,9 @@ def get_youtube_stats_batch(video_ids: list[str]) -> dict[str, dict[str, int]]:
     Returns:
         A dict mapping video_id to {'plays': N, 'likes': M}. Defaults to {} on error.
     """
-    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip().strip('"').strip("'")
-    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip().strip('"').strip("'")
-    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip().strip('"').strip("'")
+    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip()
+    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip()
 
     if not all([client_id, client_secret, refresh_token]) or not video_ids:
         return {}
@@ -108,9 +108,8 @@ def sync_engagement_stats(db) -> None:
         db_id = id_map.get(v_id)
         if db_id is not None and db.update_post_stats(db_id, stats["plays"], stats["likes"]):
             updated_count += 1
-            
-    print(f"[YouTube] Sync complete. Processed {len(video_ids)} videos, updated {updated_count} rows in DB.")
 
+    print(f"[YouTube] Sync complete. Processed {len(video_ids)} videos, updated {updated_count} rows in DB.")
 
 def upload_to_youtube(
     video_path: str,
@@ -141,9 +140,9 @@ def upload_to_youtube(
         return None
 
     # Credential check
-    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip().strip('"').strip("'")
-    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip().strip('"').strip("'")
-    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip().strip('"').strip("'")
+    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip()
+    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip()
 
     if not all([client_id, client_secret, refresh_token]):
         missing = [

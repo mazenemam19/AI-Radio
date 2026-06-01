@@ -18,7 +18,7 @@ try:
     from db_client import DBClient
     from publisher import sync_engagement_stats
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError as exc:
     print(f"[Error] Missing dependencies: {exc}")
     sys.exit(1)
