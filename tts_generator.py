@@ -107,7 +107,11 @@ def _apply_audio_processing(
                 sfx = AudioSegment.from_file(str(pre_path))
                 final_audio = sfx + final_audio
             elif sfx_pre == "SILENCE":
-                final_audio = AudioSegment.silent(duration=2000) + final_audio
+                # Ensure SILENCE.mp3 exists or generate on the fly
+                if not Path("sfx/SILENCE.mp3").exists():
+                    AudioSegment.silent(duration=2000).export("sfx/SILENCE.mp3", format="mp3")
+                sfx = AudioSegment.from_file("sfx/SILENCE.mp3")
+                final_audio = sfx + final_audio
             else:
                 print(f"[SFX] Warning: Pre-SFX '{sfx_pre}' not found.")
 
@@ -117,7 +121,10 @@ def _apply_audio_processing(
                 sfx = AudioSegment.from_file(str(post_path))
                 final_audio = final_audio + sfx
             elif sfx_post == "SILENCE":
-                final_audio = final_audio + AudioSegment.silent(duration=2000)
+                if not Path("sfx/SILENCE.mp3").exists():
+                    AudioSegment.silent(duration=2000).export("sfx/SILENCE.mp3", format="mp3")
+                sfx = AudioSegment.from_file("sfx/SILENCE.mp3")
+                final_audio = final_audio + sfx
             else:
                 print(f"[SFX] Warning: Post-SFX '{sfx_post}' not found.")
 
