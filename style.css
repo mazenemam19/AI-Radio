@@ -415,6 +415,23 @@ body {
     color: var(--cyan);
 }
 
+.ep-eng {
+    display: flex;
+    gap: 8px;
+    margin-right: auto;
+}
+
+.ep-eng-item {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 1px;
+    color: var(--text-mid);
+    display: flex;
+    font-size: 8px;
+    gap: 3px;
+    padding: 1px 4px;
+}
+
 .ep-duration::before {
     content: '▶ ';
 }

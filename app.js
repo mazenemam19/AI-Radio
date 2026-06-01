@@ -128,16 +128,21 @@
     }
 
     /* ── Stats ─────────────────────────────────────────────────── */
-    function updateStats(episodes) {
-        document.getElementById('stat-count').textContent = episodes.length;
+    /**
+     * Updates the status bar metrics based on configuration data.
+     * @param {Object} cfg The full configuration object.
+     */
+    function updateStats(cfg) {
+        const episodes = cfg.episodes || [];
+        document.getElementById('stat-count').textContent = cfg.episode_count || episodes.length;
         document.getElementById('stat-plays').textContent =
-            episodes.reduce((a, e) => a + (Number(e.plays) || 0), 0).toLocaleString();
+            (cfg.total_plays || episodes.reduce((a, e) => a + (Number(e.plays) || 0), 0)).toLocaleString();
         document.getElementById('stat-likes').textContent =
-            episodes.reduce((a, e) => a + (Number(e.likes) || 0), 0).toLocaleString();
+            (cfg.total_likes || episodes.reduce((a, e) => a + (Number(e.likes) || 0), 0)).toLocaleString();
         document.getElementById('header-freq').textContent =
             `${episodes.length} EPISODE${episodes.length !== 1 ? 'S' : ''} ON RECORD`;
         document.getElementById('feed-count').textContent =
-            `${episodes.length} / 20`;
+            `${episodes.length} / ${cfg.episode_count || episodes.length}`;
     }
 
     /* ── Feed rendering ────────────────────────────────────────── */
@@ -175,6 +180,10 @@
         </div>
         <div class="ep-card-row2">
           <span class="ep-source">${esc(ep.source || '—')}</span>
+          <span class="ep-eng">
+            <span class="ep-eng-item">▶ ${ep.plays ?? 0}</span>
+            <span class="ep-eng-item">❤ ${ep.likes ?? 0}</span>
+          </span>
           <span>${esc(fmtDate(ep.created_at))}</span>
           <span class="ep-duration">${fmtDuration(ep.broadcast_duration)}</span>
         </div>
@@ -412,7 +421,7 @@
         const episodes = Array.isArray(cfg.episodes) ? cfg.episodes : [];
         console.log(`[Echo FM] Loaded ${episodes.length} episodes.`);
         _episodes = episodes;
-        updateStats(episodes);
+        updateStats(cfg);
         renderFeed(episodes);
 
         if (!isProduction) {
