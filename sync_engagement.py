@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 sync_engagement.py — AI Radio Echo
-Standalone script to synchronize YouTube engagement metrics with Supabase.
-Used by the manual GitHub Action trigger.
+Standalone script to synchronize YouTube engagement metrics with the database.
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -23,12 +23,20 @@ except ImportError as exc:
     sys.exit(1)
 
 def main():
-    print("=== MANUAL ENGAGEMENT SYNC START ===")
+    parser = argparse.ArgumentParser(description="Manual Engagement Sync")
+    parser.add_argument(
+        "--env",
+        choices=["local", "production", "prod-db", "prod-models"],
+        default="local",
+        help="Environment to sync (default: local)",
+    )
+    args = parser.parse_args()
+
+    print(f"=== MANUAL ENGAGEMENT SYNC START ({args.env}) ===")
     try:
-        # We always target production for the live dashboard stats
-        db = DBClient("production")
+        db = DBClient(args.env)
         sync_engagement_stats(db)
-        print("=== MANUAL ENGAGEMENT SYNC COMPLETE ===")
+        print(f"=== MANUAL ENGAGEMENT SYNC COMPLETE ({args.env}) ===")
     except Exception as exc:
         print(f"[Fatal] Engagement sync failed: {exc}")
         sys.exit(1)
