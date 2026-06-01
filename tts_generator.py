@@ -380,12 +380,15 @@ def _is_audio_valid(path: str, word_count: int) -> bool:
     
     duration = _get_audio_duration(path)
     if duration <= 0:
+        print(f"[TTS] Quality Check: Failed to determine duration for {path}.")
         return False
     
     # 300 WPM is double the normal speed. Anything faster is definitely a bug.
     wpm = (word_count / duration) * 60
+    print(f"[TTS] Quality Check: {path} has {word_count} words in {duration:.1f}s (~{wpm:.0f} WPM).")
+    
     if wpm > 300:
-        print(f"[TTS] Quality Alert: Audio too short ({duration:.1f}s for {word_count} words, {wpm:.0f} WPM).")
+        print(f"[TTS] Quality Alert: Audio too fast/short for word count.")
         return False
     
     return True
@@ -414,6 +417,8 @@ def generate_segment_audio(
     """
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     word_count = len(text.split())
+    preview = (text[:47] + "...") if len(text) > 50 else text
+    print(f"[TTS] Narrating {word_count} words: \"{preview}\"")
 
     if use_cloud:
         remaining = _quota_remaining()

@@ -18,23 +18,19 @@ from typing import Optional
 
 # ── Model constants (exact strings — do not alter) ────────────────────────────
 
-LLAMA_3_3 = "llama-3.3-70b-versatile"
+LLAMA_3_3      = "llama-3.3-70b-versatile"
 LLAMA_4_SCOUT = "meta-llama/llama-4-scout-17b-16e-instruct"
-LLAMA_3_LEGACY = "llama3-70b-8192"
-GEMINI_PRIMARY = "gemini-3.5-flash"
+GEMINI_PRIMARY  = "gemini-3.5-flash"
 GEMINI_FALLBACK1 = "gemini-3.1-flash-lite"
 GEMINI_FALLBACK2 = "gemini-2.5-flash"
 
-MODEL_SET_A: list[str] = [
-    LLAMA_3_3,
-    LLAMA_4_SCOUT,
-    GEMINI_PRIMARY,
-    GEMINI_FALLBACK1,
-    GEMINI_FALLBACK2
-]
+# Set A: Gold Standard Production Queue.
+MODEL_SET_A: list[str] = [LLAMA_3_3, LLAMA_4_SCOUT, GEMINI_PRIMARY, GEMINI_FALLBACK1]
+
+# Set B: Local Stability Queue.
 MODEL_SET_B: list[str] = [GEMINI_FALLBACK1, GEMINI_FALLBACK2]
 
-GROQ_MODELS: frozenset[str] = frozenset({LLAMA_3_3, LLAMA_4_SCOUT, LLAMA_3_LEGACY})
+GROQ_MODELS: frozenset[str] = frozenset({LLAMA_3_3, LLAMA_4_SCOUT})
 
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
 
@@ -343,6 +339,9 @@ def generate_broadcast(
             print("[AI] JSON healed successfully.")
 
         # Validate structure + repetition
+        if data is None:
+            continue
+            
         valid, reason = validate_broadcast(data)
         if not valid:
             print(f"[AI] Validation failed: {reason}. Trying next model.")
