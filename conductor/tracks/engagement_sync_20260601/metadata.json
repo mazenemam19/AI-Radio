@@ -1,8 +1,0 @@
-{
-  "track_id": "engagement_sync_20260601",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2026-06-01T21:40:00Z",
-  "updated_at": "2026-06-01T21:40:00Z",
-  "description": "Implement high-performance Engagement Sync (Static Bake approach)"
-}
