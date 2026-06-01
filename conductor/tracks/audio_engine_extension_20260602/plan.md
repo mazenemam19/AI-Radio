@@ -1,9 +1,9 @@
 # Implementation Plan: Revolutionary Audio Engine (SFX, Styles, Mastering)
 
 ## Phase 1: Engine Foundation & Voice Styles
-- [~] Task: Create `tests/test_audio_engine.py` for voice style and SFX logic
-- [ ] Task: Update `requirements.txt` to include `pydub`
-- [ ] Task: Implement `_simulate_reverb` and `_apply_audio_processing` in `tts_generator.py`
+- [x] Task: Create `tests/test_audio_engine.py` for voice style and SFX logic
+- [x] Task: Update `requirements.txt` to include `pydub` abcccb1
+- [~] Task: Implement `_simulate_reverb` and `_apply_audio_processing` in `tts_generator.py`
 - [ ] Task: Update `generate_segment_audio` to accept `voice_style`, `sfx_pre`, and `sfx_post`
 - [ ] Task: Map `voice_style` to Cartesia Sonic parameters in `_run_cartesia_tts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Styles' (Protocol in workflow.md)
