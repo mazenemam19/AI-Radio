@@ -131,7 +131,15 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
         gemini_model = genai.GenerativeModel(model)
-        response = gemini_model.generate_content(prompt)
+        
+        # Set explicit output limit to prevent truncation causing 'half scripts'
+        response = gemini_model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=8192,
+                temperature=0.9
+            )
+        )
         return response.text
     except Exception as exc:
         print(f"[AI] Gemini call failed (model={model}): {exc}")
