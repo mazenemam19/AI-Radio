@@ -1,6 +1,6 @@
 # Implementation Plan: Revolutionary Audio Engine (SFX, Styles, Mastering)
 
-## Phase 1: Engine Foundation & Voice Styles
+## Phase 1: Engine Foundation & Voice Styles [checkpoint: 5fe9b42]
 - [x] Task: Create `tests/test_audio_engine.py` for voice style and SFX logic fa09e58
 - [x] Task: Update `requirements.txt` to include `pydub` abcccb1
 - [x] Task: Implement `_simulate_reverb` and `_apply_audio_processing` in `tts_generator.py` 015ae5c
