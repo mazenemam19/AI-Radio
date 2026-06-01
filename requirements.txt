@@ -14,6 +14,7 @@ openai>=1.0.0               # Kokoro Cloud (fal.ai / OpenAI compatible)
 
 # ── TTS ───────────────────────────────────────────────────────────────────────
 edge-tts>=6.1.9             # Local TTS fallback (all envs including CI)
+pydub>=0.25.1               # Audio mixing and post-processing
 
 # ── Database ──────────────────────────────────────────────────────────────────
 supabase>=2.4.0             # Supabase REST client (prod-db, production only)
