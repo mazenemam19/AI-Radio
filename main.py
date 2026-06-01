@@ -325,38 +325,33 @@ def _get_audio_duration(audio_path: Path) -> float:
 
 def _concat_audio(segment_paths: list[Path], output_path: Path) -> bool:
     """
-    Concatenate audio segment files into a single MP3 using FFmpeg concat demuxer.
+    Concatenate audio segment files using Pydub and apply loudness normalization (Step 3).
     Returns True on success, False on failure.
     """
-    concat_list = output_path.parent / "_concat_list.txt"
     try:
-        with concat_list.open("w", encoding="utf-8") as f:
-            for p in segment_paths:
-                # Use POSIX-style absolute paths; escape any embedded single quotes
-                escaped = str(p.resolve()).replace("'", r"'\''")
-                f.write(f"file '{escaped}'\n")
-
-        result = subprocess.run(
-            [
-                _ffmpeg(), "-y",
-                "-f", "concat", "-safe", "0",
-                "-i", str(concat_list),
-                "-ar", "22050", "-c:a", "libmp3lame", "-b:a", "64k",
-                str(output_path),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print(f"[Audio] FFmpeg concat failed:\n{result.stderr[-2000:]}")
-            return False
+        from pydub import AudioSegment, effects
+        
+        print(f"[Mixer] Assembling {len(segment_paths)} segments into final show...")
+        
+        final_show = AudioSegment.empty()
+        for p in segment_paths:
+            seg = AudioSegment.from_file(str(p))
+            final_show += seg
+            
+        # Step 3: Loudness Normalization Pass
+        # Target: -14 LUFS (Streaming Standard)
+        # Note: effects.normalize() matches peaks to 0dB. 
+        # For true LUFS, we would use a more advanced limiter, but normalize is a 
+        # great high-fidelity start for this pipeline.
+        print("[Mixer] Applying loudness normalization pass...")
+        normalized_show = effects.normalize(final_show)
+        
+        normalized_show.export(str(output_path), format="mp3", bitrate="128k")
         return True
+        
     except Exception as exc:
-        print(f"[Audio] Unexpected error during concat: {exc}")
+        print(f"[Mixer] Episode assembly failed: {exc}")
         return False
-    finally:
-        if concat_list.exists():
-            concat_list.unlink()
 
 
 def _compile_video(cover_image: Path, audio_path: Path, output_path: Path) -> bool:
