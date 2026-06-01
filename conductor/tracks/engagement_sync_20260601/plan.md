@@ -15,7 +15,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Telemetry Bake' (Protocol in workflow.md) 5773773
 
 ## Phase 3: CRT Dashboard (Frontend)
-- [~] Task: Update `app.js` to read and display telemetry from the baked `config.json`
-- [~] Task: Update the episode card template in `app.js` with glowing counters
-- [~] Task: Refactor `style.css` with alphabetized, high-fidelity CRT styling for new metrics
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: CRT Dashboard' (Protocol in workflow.md)
+- [x] Task: Update `app.js` to read and display telemetry from the baked `config.json` 46a3913
+- [x] Task: Update the episode card template in `app.js` with glowing counters 46a3913
+- [x] Task: Refactor `style.css` with alphabetized, high-fidelity CRT styling for new metrics 46a3913
+- [x] Task: Conductor - User Manual Verification 'Phase 3: CRT Dashboard' (Protocol in workflow.md) 46a3913
