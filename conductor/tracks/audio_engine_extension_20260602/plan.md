@@ -15,10 +15,10 @@
 - [x] Task: Update `main.py` to pass SFX fields from JSON to `generate_segment_audio` b91ce79
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Mixer & Ambience' (Protocol in workflow.md) b91ce79
 
-## Phase 3: Episode Assembler & Mastering
-- [x] Task: Refactor `_concat_audio` in `main.py` to use `pydub` b91ce79
-- [x] Task: Implement loudness normalization pass targeting -14 LUFS in `_concat_audio` b91ce79
-- [~] Task: Update dry-run stub in `main.py` to test all new styles and SFX
+## Phase 3: Episode Assembler & Mastering [checkpoint: 8089d39]
+- [x] Task: Refactor `_concat_audio` in `main.py` to use `pydub` 8089d39
+- [x] Task: Implement loudness normalization pass targeting -14 LUFS in `_concat_audio` 8089d39
+- [x] Task: Update dry-run stub in `main.py` to test all new styles and SFX 8089d39
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Assembler & Mastering' (Protocol in workflow.md)
 
 ## Phase 4: Review and Cleanup
