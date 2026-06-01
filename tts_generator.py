@@ -226,6 +226,64 @@ def _run_groq_tts(text: str, voice: str, path: str) -> bool:
         return False
 
 
+# ── TTS Quality Guard ─────────────────────────────────────────────────────────
+
+def _get_audio_duration(path: str) -> float:
+    """Return duration in seconds using ffprobe or ffmpeg."""
+    ffmpeg = shutil.which("ffmpeg")
+    ffprobe = shutil.which("ffprobe")
+    if not ffmpeg:
+        return -1.0
+
+    if ffprobe:
+        cmd = [
+            ffprobe, "-v", "quiet", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", path
+        ]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if res.returncode == 0:
+                return float(res.stdout.strip())
+        except (ValueError, subprocess.TimeoutExpired, Exception):
+            pass
+
+    # Fallback to ffmpeg -i
+    cmd = [ffmpeg, "-i", path]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        import re
+        match = re.search(r"Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)", res.stderr)
+        if match:
+            h, m, s = int(match.group(1)), int(match.group(2)), float(match.group(3))
+            return h * 3600 + m * 60 + s
+    except Exception:
+        pass
+    return -1.0
+
+
+def _is_audio_valid(path: str, word_count: int) -> bool:
+    """
+    Verify audio integrity.
+    Rejects files that are missing, zero-byte, or suspiciously short 
+    (e.g. > 300 words per minute is likely a TTS truncation error).
+    """
+    p = Path(path)
+    if not p.exists() or p.stat().st_size < 100:
+        return False
+    
+    duration = _get_audio_duration(path)
+    if duration <= 0:
+        return False
+    
+    # 300 WPM is double the normal speed. Anything faster is definitely a bug.
+    wpm = (word_count / duration) * 60
+    if wpm > 300:
+        print(f"[TTS] Quality Alert: Audio too short ({duration:.1f}s for {word_count} words, {wpm:.0f} WPM).")
+        return False
+    
+    return True
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def generate_segment_audio(
@@ -235,7 +293,7 @@ def generate_segment_audio(
     use_cloud: bool,
 ) -> tuple[bool, str]:
     """
-    Generate TTS audio for a single script segment.
+    Generate TTS audio for a single script segment with duration guarding.
 
     Args:
         text:       Segment script text.
@@ -248,28 +306,28 @@ def generate_segment_audio(
         (success, engine_name)
     """
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-
-    actual_engine = "edge-tts"
+    word_count = len(text.split())
 
     if use_cloud:
         remaining = _quota_remaining()
-        if remaining <= 0:
-            print("[TTS] Daily char limit reached. Routing to local fallback.")
-        else:
+        if remaining > 0:
             if _run_groq_tts(text, voice, path):
-                return True, "groq-orpheus"
-            # Groq failed — fall through to edge-tts below
+                if _is_audio_valid(path, word_count):
+                    return True, "groq-orpheus"
+                else:
+                    print(f"[TTS] Groq output failed quality check. Falling back.")
 
     # edge-tts path
     edge_voice = voice if voice.startswith("en-") else "en-US-GuyNeural"
     print(f"[TTS] Using edge-tts (voice={edge_voice}) → {path}")
     
-    success = _run_edge_tts(text, edge_voice, path)
-    if not success:
-        print(f"[TTS] FATAL: edge-tts also failed → {path}")
-        return False, "failed"
-    
-    # If _run_edge_tts fell back to FFmpeg silent audio due to network issues,
-    # we should ideally report that too. 
-    # For now, we'll return "edge-tts" as the primary handler.
-    return True, "edge-tts"
+    if _run_edge_tts(text, edge_voice, path):
+        if _is_audio_valid(path, word_count):
+            return True, "edge-tts"
+        else:
+            print(f"[TTS] edge-tts output failed quality check.")
+
+    # Final attempt: FFmpeg silent fallback (always passes quality check if it matches word count)
+    print(f"[TTS] FATAL: All TTS engines failed for segment. Using silent fallback.")
+    success = _generate_ffmpeg_audio_fallback(text, path)
+    return success, "silent-fallback"
