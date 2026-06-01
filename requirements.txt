@@ -8,7 +8,7 @@ requests>=2.31.0            # HTTP client (RSS fetch + Supabase schema validatio
 python-dotenv>=1.0.0        # .env file loading (optional; CI injects secrets directly)
 
 # ── AI providers ──────────────────────────────────────────────────────────────
-google-generativeai>=0.7.0  # Gemini (mandatory for all envs — local fallback)
+google-genai>=0.1.0         # Gemini (mandatory for all envs — local fallback)
 groq>=0.11.0                # Groq LLM + Orpheus TTS (prod-models, production only)
 
 # ── TTS ───────────────────────────────────────────────────────────────────────

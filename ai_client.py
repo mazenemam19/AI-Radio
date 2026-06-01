@@ -130,7 +130,7 @@ def call_groq(prompt: str, model: str) -> Optional[str]:
 
 def call_gemini(prompt: str, model: str) -> Optional[str]:
     """
-    Call the Gemini API via google-generativeai.
+    Call the Gemini API via the modern google-genai SDK.
     Returns the response text or None on any error (logged, not re-raised).
     """
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -139,14 +139,15 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
         return None
 
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        gemini_model = genai.GenerativeModel(model)
-        
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=api_key)
+
         # Set explicit output limit to prevent truncation causing 'half scripts'
-        response = gemini_model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
                 max_output_tokens=8192,
                 temperature=0.9
             )
@@ -155,7 +156,6 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
     except Exception as exc:
         print(f"[AI] Gemini call failed (model={model}): {exc}")
         return None
-
 
 # ── Broadcast prompt ──────────────────────────────────────────────────────────
 
