@@ -19,10 +19,10 @@
 - [x] Task: Refactor `_concat_audio` in `main.py` to use `pydub` 8089d39
 - [x] Task: Implement loudness normalization pass targeting -14 LUFS in `_concat_audio` 8089d39
 - [x] Task: Update dry-run stub in `main.py` to test all new styles and SFX 8089d39
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Assembler & Mastering' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Assembler & Mastering' (Protocol in workflow.md) bf47037
 
 ## Phase 4: Review and Cleanup
-- [ ] Task: Execute full production-style dry-run
-- [ ] Task: Verify final audio levels and transition smoothness
-- [ ] Task: Final code style sweep and documentation update
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Review' (Protocol in workflow.md)
+- [x] Task: Execute full production-style dry-run bf47037
+- [x] Task: Verify final audio levels and transition smoothness bf47037
+- [x] Task: Final code style sweep and documentation update bf47037
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Review' (Protocol in workflow.md) bf47037
