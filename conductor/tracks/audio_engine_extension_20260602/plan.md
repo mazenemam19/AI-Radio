@@ -12,8 +12,8 @@
 - [x] Task: Create `sfx/` directory and ensure `STREET_AMBIENT.mp3` handling 23c63bd
 - [x] Task: Implement looping ambient underlay in `_apply_audio_processing` d54e41e
 - [x] Task: Implement `SILENCE.mp3` generator using `pydub` d54e41e
-- [~] Task: Update `main.py` to pass SFX fields from JSON to `generate_segment_audio`
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Mixer & Ambience' (Protocol in workflow.md)
+- [x] Task: Update `main.py` to pass SFX fields from JSON to `generate_segment_audio` b91ce79
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Mixer & Ambience' (Protocol in workflow.md) b91ce79
 
 ## Phase 3: Episode Assembler & Mastering
 - [~] Task: Refactor `_concat_audio` in `main.py` to use `pydub`
