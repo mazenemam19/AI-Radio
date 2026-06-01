@@ -25,9 +25,9 @@ def get_youtube_stats_batch(video_ids: list[str]) -> dict[str, dict[str, int]]:
     Returns:
         A dict mapping video_id to {'plays': N, 'likes': M}. Defaults to {} on error.
     """
-    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip()
-    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip()
-    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip()
+    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip().strip('"').strip("'")
+    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip().strip('"').strip("'")
+    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip().strip('"').strip("'")
 
     if not all([client_id, client_secret, refresh_token]) or not video_ids:
         return {}
@@ -45,6 +45,7 @@ def get_youtube_stats_batch(video_ids: list[str]) -> dict[str, dict[str, int]]:
             client_secret=client_secret,
         )
         creds.refresh(google_auth_requests.Request())
+
         youtube = build("youtube", "v3", credentials=creds)
 
         # Batch request: comma-separated IDs
@@ -140,9 +141,9 @@ def upload_to_youtube(
         return None
 
     # Credential check
-    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip()
-    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip()
-    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip()
+    client_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip().strip('"').strip("'")
+    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip().strip('"').strip("'")
+    refresh_token = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip().strip('"').strip("'")
 
     if not all([client_id, client_secret, refresh_token]):
         missing = [
