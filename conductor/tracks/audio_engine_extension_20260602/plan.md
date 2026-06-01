@@ -21,7 +21,7 @@
 - [x] Task: Update dry-run stub in `main.py` to test all new styles and SFX 8089d39
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Assembler & Mastering' (Protocol in workflow.md) bf47037
 
-## Phase 4: Review and Cleanup
+## Phase 4: Review and Cleanup [checkpoint: e707b82]
 - [x] Task: Execute full production-style dry-run bf47037
 - [x] Task: Verify final audio levels and transition smoothness bf47037
 - [x] Task: Final code style sweep and documentation update bf47037
