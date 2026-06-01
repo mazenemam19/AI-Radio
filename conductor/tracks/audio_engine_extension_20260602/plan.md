@@ -1,15 +1,16 @@
 # Implementation Plan: Revolutionary Audio Engine (SFX, Styles, Mastering)
 
 ## Phase 1: Engine Foundation & Voice Styles
-- [x] Task: Create `tests/test_audio_engine.py` for voice style and SFX logic
+- [x] Task: Create `tests/test_audio_engine.py` for voice style and SFX logic fa09e58
 - [x] Task: Update `requirements.txt` to include `pydub` abcccb1
-- [~] Task: Implement `_simulate_reverb` and `_apply_audio_processing` in `tts_generator.py`
-- [ ] Task: Update `generate_segment_audio` to accept `voice_style`, `sfx_pre`, and `sfx_post`
-- [ ] Task: Map `voice_style` to Cartesia Sonic parameters in `_run_cartesia_tts`
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Styles' (Protocol in workflow.md)
+- [x] Task: Implement `_simulate_reverb` and `_apply_audio_processing` in `tts_generator.py` 015ae5c
+- [x] Task: Update `generate_segment_audio` to accept `voice_style`, `sfx_pre`, and `sfx_post` 015ae5c
+- [x] Task: Map `voice_style` to Cartesia Sonic parameters in `_run_cartesia_tts` 015ae5c
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Styles' (Protocol in workflow.md) 015ae5c
 
 ## Phase 2: SFX Mixer & Ambient Underlay
-- [ ] Task: Create `sfx/` directory and ensure `STREET_AMBIENT.mp3` handling
+- [~] Task: Create `sfx/` directory and ensure `STREET_AMBIENT.mp3` handling
+
 - [ ] Task: Implement looping ambient underlay in `_apply_audio_processing`
 - [ ] Task: Implement `SILENCE.mp3` generator using `pydub`
 - [ ] Task: Update `main.py` to pass SFX fields from JSON to `generate_segment_audio`
