@@ -1,11 +1,12 @@
 # Implementation Plan: Engagement Sync (Pure Static Bake)
 
 ## Phase 1: High-Performance Sync (Backend)
-- [x] Task: Create `tests/test_engagement_sync.py` with batch mocks (YouTube/Supabase)
-- [x] Task: Implement `get_youtube_stats_batch(video_ids)` in `publisher.py`
-- [x] Task: Implement `sync_engagement_stats(db_client)` with batching logic
-- [~] Task: Integrate `sync_engagement_stats` into `main.py` (Step 0)
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: High-Performance Sync' (Protocol in workflow.md)
+- [x] Task: Create `tests/test_engagement_sync.py` with batch mocks (YouTube/Supabase) 2230430
+- [x] Task: Implement `get_youtube_stats_batch(video_ids)` in `publisher.py` 2230430
+- [x] Task: Implement `sync_engagement_stats(db_client)` with batching logic 2230430
+- [x] Task: Integrate `sync_engagement_stats` into `main.py` (Step 0) 2230430
+- [x] Task: Conductor - User Manual Verification 'Phase 1: High-Performance Sync' (Protocol in workflow.md) 2230430
+
 
 ## Phase 2: Telemetry Bake (Automation)
 - [ ] Task: Update `sync_config.py` to calculate total station aggregates (Plays/Likes/Count)
