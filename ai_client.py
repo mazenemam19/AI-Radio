@@ -3,8 +3,8 @@ ai_client.py — AI Radio Echo
 LLM orchestration for satirical radio broadcast generation.
 
 Model queues (set by --env, never inferred):
-  Set A (prod-models, production): llama-3.3-70b-versatile → meta-llama/llama-4-scout-17b-16e-instruct → gemini-3.5-flash 
-  Set B (local, prod-db):          gemini-3.1-flash-lite → gemini-2.5-flash
+  Set A (Production): llama-3.3-70b-versatile → llama-4-scout-17b-instruct → gemini-3.5-flash → gemini-3.1-flash-lite
+  Set B (Stability):  gemini-3.1-flash-lite → gemini-2.5-flash
 
 Step-down: first attempt uses 15 news items; each subsequent model drops to 8.
 JSON healing attempted once on parse failure — no regex repair ever.
@@ -227,7 +227,7 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
       1. data is a dict with required keys.
       2. segments is a list with ≥ 8 items.
       3. Each segment has 'speaker' and 'text' keys.
-      4. Each segment text has ≥ 50 words.
+      4. Each segment text has ≥ 130 words.
       5. No segment has > 50% Jaccard word overlap with any prior segment.
 
     Returns (is_valid: bool, reason: str).
