@@ -109,3 +109,13 @@ jobs:
           name: episode-output-${{ github.run_number }}
           path: output/
           retention-days: 7
+
+      - name: Trigger Website Update (Netlify Build Hook)
+        if: success() && github.event.inputs.dry_run != 'true'
+        run: |
+          if [ -n "${{ secrets.NETLIFY_BUILD_HOOK }}" ]; then
+            echo "[Pipeline] Triggering Netlify build hook..."
+            curl -X POST -d {} "${{ secrets.NETLIFY_BUILD_HOOK }}"
+          else
+            echo "[Pipeline] Skipping website update: NETLIFY_BUILD_HOOK secret is not set."
+          fi
