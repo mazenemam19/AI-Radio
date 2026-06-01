@@ -14,7 +14,7 @@
 - [x] Task: Verify the baked `config.json` contains valid telemetry root fields 5773773
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Telemetry Bake' (Protocol in workflow.md) 5773773
 
-## Phase 3: CRT Dashboard (Frontend)
+## Phase 3: CRT Dashboard (Frontend) [checkpoint: 2bfe867]
 - [x] Task: Update `app.js` to read and display telemetry from the baked `config.json` 46a3913
 - [x] Task: Update the episode card template in `app.js` with glowing counters 46a3913
 - [x] Task: Refactor `style.css` with alphabetized, high-fidelity CRT styling for new metrics 46a3913
