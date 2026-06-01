@@ -1,6 +1,6 @@
 # Implementation Plan: Engagement Sync (Pure Static Bake)
 
-## Phase 1: High-Performance Sync (Backend)
+## Phase 1: High-Performance Sync (Backend) [checkpoint: a0b5c0d]
 - [x] Task: Create `tests/test_engagement_sync.py` with batch mocks (YouTube/Supabase) 2230430
 - [x] Task: Implement `get_youtube_stats_batch(video_ids)` in `publisher.py` 2230430
 - [x] Task: Implement `sync_engagement_stats(db_client)` with batching logic 2230430
