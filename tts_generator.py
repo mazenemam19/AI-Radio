@@ -36,6 +36,15 @@ _GROQ_VOICES: dict[str, str] = {
 }
 _GROQ_DEFAULT_VOICE = "daniel"
 
+# Cartesia Sonic 3.5 curated voices (Verified June 2026)
+_CARTESIA_VOICES: dict[str, str] = {
+    "ANCHOR":      "c8f7835e-28a3-4f0c-80d7-c1302ac62aae", # Alistair (Sophisticated British Male)
+    "REPORTER":    "dc30854e-e398-4579-9dc8-16f6cb2c19b9", # Victoria (Professional British Female)
+    "COMMENTATOR": "5ee9feff-1265-424a-9d7f-8e4d431a12c7", # Ronald (Intense American Male)
+    "WEATHERBOT":  "4f7f1324-1853-48a6-b294-4e78e8036a83", # Casper (Wistful British Male)
+}
+_CARTESIA_DEFAULT_VOICE = "c8f7835e-28a3-4f0c-80d7-c1302ac62aae"
+
 # ── Daily quota helpers ────────────────────────────────────────────────────────
 
 def _load_usage() -> dict:
@@ -226,6 +235,56 @@ def _run_groq_tts(text: str, voice: str, path: str) -> bool:
         return False
 
 
+# ── Cartesia Sonic 3.5 ────────────────────────────────────────────────────────
+
+def _run_cartesia_tts(text: str, voice: str, path: str) -> bool:
+    """
+    Submit text to Cartesia Sonic 3.5 TTS and write the audio to `path`.
+    
+    On any error: return False (caller falls through to next provider).
+    """
+    api_key = os.environ.get("CARTESIA_API_KEY", "").strip()
+    if not api_key:
+        return False
+
+    cartesia_voice = _CARTESIA_VOICES.get(voice, _CARTESIA_DEFAULT_VOICE)
+
+    try:
+        import requests
+        url = "https://api.cartesia.ai/tts/bytes"
+        headers = {
+            "X-API-Key": api_key,
+            "Cartesia-Version": "2024-06-10",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model_id": "sonic-english",
+            "transcript": text,
+            "voice": {
+                "mode": "id",
+                "id": cartesia_voice,
+            },
+            "output_format": {
+                "container": "wav",
+                "encoding": "pcm_s16le",
+                "sample_rate": 44100,
+            },
+        }
+
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        if resp.status_code == 200:
+            Path(path).write_bytes(resp.content)
+            print(f"[TTS] Cartesia Sonic OK → {path}")
+            return True
+            
+        print(f"[TTS] Cartesia failed ({resp.status_code}): {resp.text}")
+        return False
+
+    except Exception as exc:
+        print(f"[TTS] Cartesia error: {exc}")
+        return False
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def generate_segment_audio(
@@ -254,11 +313,15 @@ def generate_segment_audio(
     if use_cloud:
         remaining = _quota_remaining()
         if remaining <= 0:
-            print("[TTS] Daily char limit reached. Routing to local fallback.")
+            print("[TTS] Daily char limit reached. Routing to next cloud fallback.")
         else:
             if _run_groq_tts(text, voice, path):
                 return True, "groq-orpheus"
-            # Groq failed — fall through to edge-tts below
+            # Groq failed — fall through
+
+        if _run_cartesia_tts(text, voice, path):
+            return True, "cartesia-sonic"
+        # Cartesia failed — fall through to edge-tts below
 
     # edge-tts path
     edge_voice = voice if voice.startswith("en-") else "en-US-GuyNeural"
