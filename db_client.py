@@ -341,3 +341,36 @@ class DBClient:
             # For non-audio (like images or video fallbacks), we return local URI
             # so the system doesn't break, though YouTube should be used for video.
             return f"local://{local_path.name}"
+
+    def update_post_stats(self, post_id: int, plays: int, likes: int) -> bool:
+        """
+        Update the plays and likes counts for a specific post.
+
+        Args:
+            post_id: The database ID of the episode.
+            plays: The new view count.
+            likes: The new like count.
+
+        Returns:
+            True on success, False on failure.
+        """
+        if self.env in SQLITE_ENVS:
+            try:
+                self._conn.execute(
+                    "UPDATE memory_log SET plays = ?, likes = ? WHERE id = ?",
+                    (plays, likes, post_id),
+                )
+                self._conn.commit()
+                return True
+            except Exception as exc:
+                print(f"[DB] update_post_stats failed (SQLite): {exc}")
+                return False
+        else:
+            try:
+                self._sb.table("memory_log").update(
+                    {"plays": plays, "likes": likes}
+                ).eq("id", post_id).execute()
+                return True
+            except Exception as exc:
+                print(f"[DB] update_post_stats failed (Supabase): {exc}")
+                return False

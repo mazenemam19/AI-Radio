@@ -494,10 +494,10 @@ def main() -> None:
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+
     broadcast: Optional[dict] = None
 
-    # ── Step 1: Init DB ───────────────────────────────────────────────────────
+    # ── Step 1: Initialise DB ───────────────────────────────────────────────────────
     print("[1/10] Initialising database client...")
     from db_client import DBClient
     try:
@@ -505,7 +505,16 @@ def main() -> None:
     except Exception as exc:
         _fail(f"DB initialisation failed: {exc}")
 
+    # ── Step 0: Sync Engagement (New) ─────────────────────────────────────────
+    if not dry_run:
+        from publisher import sync_engagement_stats
+        try:
+            sync_engagement_stats(db)
+        except Exception as exc:
+            print(f"[Pipeline] Engagement sync failed (non-fatal): {exc}")
+
     # ── Step 2: Fetch news / use stub ─────────────────────────────────────────
+
     if dry_run:
         print("[2/10] DRY RUN — skipping news fetch.")
         news: list[dict] = []
