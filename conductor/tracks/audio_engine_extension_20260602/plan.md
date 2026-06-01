@@ -8,7 +8,7 @@
 - [x] Task: Map `voice_style` to Cartesia Sonic parameters in `_run_cartesia_tts` 015ae5c
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Styles' (Protocol in workflow.md) 015ae5c
 
-## Phase 2: SFX Mixer & Ambient Underlay
+## Phase 2: SFX Mixer & Ambient Underlay [checkpoint: 33db671]
 - [x] Task: Create `sfx/` directory and ensure `STREET_AMBIENT.mp3` handling 23c63bd
 - [x] Task: Implement looping ambient underlay in `_apply_audio_processing` d54e41e
 - [x] Task: Implement `SILENCE.mp3` generator using `pydub` d54e41e
