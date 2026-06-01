@@ -8,7 +8,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: High-Performance Sync' (Protocol in workflow.md) 2230430
 
 
-## Phase 2: Telemetry Bake (Automation)
+## Phase 2: Telemetry Bake (Automation) [checkpoint: bde4579]
 - [x] Task: Update `sync_config.py` to calculate total station aggregates (Plays/Likes/Count) 5773773
 - [x] Task: Update `sync_config.py` to fetch up to 1000 episodes for the archive 5773773
 - [x] Task: Verify the baked `config.json` contains valid telemetry root fields 5773773
