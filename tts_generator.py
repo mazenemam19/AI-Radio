@@ -2,11 +2,8 @@
 tts_generator.py — AI Radio Echo
 Text-to-speech generation.
 
-Cloud path (use_cloud=True):  Groq Orpheus TTS → Cartesia Sonic → Kokoro Cloud → edge-tts fallback
+Cloud path (use_cloud=True):  Cartesia Sonic → Kokoro Cloud → edge-tts fallback
 Local path (use_cloud=False): edge-tts only
-
-Quota tracking: output/.groq_usage.json  {"date": "YYYY-MM-DD", "chars_used": N}
-Daily char limit: 14,400 (pre-emptive guard before hitting Groq's 100 RPD ceiling).
 
 asyncio: asyncio.run() for edge-tts; falls back to asyncio.new_event_loop()
          if a loop is already running (e.g. inside Jupyter / existing async ctx).
@@ -22,19 +19,6 @@ import subprocess
 from datetime import date
 from pathlib import Path
 from typing import Optional
-
-GROQ_TTS_MODEL = "canopylabs/orpheus-v1-english"
-USAGE_FILE = Path("output") / ".groq_usage.json"
-DAILY_CHAR_LIMIT = 14_400
-
-# Groq Orpheus support exactly these voice identifiers.
-_GROQ_VOICES: dict[str, str] = {
-    "ANCHOR":      "daniel",
-    "REPORTER":    "daniel",
-    "COMMENTATOR": "hannah",
-    "WEATHERBOT":  "hannah",
-}
-_GROQ_DEFAULT_VOICE = "daniel"
 
 # Cartesia Sonic 3.5 curated voices (Verified June 2026)
 _CARTESIA_VOICES: dict[str, str] = {
@@ -53,36 +37,6 @@ _KOKORO_VOICES: dict[str, str] = {
     "WEATHERBOT":  "af_bella",  # Soft/Ethereal
 }
 _KOKORO_DEFAULT_VOICE = "af_heart"
-
-# ── Daily quota helpers ────────────────────────────────────────────────────────
-
-def _load_usage() -> dict:
-    """Load today's usage record; reset to zero if date has changed."""
-    today = str(date.today())
-    if USAGE_FILE.exists():
-        try:
-            data = json.loads(USAGE_FILE.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and data.get("date") == today:
-                return data
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {"date": today, "chars_used": 0}
-
-
-def _save_usage(usage: dict) -> None:
-    USAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    USAGE_FILE.write_text(json.dumps(usage), encoding="utf-8")
-
-
-def _increment_usage(chars: int) -> None:
-    usage = _load_usage()
-    usage["chars_used"] += chars
-    _save_usage(usage)
-
-
-def _quota_remaining() -> int:
-    return max(0, DAILY_CHAR_LIMIT - _load_usage()["chars_used"])
-
 
 # ── Network-error detection ───────────────────────────────────────────────────
 
@@ -194,56 +148,6 @@ def _run_edge_tts(text: str, voice: str, path: str) -> bool:
     return False
 
 
-# ── Groq Orpheus TTS ──────────────────────────────────────────────────────────
-
-def _run_groq_tts(text: str, voice: str, path: str) -> bool:
-    """
-    Submit text to Groq Orpheus TTS and write the audio to `path`.
-
-    Voice normalisation: if the caller passed an edge-tts voice name (starts
-    with 'en-'), default to 'tara'. Unknown names also default to 'tara'.
-
-    On any error, 429, or quota signal: return False (caller falls through to
-    edge-tts). Never raises. Increments local usage counter on success.
-    """
-    api_key = os.environ.get("GROQ_API_KEY", "").strip()
-    if not api_key:
-        print("[TTS] GROQ_API_KEY not set — skipping Groq TTS.")
-        return False
-
-    # Normalise voice to a known Groq Orpheus voice
-    groq_voice = voice if voice in _GROQ_VOICES else _GROQ_DEFAULT_VOICE
-
-    try:
-        from groq import Groq
-        client = Groq(api_key=api_key)
-
-        response = client.audio.speech.create(
-            model=GROQ_TTS_MODEL,
-            voice=groq_voice,
-            input=text,
-            response_format="wav",
-        )
-
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        response.write_to_file(path)
-
-        _increment_usage(len(text))
-        print(
-            f"[TTS] Groq Orpheus OK → {path} "
-            f"({len(text)} chars, voice={groq_voice})"
-        )
-        return True
-
-    except Exception as exc:
-        exc_str = str(exc)
-        if any(sig in exc_str for sig in ("429", "rate", "quota", "limit")):
-            print(f"[TTS] Groq rate/quota hit: {exc_str}. Routing to fallback.")
-        else:
-            print(f"[TTS] Groq TTS error: {exc_str}. Routing to fallback.")
-        return False
-
-
 # ── Cartesia Sonic 3.5 ────────────────────────────────────────────────────────
 
 def _run_cartesia_tts(text: str, voice: str, path: str) -> bool:
@@ -275,9 +179,8 @@ def _run_cartesia_tts(text: str, voice: str, path: str) -> bool:
                 "id": cartesia_voice,
             },
             "output_format": {
-                "container": "wav",
-                "encoding": "pcm_s16le",
-                "sample_rate": 44100,
+                "container": "mp3",
+                "sample_rate": 22050,
             },
         }
 
@@ -409,7 +312,7 @@ def generate_segment_audio(
         text:       Segment script text.
         voice:      Voice identifier.
         path:       Output file path.
-        use_cloud:  True  → try Groq Orpheus first, then Cartesia, then Kokoro, then edge-tts.
+        use_cloud:  True  → try Cartesia first, then Kokoro, then edge-tts.
                     False → edge-tts only.
 
     Returns:
@@ -421,14 +324,6 @@ def generate_segment_audio(
     print(f"[TTS] Narrating {word_count} words: \"{preview}\"")
 
     if use_cloud:
-        remaining = _quota_remaining()
-        if remaining > 0:
-            if _run_groq_tts(text, voice, path):
-                if _is_audio_valid(path, word_count):
-                    return True, "groq-orpheus"
-                else:
-                    print(f"[TTS] Groq output failed quality check. Falling back.")
-
         if _run_cartesia_tts(text, voice, path):
             if _is_audio_valid(path, word_count):
                 return True, "cartesia-sonic"

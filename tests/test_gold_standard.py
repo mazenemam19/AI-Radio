@@ -36,18 +36,16 @@ class TestGoldStandard(unittest.TestCase):
         """Verify the priority order of high-fidelity TTS engines for production."""
         source = inspect.getsource(tts_generator.generate_segment_audio)
         
-        # Verify the priority order: Groq -> Cartesia -> Kokoro -> Edge-TTS
+        # Verify the priority order: Cartesia -> Kokoro -> Edge-TTS
         # We search for the presence and order of these calls in the cloud block.
-        self.assertIn("_run_groq_tts", source, "Production audio missing Groq tier.")
         self.assertIn("_run_cartesia_tts", source, "Production audio missing Cartesia tier.")
         self.assertIn("_run_kokoro_tts", source, "Production audio missing Kokoro tier.")
         
-        # Check that Groq is attempted before Cartesia, and Cartesia before Kokoro
-        idx_groq = source.find("_run_groq_tts")
+        # Check that Cartesia is attempted before Kokoro
         idx_cartesia = source.find("_run_cartesia_tts")
         idx_kokoro = source.find("_run_kokoro_tts")
         
-        self.assertTrue(idx_groq < idx_cartesia < idx_kokoro, "Production TTS priority order has drifted!")
+        self.assertTrue(idx_cartesia < idx_kokoro, "Production TTS priority order has drifted!")
 
     def test_audio_non_production_tier(self):
         """Verify that local/non-production runs use only edge-tts."""
