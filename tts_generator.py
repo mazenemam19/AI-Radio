@@ -325,22 +325,24 @@ def generate_segment_audio(
     preview = (text[:47] + "...") if len(text) > 50 else text
     print(f"[TTS] Narrating {word_count} words: \"{preview}\"")
 
-    # ── Handle Forced Engine (Sticky Mode) ───────────────────────────────────
+    # ── Handle Forced Engine (Strict Mode) ───────────────────────────────────
     if forced_engine:
+        res = False
         if forced_engine == "cartesia-sonic":
-            if _run_cartesia_tts(text, voice, path) and _is_audio_valid(path, word_count):
-                return True, "cartesia-sonic"
+            res = _run_cartesia_tts(text, voice, path) and _is_audio_valid(path, word_count)
         elif forced_engine == "kokoro-cloud":
-            if _run_kokoro_tts(text, voice, path) and _is_audio_valid(path, word_count):
-                return True, "kokoro-cloud"
+            res = _run_kokoro_tts(text, voice, path) and _is_audio_valid(path, word_count)
         elif forced_engine == "edge-tts":
             edge_voice = voice if voice.startswith("en-") else "en-US-GuyNeural"
-            if _run_edge_tts(text, edge_voice, path) and _is_audio_valid(path, word_count):
-                return True, "edge-tts"
+            res = _run_edge_tts(text, edge_voice, path) and _is_audio_valid(path, word_count)
         
-        print(f"[TTS] Forced engine '{forced_engine}' failed. Reverting to priority loop.")
+        if res:
+            return True, forced_engine
+        
+        print(f"[TTS] Forced engine '{forced_engine}' failed. Returning failure for re-narration.")
+        return False, "failed"
 
-    # ── Priority Loop ────────────────────────────────────────────────────────
+    # ── Priority Loop (Auto-Discovery Mode) ──────────────────────────────────
     if use_cloud:
         if _run_cartesia_tts(text, voice, path):
             if _is_audio_valid(path, word_count):

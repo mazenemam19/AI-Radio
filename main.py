@@ -29,7 +29,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, NoReturn
 
 # ── dotenv (optional — CI has no .env file) ───────────────────────────────────
 try:
@@ -50,13 +50,13 @@ _MIN_DURATION: dict[str, int] = {
     "production":  420,
 }
 
-# Cloud TTS: Groq Orpheus; local TTS: edge-tts only
+# Cloud TTS: Premium high-fidelity tiers; local TTS: edge-tts only
 _CLOUD_TTS_ENVS: frozenset[str] = frozenset({"prod-models", "production"})
 
 # Real YouTube upload only in 'production' (and never during dry-run)
 _YOUTUBE_ENVS: frozenset[str] = frozenset({"production"})
 
-# Speaker → edge-tts voice (tts_generator normalises to Groq voice when use_cloud=True)
+# Speaker → edge-tts voice (tts_generator normalises to specific premium voices in cloud mode)
 SPEAKER_VOICES: dict[str, str] = {
     "ANCHOR":      "en-US-GuyNeural",
     "REPORTER":    "en-GB-RyanNeural",
@@ -254,7 +254,7 @@ def _parse_args() -> argparse.Namespace:
 
 # ── Pipeline failure helper ────────────────────────────────────────────────────
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     """Log a pipeline failure and exit with code 1."""
     print(f"\n[PIPELINE FAILURE] {message}", file=sys.stderr)
     sys.exit(1)
@@ -494,6 +494,8 @@ def main() -> None:
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    broadcast: Optional[dict] = None
 
     # ── Step 1: Init DB ───────────────────────────────────────────────────────
     print("[1/10] Initialising database client...")
@@ -507,7 +509,7 @@ def main() -> None:
     if dry_run:
         print("[2/10] DRY RUN — skipping news fetch.")
         news: list[dict] = []
-        broadcast: dict = _DRY_RUN_BROADCAST
+        broadcast = _DRY_RUN_BROADCAST
     else:
         print("[2/10] Fetching recent memory from DB...")
         memory = db.fetch_recent_memory(limit=10)
@@ -527,7 +529,6 @@ def main() -> None:
         # ── Step 2b: Generate broadcast ───────────────────────────────────────
         print("[2b/10] Generating AI broadcast script...")
         from ai_client import generate_broadcast
-        broadcast = None
         for attempt in range(2):   # 1 retry — caller's responsibility per spec
             broadcast = generate_broadcast(news, memory, env)
             if broadcast is not None:
@@ -537,53 +538,71 @@ def main() -> None:
 
         if broadcast is None:
             _fail("AI broadcast generation failed after all attempts.")
+    
+    # Final safety check for Pyright
+    if broadcast is None:
+        _fail("Broadcast object is missing.")
+    
+    # Use a non-optional variable for the rest of main to satisfy Pyright
+    final_broadcast: dict = broadcast
 
-    segments: list[dict] = broadcast["segments"]
-    title: str = broadcast.get("title", f"Echo FM — {timestamp}")
+    segments: list[dict] = final_broadcast["segments"]
+    title: str = final_broadcast.get("title", f"Echo FM — {timestamp}")
     print(f"[Pipeline] Broadcast ready: '{title}' ({len(segments)} segments)")
 
     # ── Step 3: TTS per segment ───────────────────────────────────────────────
     print(f"[3/10] Generating TTS audio for {len(segments)} segment(s)...")
     from tts_generator import generate_segment_audio
 
-    segment_files: list[Path] = []
-    engines_used: set[str] = set()
-    locked_engine: Optional[str] = None
+    # Define the high-fidelity priority chain
+    engine_tiers = ["cartesia-sonic", "kokoro-cloud", "edge-tts"] if use_cloud_tts else ["edge-tts"]
+    
+    final_segment_files: list[Path] = []
+    actual_narrator_model = "unknown"
 
-    for i, seg in enumerate(segments):
-        speaker: str = seg.get("speaker", "ANCHOR")
-        voice: str = SPEAKER_VOICES.get(speaker, _DEFAULT_VOICE)
-        seg_path = OUTPUT_DIR / f"ep_{timestamp}_seg_{i:02d}.mp3"
+    for engine in engine_tiers:
+        print(f"[TTS] Attempting unified narration with Master Engine: '{engine}'")
+        current_attempt_files: list[Path] = []
+        episode_success = True
 
-        success, engine = generate_segment_audio(
-            text=seg["text"],
-            voice=voice,
-            path=str(seg_path),
-            use_cloud=use_cloud_tts,
-            forced_engine=locked_engine,
-        )
-        if not success:
-            _fail(f"TTS generation failed for segment {i} (speaker={speaker}).")
+        for i, seg in enumerate(segments):
+            speaker: str = seg.get("speaker", "ANCHOR")
+            voice: str = SPEAKER_VOICES.get(speaker, _DEFAULT_VOICE)
+            seg_path = OUTPUT_DIR / f"ep_{timestamp}_seg_{i:02d}.mp3"
 
-        # Lock the engine after the first successful segment to ensure vocal consistency
-        if locked_engine is None:
-            locked_engine = engine
-            print(f"[TTS] Engine Locked: Using '{locked_engine}' for the entire episode.")
+            # Use 'Strict Mode' (forced_engine) to ensure no mid-episode fallback inside the function
+            success, _ = generate_segment_audio(
+                text=seg["text"],
+                voice=voice,
+                path=str(seg_path),
+                use_cloud=use_cloud_tts,
+                forced_engine=engine,
+            )
+            
+            if not success:
+                print(f"[TTS] Master Engine '{engine}' failed at segment {i+1}. Wiping partial audio and trying next tier.")
+                episode_success = False
+                # Cleanup partial files to avoid concatenation errors
+                for p in current_attempt_files:
+                    if p.exists(): p.unlink()
+                break
+            
+            current_attempt_files.append(seg_path)
+            print(f"  [{i+1}/{len(segments)}] {speaker} → {seg_path.name} ({engine})")
 
-        segment_files.append(seg_path)
-        engines_used.add(engine)
-        print(f"  [{i+1}/{len(segments)}] {speaker} → {seg_path.name} ({engine})")
-
-    # Determine narrator model name for metadata
-    if len(engines_used) == 1:
-        actual_narrator_model = list(engines_used)[0]
+        if episode_success:
+            final_segment_files = current_attempt_files
+            actual_narrator_model = engine
+            print(f"[TTS] Unified narration COMPLETE using '{engine}'.")
+            break
     else:
-        actual_narrator_model = f"mixed ({', '.join(sorted(engines_used))})"
+        # This only happens if EVERY engine in engine_tiers fails
+        _fail("TTS generation failed for all engine tiers. Cannot continue.")
 
     # ── Step 4: Concatenate audio ─────────────────────────────────────────────
     print("[4/10] Concatenating audio segments...")
     audio_path = OUTPUT_DIR / f"ep_{timestamp}_audio.mp3"
-    if not _concat_audio(segment_files, audio_path):
+    if not _concat_audio(final_segment_files, audio_path):
         _fail("FFmpeg audio concatenation failed.")
     print(f"[4/10] Concatenated audio → {audio_path.name}")
 
@@ -622,8 +641,8 @@ def main() -> None:
     if use_youtube:
         print("[8/10] Uploading to YouTube...")
         from publisher import upload_to_youtube
-        description = broadcast.get("post_text", "")
-        tags = broadcast.get("topic_tags", [])
+        description = final_broadcast.get("post_text", "")
+        tags = final_broadcast.get("topic_tags", [])
         video_url = upload_to_youtube(str(video_path), title, description, tags)
         # Per spec: None = log failure but do NOT fail the pipeline
         if video_url is None:
@@ -647,12 +666,12 @@ def main() -> None:
 
         post_data = build_episode_metadata(
             news_items=news,
-            broadcast=broadcast,
+            broadcast=final_broadcast,
             duration=duration,
             audio_url=final_audio_url,
             video_url=final_video_url,
-            healer_used=bool(broadcast.get("_healer_used", False)),
-            writer_model=broadcast.get("_writer_model", "unknown"),
+            healer_used=bool(final_broadcast.get("_healer_used", False)),
+            writer_model=final_broadcast.get("_writer_model", "unknown"),
             narrator_model=actual_narrator_model,
         )
         row = db.insert_post(post_data)
