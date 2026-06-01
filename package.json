@@ -11,9 +11,13 @@
     "verify":       "python verify_system.py",
     "test":         "python tests/integration_suite.py",
     "test:ci":      "python main.py --env local --dry-run",
-    "setup":        "pip install -r requirements.txt",
-    "serve:sqlite": "python sync_config.py --env local && python -m http.server 8080",
-    "serve:supabase": "python sync_config.py --env production && python -m http.server 8080"
+    "setup":        "python -m pip install -r requirements.txt",
+    "sync:local":   "python -c \"from db_client import DBClient; from publisher import sync_engagement_stats; db=DBClient('local'); sync_engagement_stats(db)\"",
+    "sync:prod":    "python -c \"from db_client import DBClient; from publisher import sync_engagement_stats; db=DBClient('production'); sync_engagement_stats(db)\"",
+    "bake:local":   "python sync_config.py --env local",
+    "bake:prod":    "python sync_config.py --env production",
+    "serve:sqlite": "npm run bake:local && python -m http.server 8080",
+    "serve:supabase": "npm run bake:prod && python -m http.server 8080"
   },
   "engines": {
     "node": ">=18.0.0"
