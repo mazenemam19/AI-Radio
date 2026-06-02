@@ -27,7 +27,7 @@ from typing import Optional
 GEMINI_3_5_FLASH      = "gemini-3.5-flash"
 GEMINI_3_FLASH_PREV   = "gemini-3-flash-preview"
 GEMINI_2_5_FLASH      = "gemini-2.5-flash"
-GEMINI_3_1_LITE       = "gemini-3.1-flash-lite"
+GEMINI_3_1_LITE_PREV  = "gemini-3.1-flash-lite-preview"
 GEMINI_2_5_LITE       = "gemini-2.5-flash-lite"
 
 # Meta Llama series (via Groq)
@@ -46,7 +46,7 @@ MODEL_SET_A: list[str] = [
     GEMINI_3_5_FLASH,
     GEMINI_3_FLASH_PREV,
     GEMINI_2_5_FLASH,
-    GEMINI_3_1_LITE,
+    GEMINI_3_1_LITE_PREV,
     GEMINI_2_5_LITE,
 ]
 
