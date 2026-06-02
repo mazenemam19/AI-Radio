@@ -63,7 +63,15 @@ def _is_network_error(msg: str) -> bool:
 # ── Step 1 & 2: Style & SFX Processing ────────────────────────────────────────
 
 def _simulate_reverb(audio: AudioSegment) -> AudioSegment:
-    """Simulate slight reverb by overlaying a delayed, quieter version."""
+    """
+    Simulate slight reverb by overlaying a delayed, quieter version.
+
+    Args:
+        audio: The pydub AudioSegment to process.
+
+    Returns:
+        The processed AudioSegment with simulated reverb.
+    """
     delay = 40 # ms
     feedback = audio - 15 # -15dB
     return audio.overlay(feedback, position=delay)
@@ -76,9 +84,15 @@ def _apply_audio_processing(
 ) -> bool:
     """
     Apply voice styles (pydub) and mix SFX overlays.
-    - sfx_pre: Prepended to speech.
-    - sfx_post: Appended to speech.
-    - STREET_AMBIENT: Looped underneath speech at low volume.
+
+    Args:
+        audio_path:  Path to the existing TTS audio file.
+        voice_style: One of: normal, whisper, grave, excited, deadpan.
+        sfx_pre:     Optional name of SFX to prepend.
+        sfx_post:    Optional name of SFX to append.
+
+    Returns:
+        True on success, False on failure.
     """
     try:
         speech = AudioSegment.from_file(audio_path)

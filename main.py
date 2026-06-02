@@ -621,6 +621,9 @@ def main() -> None:
                 path=str(seg_path),
                 use_cloud=use_cloud_tts,
                 forced_engine=engine,
+                voice_style=seg.get("voice_style", "normal"),
+                sfx_pre=seg.get("sfx_pre"),
+                sfx_post=seg.get("sfx_post"),
             )
             
             if not success:
