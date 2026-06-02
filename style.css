@@ -3,13 +3,11 @@
        "Creative, Smooth, Professional"
        ═══════════════════════════════════════════════════════════ */
 :root {
-    /* Brand Colors */
     --primary: #1E293B;      /* Deep Slate */
     --secondary: #334155;    /* Slate */
     --accent: #10B981;       /* Smooth Emerald */
     --accent-glow: rgba(16, 185, 129, 0.15);
     
-    /* Functional Colors */
     --text-hi: #0F172A;      /* Ink */
     --text-mid: #475569; 
     --text-lo: #64748B; 
@@ -22,7 +20,7 @@
     --border-mid: rgba(30, 41, 59, 0.12);
     --border-active: var(--accent);
 
-    /* Status Colors (increased opacity for visibility) */
+    /* Status Colors */
     --green: #10B981;
     --green-dim: rgba(16, 185, 129, 0.15);
     --amber: #F59E0B;
@@ -32,11 +30,9 @@
     --cyan: #3B82F6;
     --cyan-dim: rgba(59, 130, 246, 0.15);
 
-    /* Typography */
     --font: 'Inter', system-ui, -apple-system, sans-serif;
     --font-display: 'Space Grotesk', sans-serif;
     
-    /* Effects */
     --radius-sm: 6px;
     --radius-md: 12px;
     --radius-lg: 24px;
@@ -105,7 +101,7 @@ body {
        STATS BAR
     ══════════════════════════════════════════════════════════ */
 .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface); border-bottom: 1px solid var(--border-mid); padding: 0 40px; }
-.stat { padding: 24px 0; display: flex; flex-direction: column; gap: 4px; }
+.stat { padding: 24px 0; display: flex; flex-direction: column; gap: 6px; }
 .stat:not(:last-child) { border-right: 1px solid var(--border); margin-right: 40px; }
 .stat-lbl { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-lo); }
 .stat-val { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--primary); line-height: 1; }
@@ -176,6 +172,8 @@ body {
 .card-icon { font-size: 40px; margin-bottom: 24px; display: block; }
 .card-title { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
 .card-text { font-size: 16px; color: var(--text-mid); line-height: 1.7; }
+
+.telemetry-card { padding: 40px 32px !important; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 180px; gap: 12px; }
 
 .persona-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 32px; }
 .persona-card { text-align: center; padding: 32px; }
