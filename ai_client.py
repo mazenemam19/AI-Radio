@@ -32,24 +32,19 @@ GEMINI_3_1_LITE       = "gemini-3.1-flash-lite"
 GEMINI_2_5_LITE       = "gemini-2.5-flash-lite"
 
 # Meta Llama series (via Groq)
-LLAMA_3_3_70B         = "llama-3.3-70b-versatile"
 LLAMA_4_SCOUT         = "meta-llama/llama-4-scout-17b-16e-instruct"
-LLAMA_3_1_8B          = "llama-3.1-8b-instant"
 
 # Experimental / Future-ready tiers
 GEMMA_4               = "gemma-4-31b-it"
-GPT_OSS_120           = "openai/gpt-oss-120b"
-GPT_OSS_20            = "openai/gpt-oss-20b"
+GEMMA_4_A4B           = "gemma-4-26b-a4b-it"
 GROQ_COMPOUND         = "groq/compound"
 GROQ_COMPOUND_MINI    = "groq/compound-mini"
-QWEN_3                = "qwen/qwen3-32b"
 
 # ── Model Queues ──────────────────────────────────────────────────────────────
 
 # Set A: Gold Standard Production Queue (High-Fidelity Reasoning)
 MODEL_SET_A: list[str] = [
     GEMINI_3_5_FLASH,
-    GEMINI_2_5_PRO,
     GEMINI_3_FLASH_PREV,
     GEMINI_2_5_FLASH,
     GEMINI_3_1_LITE,
@@ -58,16 +53,12 @@ MODEL_SET_A: list[str] = [
 
 # Set B: Local / Development Queue (Experimental & Preview Tiers)
 MODEL_SET_B: list[str] = [
-    GEMINI_2_5_LITE,
+    GEMINI_3_FLASH_PREV,
     GEMMA_4,
-    GPT_OSS_120,
+    GEMMA_4_A4B,
     GROQ_COMPOUND,
-    LLAMA_3_3_70B,
     GROQ_COMPOUND_MINI,
     LLAMA_4_SCOUT,
-    QWEN_3,
-    GPT_OSS_20,
-    LLAMA_3_1_8B,
 ]
 
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
