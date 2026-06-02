@@ -413,7 +413,7 @@
         const isProduction = mode === 'production' || mode === 'supabase';
 
         if (isProduction) {
-            setModePill('production', 'PRODUCTION — BAKED DATA');
+            setModePill('production', 'PRODUCTION MODE');
         } else {
             setModePill('local', 'LOCAL — SQLITE');
         }

@@ -4,7 +4,7 @@ Writes config.json for the frontend HTML dashboard.
 
 Routing (controlled by --env, never inferred):
   local / prod-models → read SQLite, embed episodes and station telemetry.
-  prod-db / production → write baked episode data and station telemetry from Supabase.
+  prod-db / production → write episode data and station telemetry from Supabase.
 
 config.json must be listed in .gitignore to avoid data conflicts between environments.
 All failures are logged but non-fatal — config sync does not abort the pipeline.
@@ -111,7 +111,7 @@ def _write_supabase_config(env: str) -> None:
 
     _CONFIG_PATH.write_text(json.dumps(config, indent=2, default=str), encoding="utf-8")
     print(
-        f"[Config] config.json written (Production/Baked mode, {len(episodes)} episode(s)) "
+        f"[Config] config.json written (Production mode, {len(episodes)} episode(s)) "
         f"→ {_CONFIG_PATH.resolve()}"
     )
 
