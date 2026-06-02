@@ -4,7 +4,7 @@
 - [x] Task: Create `tests/test_rebranding_style.py` to verify CSS variables and global typography (renamed from .js)
 - [x] Task: Define "Echo Deep" CSS variables and global styles in `style.css`
 - [x] Task: Implement responsive navigation component (Header & Footer)
-- [~] Task: Conductor - User Manual Verification 'Phase 1: Brand Foundation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Brand Foundation' (Protocol in workflow.md)
 
 ## Phase 2: Landing Page Development
 - [x] Task: Create `tests/landing_page.test.js` (Simplified verification via Playwright snapshots)
@@ -20,7 +20,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Control Panel Overhaul' (Protocol in workflow.md)
 
 ## Phase 4: Final Polish & Deployment Sync
-- [ ] Task: Execute cross-browser and mobile responsiveness audit
-- [ ] Task: Perform final code style sweep and documentation update
-- [ ] Task: Execute full production-style dry-run to verify data flow across pages
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Polish' (Protocol in workflow.md)
+- [x] Task: Execute cross-browser and mobile responsiveness audit
+- [x] Task: Perform final code style sweep and documentation update
+- [x] Task: Execute full production-style dry-run to verify data flow across pages
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Final Polish' (Protocol in workflow.md)

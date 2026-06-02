@@ -112,126 +112,31 @@ body {
     box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
 
-.logo {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--primary);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    text-decoration: none;
-}
-
-.logo::before {
-    content: '▶';
-    color: var(--accent);
-    font-size: 16px;
-}
-
-.nav {
-    display: flex;
-    gap: 28px;
-    margin-right: auto;
-}
-
-.nav-link {
-    color: var(--text-lo);
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all var(--ease);
-    position: relative;
-    padding: 4px 0;
-}
-
-.nav-link:hover {
-    color: var(--primary);
-}
-
-.nav-link.active {
-    color: var(--accent);
-}
-
-.nav-link.active::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--accent);
-    border-radius: 2px;
-}
-
-.mode-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    border-radius: 30px;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    background: var(--void);
-    border: 1px solid var(--border-mid);
-}
-
-.mode-pill.local { color: var(--cyan); border-color: var(--cyan-dim); background: var(--cyan-dim); }
-.mode-pill.production { color: var(--accent); border-color: var(--lime-dim); background: var(--lime-dim); }
-
-.blink-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: blink 1.5s ease-in-out infinite;
-}
-
-@keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }
-
-.header-clock {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-mid);
-    font-variant-numeric: tabular-nums;
-}
-
-/* ══════════════════════════════════════════════════════════
-       STATS BAR
-    ══════════════════════════════════════════════════════════ */
-.stats-bar {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    background: var(--void);
-    border-bottom: 1px solid var(--border-mid);
-}
-
-.stat {
-    padding: 16px 40px;
-    border-right: 1px solid var(--border-mid);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.stat:last-child { border-right: none; }
-
-.stat-lbl {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text-lo);
-}
-
-.stat-val {
-    font-family: var(--font-display);
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--primary);
+@media (max-width: 768px) {
+    .header {
+        padding: 0 16px;
+        gap: 12px;
+        justify-content: space-between;
+    }
+    .nav {
+        gap: 12px;
+    }
+    .nav-link {
+        font-size: 11px;
+    }
+    .logo {
+        font-size: 16px;
+        gap: 8px;
+    }
+    .logo::before {
+        font-size: 12px;
+    }
+    .mode-pill {
+        display: none; /* Hide status pill on mobile header to save space */
+    }
+    .header-clock {
+        display: none;
+    }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -243,6 +148,46 @@ body {
     overflow: hidden;
     background: var(--surface);
     box-shadow: inset 1px 0 0 var(--border-mid);
+}
+
+@media (max-width: 1024px) {
+    .main-grid {
+        grid-template-columns: 360px 1fr;
+    }
+}
+
+@media (max-width: 860px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    #app {
+        grid-template-rows: 64px auto 1fr;
+        height: auto;
+        overflow-y: auto;
+    }
+
+    .feed-panel {
+        height: auto;
+        max-height: none;
+    }
+
+    .detail-panel {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        background: var(--surface);
+    }
+
+    .detail-panel.mobile-open {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mobile-back-btn {
+        display: flex !important;
+    }
 }
 
 .feed-panel {
