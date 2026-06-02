@@ -11,10 +11,10 @@ import ai_client
 import tts_generator
 import inspect
 
-class TestGoldStandard(unittest.TestCase):
+class TestAIQueue(unittest.TestCase):
     """
-    Gold Standard Contract Test.
-    Locks the AI Writing Models and TTS Audio Engines to prevent logic drift.
+    AI Radio Echo — AI Model Queue Contract Test.
+    Locks the production and local reasoning tiers to prevent logic drift.
     """
 
     def test_ai_writer_models(self):
@@ -32,7 +32,7 @@ class TestGoldStandard(unittest.TestCase):
 
         # Set B: Local / Development Queue
         expected_b = [
-            "gemini-2.5-flash-lite-preview-09-2025",
+            "gemini-2.5-flash-lite",
             "gemma-4-31b-it",
             "openai/gpt-oss-120b",
             "groq/compound",

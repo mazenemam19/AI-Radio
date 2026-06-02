@@ -30,7 +30,6 @@ GEMINI_3_FLASH_PREV   = "gemini-3-flash-preview"
 GEMINI_2_5_FLASH      = "gemini-2.5-flash"
 GEMINI_3_1_LITE       = "gemini-3.1-flash-lite"
 GEMINI_2_5_LITE       = "gemini-2.5-flash-lite"
-GEMINI_2_5_LITE_PREV  = "gemini-2.5-flash-lite-preview-09-2025"
 
 # Meta Llama series (via Groq)
 LLAMA_3_3_70B         = "llama-3.3-70b-versatile"
@@ -59,7 +58,7 @@ MODEL_SET_A: list[str] = [
 
 # Set B: Local / Development Queue (Experimental & Preview Tiers)
 MODEL_SET_B: list[str] = [
-    GEMINI_2_5_LITE_PREV,
+    GEMINI_2_5_LITE,
     GEMMA_4,
     GPT_OSS_120,
     GROQ_COMPOUND,
@@ -70,12 +69,6 @@ MODEL_SET_B: list[str] = [
     GPT_OSS_20,
     LLAMA_3_1_8B,
 ]
-
-GROQ_MODELS: frozenset[str] = frozenset({
-    LLAMA_3_3_70B, 
-    LLAMA_4_SCOUT, 
-    LLAMA_3_1_8B
-})
 
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
 
@@ -504,23 +497,36 @@ def generate_broadcast(
     """
     Generate a satirical broadcast script using a priority model queue.
 
-    Selection:
-      - production/prod-models: Prioritizes high-tier Gemini/Groq.
-      - local/prod-db: Prioritizes preview/experimental models for dev feedback.
+    Smart Router:
+      - Gemini SDK: gemini-, gemma-
+      - Groq SDK: openai/, groq/, qwen/, meta-llama/, llama-
     """
     model_queue = MODEL_SET_A if env in _PRODUCTION_ENVS else MODEL_SET_B
 
     for attempt, model in enumerate(model_queue):
-        news_limit = 15 if attempt == 0 else 8
+        # Creative Fuel: Always use max context (15 items) for high-fidelity production
+        news_limit = 15 
         prompt = _build_prompt(news, memory, news_limit)
-        is_groq = model in GROQ_MODELS
+        
+        # ── Smart Routing ─────────────────────────────────────────────────────
+        is_gemini = model.startswith(("gemini-", "gemma-"))
+        is_groq = model.startswith(("openai/", "groq/", "qwen/", "meta-llama/", "llama-"))
+        
+        provider_name = "Gemini" if is_gemini else ("Groq" if is_groq else "UNKNOWN")
 
         print(
             f"[AI] Attempt {attempt + 1}/{len(model_queue)}: {model} "
-            f"({'Groq' if is_groq else 'Gemini'}), news_limit={news_limit}"
+            f"({provider_name}), news_limit={news_limit}"
         )
 
-        raw = call_groq(prompt, model) if is_groq else call_gemini(prompt, model)
+        if is_groq:
+            raw = call_groq(prompt, model)
+        elif is_gemini:
+            raw = call_gemini(prompt, model)
+        else:
+            print(f"[AI] ERROR: Unrecognized model prefix for '{model}'. Skipping.")
+            continue
+
         if raw is None:
             print(f"[AI] {model} returned None. Trying next.")
             continue
