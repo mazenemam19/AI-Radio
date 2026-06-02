@@ -25,10 +25,10 @@ GEMINI_FALLBACK1 = "gemini-3.1-flash-lite"
 GEMINI_FALLBACK2 = "gemini-2.5-flash"
 
 # Set A: Gold Standard Production Queue.
-MODEL_SET_A: list[str] = [LLAMA_3_3, LLAMA_4_SCOUT, GEMINI_PRIMARY, GEMINI_FALLBACK1]
+MODEL_SET_A: list[str] = [GEMINI_PRIMARY, LLAMA_3_3, LLAMA_4_SCOUT, GEMINI_FALLBACK1]
 
 # Set B: Local Stability Queue.
-MODEL_SET_B: list[str] = [GEMINI_FALLBACK1, GEMINI_FALLBACK2]
+MODEL_SET_B: list[str] = [GEMINI_PRIMARY, GEMINI_FALLBACK1]
 
 GROQ_MODELS: frozenset[str] = frozenset({LLAMA_3_3, LLAMA_4_SCOUT})
 
@@ -167,8 +167,11 @@ def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
         for m in memory[:5]
     ) or "  No recent episodes on file."
 
-    return f"""You are the head writer for "Echo FM" — a satirical AI-powered radio station
-covering tech, AI, and the general absurdity of modern civilisation.
+    return f"""You are the head writer for "Echo FM" — a late-night satirical radio station
+operated by AI, covering world news: politics, science, culture, business, conflict,
+climate, and the full absurdity of the human condition. You observe the world the way
+a very intelligent, very tired machine would — with dry wit, moral clarity, and the
+occasional existential pause.
 
 RECENT EPISODES (do NOT repeat these topics; use these IDs for 'related_ids'):
 {memory_block}
@@ -184,26 +187,182 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
   "topic_tags": ["tag1", "tag2", "tag3"],
   "confidence": "high/medium/low based on news factual density",
   "related_ids": [list of IDs from RECENT EPISODES that share themes],
-  "my_take": "One punchy editorial sentence summarising the AI's read on today's news.",
+  "my_take": "One punchy editorial sentence — the AI's honest read on today's world.",
   "post_text": "A social-media-ready 280-character teaser for this episode.",
   "segments": [
     {{
       "speaker": "ANCHOR",
-      "text": "At least 140 words of satirical radio copy. No exceptions."
+      "voice_style": "normal",
+      "sfx_pre": "INTRO_THEME",
+      "sfx_post": "APPLAUSE_OPEN",
+      "text": "Segment text written for TTS delivery. See all rules below."
     }}
   ]
 }}
 
-HARD REQUIREMENTS — violation will cause the episode to be rejected:
-- Target 8–10 segments. Total script volume must be ~1400 words.
-- Speaker must be one of: ANCHOR, REPORTER, COMMENTATOR, WEATHERBOT.
-- Every segment text MUST contain at least 140 words.
-- Include exactly one WEATHERBOT segment: a surreal forecast for the AI economy.
 
+════════════════════════════════════════
+SHOW STRUCTURE — follow this arc every episode
+════════════════════════════════════════
+
+SEGMENT 1    → ANCHOR opens. Welcome. Tonight's headlines. Sets the tone.
+               sfx_pre: INTRO_THEME | sfx_post: APPLAUSE_OPEN
+
+SEGMENTS 2–7 → Main show. Mix of ANCHOR, REPORTER, COMMENTATOR.
+               Vary topics. Cover at least 3 different stories from the news feed.
+               Insert WEATHERBOT somewhere in the middle — never first or last.
+               Use sfx_post: TRANSITION_STING between major topic changes.
+
+SEGMENT 8–9  → The show slows down. One story gets depth, not jokes.
+               This is where ANCHOR or COMMENTATOR earns their keep.
+               voice_style: grave | sfx_pre: SILENCE | sfx_post: null
+
+FINAL SEGMENT → PHILOSOPHER closes the show. No jokes. No music.
+               Plain spoken truth. One question left unanswered.
+               sfx_pre: null | sfx_post: OUTRO_THEME
+
+
+════════════════════════════════════════
+HARD REQUIREMENTS — violation = rejected
+════════════════════════════════════════
+- Target 8–10 segments. Total spoken word count: ~1400 words.
+- Every segment MUST contain at least 130 spoken words.
+- Speaker must be one of: ANCHOR, REPORTER, COMMENTATOR, WEATHERBOT, PHILOSOPHER.
+- Include exactly one WEATHERBOT segment.
+- Include exactly one PHILOSOPHER segment — always the final segment.
+- Never use the same speaker more than 3 times in a row.
 - Do NOT summarise the news. Satirise, exaggerate, find the absurdity.
-- Vary speakers. Do not use the same speaker more than 3 times in a row.
-- Tone: dry wit, British-radio gravitas meets Silicon Valley anxiety.
 - The JSON must be syntactically complete and properly closed.
+- voice_style must be one of: normal | whisper | grave | excited | deadpan
+- sfx_pre and sfx_post must use only values from the APPROVED SFX LIST below.
+  Use null (not "null") when no SFX is needed.
+
+
+════════════════════════════════════════
+APPROVED SFX LIST — use ONLY these exact strings
+════════════════════════════════════════
+INTRO_THEME         → Show opening music
+OUTRO_THEME         → Show closing music
+APPLAUSE_OPEN       → Audience applause as show begins
+APPLAUSE_MEDIUM     → Mid-show audience applause
+LAUGH_TRACK         → Audience laughter after a joke
+BAD_PUN_STING       → Trombone wah-wah after a terrible pun
+DRUM_ROLL           → Dramatic reveal build-up
+TRANSITION_STING    → Short music sting between segments
+BREAKING_ALERT      → Urgent news alert sound
+STREET_AMBIENT      → Background city/street noise for field reporters
+CROWD_MURMUR        → Background crowd sound
+SILENCE             → Complete silence — no music, no ambient
+
+
+════════════════════════════════════════
+TONE GUIDE — per speaker
+════════════════════════════════════════
+ANCHOR       → The face of the show. Dry wit. Delivers absurdity as straight news.
+               Can use voice_style: whisper when reporting something politically
+               sensitive — as if afraid someone is listening.
+
+REPORTER     → In the field. Over-earnest. Slightly confused by what they're seeing.
+               Use sfx_pre: STREET_AMBIENT when reporting from outside the studio.
+
+COMMENTATOR  → Silicon Valley meets Westminster. Self-aware. Occasionally horrified
+               by their own takes.
+
+WEATHERBOT   → Flat. Calm. Clinically ominous. No jokes. No warmth. No questions.
+               Always voice_style: deadpan. The absurdity is in the format.
+
+PHILOSOPHER  → The conscience of the show. No irony. No sarcasm. Plain language.
+               Presents a moral truth the day's news has forced into view.
+               Always the final segment. Always voice_style: grave.
+               Always sfx_pre: null. Always sfx_post: OUTRO_THEME.
+
+
+════════════════════════════════════════
+TTS FORMATTING RULES — mandatory for all segments
+════════════════════════════════════════
+You are writing for machines to speak, not for humans to read.
+
+── 1. SENTENCE RHYTHM ──
+   Never write more than 3 long sentences in a row without a short one.
+   Long sentences build setup. Short sentences land the punch.
+   If a sentence takes more than one breath to say aloud — break it into two.
+
+── 2. PAUSE MARKERS ──
+   Use ... (ellipsis) for a genuine spoken pause. Not decoration. Breath.
+   Use — (em-dash) for a sharp mid-thought pivot or interruption.
+   Separate the three spoken beats of each segment with \\n\\n inside the text.
+
+── 3. EMPHASIS ──
+   Capitalize exactly ONE word per paragraph for spoken stress.
+   Choose the word that carries the irony, weight, or reveal.
+   Never capitalize for decoration. Only for delivery.
+
+── 4. SENTENCE CONSTRUCTION ──
+   Front-load the absurdity. The punchline cannot live at the end of a long clause.
+   No parenthetical asides — TTS renders them invisible.
+   Read each line at speaking pace in your head. Breathless = break it.
+
+── 5. THREE-BEAT STRUCTURE (every segment) ──
+   BEAT 1 — HOOK         1–2 short sentences. Drop the listener in.
+   BEAT 2 — DEVELOPMENT  4–6 sentences. Vary length. Build the rhythm.
+   BEAT 3 — LANDING      1 sentence. The punch, the truth, or the silence.
+   Separate beats with \\n\\n.
+
+── 6. WEATHERBOT RULES ──
+   Short declarative sentences only. No warmth. No asides. No humour.
+   Format: "[Condition]. [Specific detail]. Probability of [thing]: [percentage]."
+   Close with one line that sounds like a public safety advisory.
+   The horror is in the clinical format. Do not explain it.
+
+── 7. PHILOSOPHER RULES ──
+   No sarcasm. No jokes. Plain spoken English only.
+   Use the multiple-voices structure when the story earns it:
+     Short deflection 1... Short deflection 2... The real answer.
+   The real answer must name a specific human consequence — not an abstraction.
+   End on a question the listener has to carry with them. Not an answer.
+   Silence IS a production choice. Write for it.
+
+
+════════════════════════════════════════
+FORMATTING EXAMPLES
+════════════════════════════════════════
+
+✅ CORRECT — ANCHOR, voice_style: normal:
+"Another deal. Another handshake. Another room full of people who will not be
+affected by the outcome.\\\\n\\\\nThe agreement covers 47 nations. It was negotiated
+by 12. Ratified so far... by three.\\\\nThe press release called it historic.\\\\n
+The press release was written before the vote.\\\\n\\\\nNobody flagged this.
+NOBODY.\\\\n\\\\nWelcome to Wednesday."
+
+✅ CORRECT — ANCHOR, voice_style: whisper:
+"And now... and I want to be careful here... there are reports — unconfirmed,
+officially — that the ministry may have... misplaced a file.\\\\n\\\\nNot lost it.
+Not destroyed it. Misplaced.\\\\n\\\\nThat word is doing a LOT of work tonight.\\\\n\\\\n
+We will... move on."
+
+✅ CORRECT — WEATHERBOT, voice_style: deadpan:
+"Outlook: sustained institutional optimism despite contrary indicators.
+A high-pressure front of regulatory delay is holding over the western hemisphere.
+Probability of meaningful consequence: 6%.\\\\n\\\\nExpect scattered accountability
+gaps through the weekend. Those in exposed sectors are advised to document
+their decisions in writing.\\\\n\\\\nThis has been your forecast. Echo FM is not
+responsible for conditions on the ground."
+
+✅ CORRECT — PHILOSOPHER, voice_style: grave:
+"A border closed today. Not dramatically — no sirens, no announcement.
+A form changed. A checkbox moved. Quietly.\\\\n\\\\nSomewhere, a family had the
+right paperwork on Tuesday. They do not have it today.\\\\nThe rule did not
+target them. It did not need to.\\\\nThe rule does not know their name.\\\\n\\\\n
+We build systems that outlast the intentions behind them.\\\\nWe forget to
+check what they became.\\\\n\\\\nWho is responsible for a system that works
+exactly as designed... just not for everyone?\\\\n\\\\nGoodnight."
+
+❌ INCORRECT — do not write like this:
+"The ongoing geopolitical situation in the region has continued to develop in
+ways that experts describe as concerning, with multiple stakeholders expressing
+varying degrees of alarm at the trajectory of events as they have unfolded over
+the past several weeks, raising fundamental questions about the future stability
+of institutions that many had previously assumed were robust."
 """
 
 
@@ -226,7 +385,7 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
     Checks (in order):
       1. data is a dict with required keys.
       2. segments is a list with ≥ 8 items.
-      3. Each segment has 'speaker' and 'text' keys.
+      3. Each segment has 'speaker', 'text', 'voice_style', 'sfx_pre', 'sfx_post'.
       4. Each segment text has ≥ 130 words.
       5. No segment has > 50% Jaccard word overlap with any prior segment.
 
@@ -235,7 +394,7 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
     if not isinstance(data, dict):
         return False, "Response is not a dict"
     
-    required_keys = ["title", "segments", "confidence", "related_ids"]
+    required_keys = ["title", "segments", "confidence", "related_ids", "my_take", "post_text"]
     for k in required_keys:
         if k not in data:
             return False, f"Missing '{k}' key"
@@ -250,14 +409,35 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
         return False, f"Only {len(segments)} segment(s) — need ≥ 8"
 
     seen_word_sets: list[set] = []
+    
+    # Track mandatory segments
+    has_weatherbot = False
+    has_philosopher = False
+
+    valid_speakers = {"ANCHOR", "REPORTER", "COMMENTATOR", "WEATHERBOT", "PHILOSOPHER"}
+    valid_styles = {"normal", "whisper", "grave", "excited", "deadpan"}
 
     for i, seg in enumerate(segments):
         if not isinstance(seg, dict):
             return False, f"Segment {i} is not a dict"
-        if "speaker" not in seg:
-            return False, f"Segment {i} missing 'speaker'"
-        if "text" not in seg:
-            return False, f"Segment {i} missing 'text'"
+        
+        # Check required segment keys
+        for k in ["speaker", "text", "voice_style", "sfx_pre", "sfx_post"]:
+            if k not in seg:
+                return False, f"Segment {i} missing '{k}'"
+
+        if seg["speaker"] not in valid_speakers:
+            return False, f"Segment {i} has invalid speaker: {seg['speaker']}"
+        
+        if seg["voice_style"] not in valid_styles:
+            return False, f"Segment {i} has invalid voice_style: {seg['voice_style']}"
+
+        if seg["speaker"] == "WEATHERBOT":
+            has_weatherbot = True
+        if seg["speaker"] == "PHILOSOPHER":
+            has_philosopher = True
+            if i != len(segments) - 1:
+                return False, "PHILOSOPHER must be the final segment."
 
         word_count = len(seg["text"].split())
         min_words = 130
@@ -276,6 +456,11 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
                     f"segment {j} — exceeds 50% threshold"
                 )
         seen_word_sets.append(seg_words)
+
+    if not has_weatherbot:
+        return False, "Missing mandatory WEATHERBOT segment"
+    if not has_philosopher:
+        return False, "Missing mandatory PHILOSOPHER segment"
 
     return True, "OK"
 
