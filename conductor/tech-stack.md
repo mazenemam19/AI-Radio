@@ -21,5 +21,6 @@ Echo FM utilizes a hybrid local/cloud stack designed for high availability and z
 
 ## Media & Distribution
 - **FFmpeg:** The "engine" for audio concatenation and MP4 video compilation.
+- **Pydub:** High-level audio manipulation for multi-track mixing and acoustic effects.
 - **Pillow (PIL):** Procedural generation of broadcast cover art and visuals.
 - **YouTube Data API:** Automated publishing pipeline for the final broadcasts.

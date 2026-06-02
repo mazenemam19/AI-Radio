@@ -1,14 +1,16 @@
 """
 tts_generator.py — AI Radio Echo
-Text-to-speech generation.
+Text-to-speech generation with high-fidelity mixing.
 
-Cloud path (use_cloud=True):  Cartesia Sonic → Kokoro Cloud → edge-tts fallback
-Local path (use_cloud=False): edge-tts only
+Cloud path:  Cartesia Sonic 3.5 → Kokoro Cloud → edge-tts fallback
+Mixing:      Pydub for SFX overlays, looping ambient tracks, and voice styles.
 
-asyncio: asyncio.run() for edge-tts; falls back to asyncio.new_event_loop()
-         if a loop is already running (e.g. inside Jupyter / existing async ctx).
-
-FFmpeg path: shutil.which("ffmpeg") only — never hardcoded.
+Voice Styles:
+  - normal:  Base settings.
+  - whisper: -8dB gain + simulated reverb.
+  - grave:   0.9x speed + flat emotion.
+  - excited: 1.1x speed + high emotion.
+  - deadpan: 0.8x speed + clinical delivery.
 """
 
 import asyncio
@@ -19,6 +21,7 @@ import subprocess
 from datetime import date
 from pathlib import Path
 from typing import Optional
+from pydub import AudioSegment
 
 # Cartesia Sonic 3.5 curated voices (Verified June 2026)
 _CARTESIA_VOICES: dict[str, str] = {
@@ -26,6 +29,7 @@ _CARTESIA_VOICES: dict[str, str] = {
     "REPORTER":    "dc30854e-e398-4579-9dc8-16f6cb2c19b9", # Victoria (Professional British Female)
     "COMMENTATOR": "5ee9feff-1265-424a-9d7f-8e4d431a12c7", # Ronald (Intense American Male)
     "WEATHERBOT":  "4f7f1324-1853-48a6-b294-4e78e8036a83", # Casper (Wistful British Male)
+    "PHILOSOPHER": "8205562d-949e-49fb-9407-a690f3b06385", # Marcus (Grave American Male)
 }
 _CARTESIA_DEFAULT_VOICE = "c8f7835e-28a3-4f0c-80d7-c1302ac62aae"
 
@@ -35,6 +39,7 @@ _KOKORO_VOICES: dict[str, str] = {
     "REPORTER":    "bf_emma",   # British Female (Matches Victoria)
     "COMMENTATOR": "am_adam",   # American Male (Matches Ronald)
     "WEATHERBOT":  "bm_lewis",  # British Male (Matches Casper)
+    "PHILOSOPHER": "am_michael", # American Male (Matches Marcus)
 }
 _KOKORO_DEFAULT_VOICE = "bm_george"
 
@@ -53,6 +58,100 @@ _NETWORK_ERROR_MARKERS = (
 
 def _is_network_error(msg: str) -> bool:
     return any(m in msg for m in _NETWORK_ERROR_MARKERS)
+
+
+# ── Step 1 & 2: Style & SFX Processing ────────────────────────────────────────
+
+def _simulate_reverb(audio: AudioSegment) -> AudioSegment:
+    """
+    Simulate slight reverb by overlaying a delayed, quieter version.
+
+    Args:
+        audio: The pydub AudioSegment to process.
+
+    Returns:
+        The processed AudioSegment with simulated reverb.
+    """
+    delay = 40 # ms
+    feedback = audio - 15 # -15dB
+    return audio.overlay(feedback, position=delay)
+
+def _apply_audio_processing(
+    audio_path: str, 
+    voice_style: str, 
+    sfx_pre: Optional[str], 
+    sfx_post: Optional[str]
+) -> bool:
+    """
+    Apply voice styles (pydub) and mix SFX overlays.
+
+    Args:
+        audio_path:  Path to the existing TTS audio file.
+        voice_style: One of: normal, whisper, grave, excited, deadpan.
+        sfx_pre:     Optional name of SFX to prepend.
+        sfx_post:    Optional name of SFX to append.
+
+    Returns:
+        True on success, False on failure.
+    """
+    # Normalize SFX names (handle models returning string "null")
+    if sfx_pre == "null": sfx_pre = None
+    if sfx_post == "null": sfx_post = None
+
+    try:
+        speech = AudioSegment.from_file(audio_path)
+        
+        # 1. Voice Style Processing (Post-Generation)
+        if voice_style == "whisper":
+            speech = speech - 8 # Reduce gain by 8dB
+            speech = _simulate_reverb(speech)
+        
+        # 2. Ambient Underlay (Looping)
+        ambient_path = Path(f"sfx/STREET_AMBIENT.mp3")
+        if ambient_path.exists():
+            ambient = AudioSegment.from_file(str(ambient_path))
+            # Loop ambient to cover speech duration
+            loop_count = int(len(speech) / len(ambient)) + 1
+            ambient_loop = (ambient * loop_count)[:len(speech)]
+            ambient_loop = ambient_loop - 22 # Quiet background
+            speech = ambient_loop.overlay(speech)
+        
+        # 3. SFX Pre/Post
+        final_audio = speech
+        
+        if sfx_pre:
+            pre_path = Path(f"sfx/{sfx_pre}.mp3")
+            if pre_path.exists():
+                sfx = AudioSegment.from_file(str(pre_path))
+                final_audio = sfx + final_audio
+            elif sfx_pre == "SILENCE":
+                # Ensure SILENCE.mp3 exists or generate on the fly
+                if not Path("sfx/SILENCE.mp3").exists():
+                    AudioSegment.silent(duration=2000).export("sfx/SILENCE.mp3", format="mp3")
+                sfx = AudioSegment.from_file("sfx/SILENCE.mp3")
+                final_audio = sfx + final_audio
+            else:
+                print(f"[SFX] Warning: Pre-SFX '{sfx_pre}' not found.")
+
+        if sfx_post:
+            post_path = Path(f"sfx/{sfx_post}.mp3")
+            if post_path.exists():
+                sfx = AudioSegment.from_file(str(post_path))
+                final_audio = final_audio + sfx
+            elif sfx_post == "SILENCE":
+                if not Path("sfx/SILENCE.mp3").exists():
+                    AudioSegment.silent(duration=2000).export("sfx/SILENCE.mp3", format="mp3")
+                sfx = AudioSegment.from_file("sfx/SILENCE.mp3")
+                final_audio = final_audio + sfx
+            else:
+                print(f"[SFX] Warning: Post-SFX '{sfx_post}' not found.")
+
+        final_audio.export(audio_path, format="mp3", bitrate="64k")
+        return True
+
+    except Exception as exc:
+        print(f"[Mixer] Failed to process audio: {exc}")
+        return False
 
 
 # ── FFmpeg silent/tone fallback ───────────────────────────────────────────────
@@ -150,7 +249,7 @@ def _run_edge_tts(text: str, voice: str, path: str) -> bool:
 
 # ── Cartesia Sonic 3.5 ────────────────────────────────────────────────────────
 
-def _run_cartesia_tts(text: str, voice: str, path: str) -> bool:
+def _run_cartesia_tts(text: str, voice: str, path: str, voice_style: str = "normal") -> bool:
     """
     Submit text to Cartesia Sonic 3.5 TTS and write the audio to `path`.
     
@@ -162,6 +261,11 @@ def _run_cartesia_tts(text: str, voice: str, path: str) -> bool:
         return False
 
     cartesia_voice = _CARTESIA_VOICES.get(voice, _CARTESIA_DEFAULT_VOICE)
+    
+    # Map styles to Cartesia numeric speed (0.6 - 1.5)
+    speed = 1.0
+    if voice_style in ("grave", "deadpan"): speed = 0.9
+    if voice_style == "excited": speed = 1.1
 
     try:
         import requests
@@ -182,6 +286,9 @@ def _run_cartesia_tts(text: str, voice: str, path: str) -> bool:
                 "container": "mp3",
                 "sample_rate": 22050,
             },
+            "generation_config": {
+                "speed": speed,
+            }
         }
 
         resp = requests.post(url, headers=headers, json=payload, timeout=60)
@@ -305,17 +412,12 @@ def generate_segment_audio(
     path: str,
     use_cloud: bool,
     forced_engine: Optional[str] = None,
+    voice_style: str = "normal",
+    sfx_pre: Optional[str] = None,
+    sfx_post: Optional[str] = None,
 ) -> tuple[bool, str]:
     """
-    Generate TTS audio for a single script segment with duration guarding.
-
-    Args:
-        text:           Segment script text.
-        voice:          Voice identifier.
-        path:           Output file path.
-        use_cloud:      True  → try Cartesia first, then Kokoro, then edge-tts.
-                        False → edge-tts only.
-        forced_engine:  If provided, skips the priority loop and tries ONLY this engine.
+    Generate TTS audio and apply voice styles/SFX (Step 1 & 2).
 
     Returns:
         (success, engine_name)
@@ -323,50 +425,37 @@ def generate_segment_audio(
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     word_count = len(text.split())
     preview = (text[:47] + "...") if len(text) > 50 else text
-    print(f"[TTS] Narrating {word_count} words: \"{preview}\"")
+    print(f"[TTS] Narrating {word_count} words ({voice_style}): \"{preview}\"")
 
-    # ── Handle Forced Engine (Strict Mode) ───────────────────────────────────
+    # 1. Generation
+    success = False
+    engine_used = "failed"
+
     if forced_engine:
-        res = False
         if forced_engine == "cartesia-sonic":
-            res = _run_cartesia_tts(text, voice, path) and _is_audio_valid(path, word_count)
+            success = _run_cartesia_tts(text, voice, path, voice_style)
         elif forced_engine == "kokoro-cloud":
-            res = _run_kokoro_tts(text, voice, path) and _is_audio_valid(path, word_count)
+            success = _run_kokoro_tts(text, voice, path)
         elif forced_engine == "edge-tts":
-            edge_voice = voice if voice.startswith("en-") else "en-US-GuyNeural"
-            res = _run_edge_tts(text, edge_voice, path) and _is_audio_valid(path, word_count)
+            success = _run_edge_tts(text, voice, path)
+        engine_used = forced_engine
+    else:
+        if use_cloud:
+            if _run_cartesia_tts(text, voice, path, voice_style):
+                success, engine_used = True, "cartesia-sonic"
+            elif _run_kokoro_tts(text, voice, path):
+                success, engine_used = True, "kokoro-cloud"
         
-        if res:
-            return True, forced_engine
-        
-        print(f"[TTS] Forced engine '{forced_engine}' failed. Returning failure for re-narration.")
-        return False, "failed"
-
-    # ── Priority Loop (Auto-Discovery Mode) ──────────────────────────────────
-    if use_cloud:
-        if _run_cartesia_tts(text, voice, path):
-            if _is_audio_valid(path, word_count):
-                return True, "cartesia-sonic"
+        if not success:
+            if _run_edge_tts(text, voice, path):
+                success, engine_used = True, "edge-tts"
             else:
-                print(f"[TTS] Cartesia output failed quality check. Falling back.")
+                success = _generate_ffmpeg_audio_fallback(text, path)
+                engine_used = "silent-fallback"
 
-        if _run_kokoro_tts(text, voice, path):
-            if _is_audio_valid(path, word_count):
-                return True, "kokoro-cloud"
-            else:
-                print(f"[TTS] Kokoro output failed quality check. Falling back.")
-
-    # edge-tts path
-    edge_voice = voice if voice.startswith("en-") else "en-US-GuyNeural"
-    print(f"[TTS] Using edge-tts (voice={edge_voice}) → {path}")
+    # 2. Validation & Mixing (Steps 1 & 2)
+    if success and _is_audio_valid(path, word_count):
+        if _apply_audio_processing(path, voice_style, sfx_pre, sfx_post):
+            return True, engine_used
     
-    if _run_edge_tts(text, edge_voice, path):
-        if _is_audio_valid(path, word_count):
-            return True, "edge-tts"
-        else:
-            print(f"[TTS] edge-tts output failed quality check.")
-
-    # Final attempt: FFmpeg silent fallback (always passes quality check if it matches word count)
-    print(f"[TTS] FATAL: All TTS engines failed for segment. Using silent fallback.")
-    success = _generate_ffmpeg_audio_fallback(text, path)
-    return success, "silent-fallback"
+    return False, "failed"

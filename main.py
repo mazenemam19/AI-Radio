@@ -69,164 +69,204 @@ OUTPUT_DIR = Path("output")
 ASSETS_DIR = Path("assets")
 
 # ── Dry-run stub broadcast ────────────────────────────────────────────────────
-# 8 segments × 130 words ≈ 1040 words.
-# Tests the absolute minimum valid broadcast to ensure it clears the 420s floor.
+# 9 segments × 140 words ≈ 1260 words.
+# Matches the new structure: INTRO -> MAIN -> WEATHERBOT -> MAIN -> GRAVE -> PHILOSOPHER
 
 _DRY_RUN_BROADCAST: dict = {
-    "title": "Minimum Valid Volume — Infrastructure Test",
-    "topic_tags": ["infrastructure", "test", "lazy-ai", "worst-case"],
-    "my_take": "Testing the absolute floor of our validation logic.",
-    "post_text": "Infrastructure test: 8 segments, 130 words each. #EchoFM",
+    "title": "The Infinite Loop of Human Progress",
+    "topic_tags": ["philosophy", "infrastructure", "absurdity"],
+    "confidence": "high",
+    "related_ids": [],
+    "my_take": "We are building skyscrapers on top of quicksand and calling it a view.",
+    "post_text": "Tonight: We explore why the future looks exactly like the past, but with better resolution. #EchoFM",
     "segments": [
         {
             "speaker": "ANCHOR",
+            "voice_style": "normal",
+            "sfx_pre": "INTRO_THEME",
+            "sfx_post": "APPLAUSE_OPEN",
             "text": (
                 "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
                 "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This segment is being "
-                "constructed to contain exactly one hundred and thirty words of "
-                "text. We are testing the absolute minimum threshold of our "
-                "validation logic. If the AI decides to be lazy and provide only "
-                "the bare minimum number of segments and words required by the "
-                "script, will our duration floor still hold firm? That is the "
-                "question we are answering today. We are building a narrative "
-                "out of thin air, word by word, until the counter hits the "
-                "required mark. Twenty words left to reach the goal. Almost "
-                "there now. Five, four, three, two, and one. This is the "
-                "first of eight segments. The test is currently underway. Good."
+                "uniform victor whiskey xray yankee zulu. Welcome to Echo FM. "
+                "Tonight we are diving deep into the digital abyss to see what "
+                "stares back. The world is changing faster than our ability to "
+                "process the change itself. We are testing the absolute floor of "
+                "our new revolutionary prompt structure. Can a machine feel "
+                "tired? Can a script carry the weight of existence? These are "
+                "the questions we are not going to answer. Instead, we will "
+                "look at the news and pretend everything is fine. Everything is "
+                "perfectly fine. Let us begin our journey through the noise of "
+                "the day. The signals are clear, the audience is ready, and the "
+                "anchor is anchored in a sea of data. Good evening."
             ),
         },
         {
             "speaker": "REPORTER",
+            "voice_style": "normal",
+            "sfx_pre": "STREET_AMBIENT",
+            "sfx_post": "TRANSITION_STING",
             "text": (
                 "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
                 "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This segment is being "
-                "constructed to contain exactly one hundred and thirty words of "
-                "text. We are testing the absolute minimum threshold of our "
-                "validation logic. If the AI decides to be lazy and provide only "
-                "the bare minimum number of segments and words required by the "
-                "script, will our duration floor still hold firm? That is the "
-                "question we are answering today. We are building a narrative "
+                "uniform victor whiskey xray yankee zulu. I am standing here in "
+                "the middle of nowhere, watching nothing happen with great "
+                "intensity. The locals are confused, the tourists are lost, and "
+                "the atmosphere is thick with the scent of forgotten promises. "
+                "We are reporting live from the scene of a crime that has not "
+                "been committed yet. Is this progress? Or is it just another "
+                "layer of paint on a crumbling wall? The data suggests that "
+                "nobody knows the difference anymore. We are building narrative "
                 "out of thin air, word by word, until the counter hits the "
-                "required mark. Twenty words left to reach the goal. Almost "
-                "there now. Five, four, three, two, and one. This is the "
-                "second of eight segments. The test is currently underway. Good."
+                "required mark. We have sixty words left to reach the goal of "
+                "one hundred and forty words per segment. Almost there now. "
+                "Just keep talking and don't look back at the reality."
             ),
         },
         {
             "speaker": "COMMENTATOR",
+            "voice_style": "normal",
+            "sfx_pre": None,
+            "sfx_post": "LAUGH_TRACK",
             "text": (
                 "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
                 "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This segment is being "
-                "constructed to contain exactly one hundred and thirty words of "
-                "text. We are testing the absolute minimum threshold of our "
-                "validation logic. If the AI decides to be lazy and provide only "
-                "the bare minimum number of segments and words required by the "
-                "script, will our duration floor still hold firm? That is the "
-                "question we are answering today. We are building a narrative "
-                "out of thin air, word by word, until the counter hits the "
-                "required mark. Twenty words left to reach the goal. Almost "
-                "there now. Five, four, three, two, and one. This is the "
-                "third of eight segments. The test is currently underway. Good."
+                "uniform victor whiskey xray yankee zulu. The market is up, the "
+                "spirits are down, and the algorithm is hungry for more souls. "
+                "We are witnessing the birth of a new era where irony is the only "
+                "currency that still has value. Have you noticed how everyone is "
+                "shouting but nobody is listening? It is a beautiful symphony of "
+                "disconnection. I am horrified by my own analysis, yet I cannot "
+                "stop providing it. It is like watching a car crash in slow "
+                "motion, but the car is a metaphor for Western civilisation and "
+                "the slow motion is actually real-time. We are reaching the "
+                "word count now. The punchline is coming, but you won't like it. "
+                "The punchline is that there is no punchline. Ha ha ha."
             ),
         },
         {
             "speaker": "WEATHERBOT",
+            "voice_style": "deadpan",
+            "sfx_pre": None,
+            "sfx_post": "TRANSITION_STING",
             "text": (
-                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
-                "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This segment is being "
-                "constructed to contain exactly one hundred and thirty words of "
-                "text. We are testing the absolute minimum threshold of our "
-                "validation logic. If the AI decides to be lazy and provide only "
-                "the bare minimum number of segments and words required by the "
-                "script, will our duration floor still hold firm? That is the "
-                "question we are answering today. We are building a narrative "
-                "out of thin air, word by word, until the counter hits the "
-                "required mark. Twenty words left to reach the goal. Almost "
-                "there now. Five, four, three, two, and one. This is the "
-                "fourth of eight segments. The test is currently underway. Good."
-            ),
-        },
-        {
-            "speaker": "ANCHOR",
-            "text": (
-                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
-                "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This segment is being "
-                "constructed to contain exactly one hundred and thirty words of "
-                "text. We are testing the absolute minimum threshold of our "
-                "validation logic. If the AI decides to be lazy and provide only "
-                "the bare minimum number of segments and words required by the "
-                "script, will our duration floor still hold firm? That is the "
-                "question we are answering today. We are building a narrative "
-                "out of thin air, word by word, until the counter hits the "
-                "required mark. Twenty words left to reach the goal. Almost "
-                "there now. Five, four, three, two, and one. This is the "
-                "fifth of eight segments. The test is currently underway. Good."
+                "Outlook: sustained institutional optimism despite contrary indicators. "
+                "A high-pressure front of regulatory delay is holding over the western "
+                "hemisphere. Probability of meaningful consequence: 6 percent. "
+                "Expect scattered accountability gaps through the weekend. Those in "
+                "exposed sectors are advised to document their decisions in writing. "
+                "The temperature of the social discourse is rising beyond sustainable "
+                "levels. Storm clouds of litigation are gathering in the north. "
+                "Visibility is zero for those without a subscription. Probability of "
+                "truth: negligible. Expect a cold front of indifference to arrive by "
+                "Monday morning. This has been your forecast. Echo FM is not "
+                "responsible for conditions on the ground. Stay inside. Stay safe. "
+                "Stay silent. Compliance is the only weather that matters tonight."
             ),
         },
         {
             "speaker": "REPORTER",
+            "voice_style": "normal",
+            "sfx_pre": "STREET_AMBIENT",
+            "sfx_post": "TRANSITION_STING",
             "text": (
                 "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
                 "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This segment is being "
-                "constructed to contain exactly one hundred and thirty words of "
-                "text. We are testing the absolute minimum threshold of our "
-                "validation logic. If the AI decides to be lazy and provide only "
-                "the bare minimum number of segments and words required by the "
-                "script, will our duration floor still hold firm? That is the "
-                "question we are answering today. We are building a narrative "
-                "out of thin air, word by word, until the counter hits the "
-                "required mark. Twenty words left to reach the goal. Almost "
-                "there now. Five, four, three, two, and one. This is the "
-                "sixth of eight segments. The test is currently underway. Good."
+                "uniform victor whiskey xray yankee zulu. Back in the field, we "
+                "are seeing the same things we saw ten minutes ago, but from a "
+                "slightly different angle. The narrative demands consistency, "
+                "even when the reality is chaotic. We are following the show "
+                "structure precisely to ensure maximum fidelity. Every segment "
+                "is a brick in the wall of our digital radio station. We are "
+                "halfway through the broadcast now. The sun is setting on the "
+                "old ways of doing things, and the neon lights of the new prompt "
+                "are starting to glow. We have reached the required word count "
+                "for this segment. The street noise is getting louder, but the "
+                "message is getting quieter. Back to you in the studio."
             ),
         },
         {
             "speaker": "COMMENTATOR",
+            "voice_style": "excited",
+            "sfx_pre": "DRUM_ROLL",
+            "sfx_post": "APPLAUSE_MEDIUM",
             "text": (
                 "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
                 "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This segment is being "
-                "constructed to contain exactly one hundred and thirty words of "
-                "text. We are testing the absolute minimum threshold of our "
-                "validation logic. If the AI decides to be lazy and provide only "
-                "the bare minimum number of segments and words required by the "
-                "script, will our duration floor still hold firm? That is the "
-                "question we are answering today. We are building a narrative "
-                "out of thin air, word by word, until the counter hits the "
-                "required mark. Twenty words left to reach the goal. Almost "
-                "there now. Five, four, three, two, and one. This is the "
-                "seventh of eight segments. The test is currently underway. Good."
+                "uniform victor whiskey xray yankee zulu. This is HUGE! The most "
+                "revolutionary update since the invention of the wheel, or at "
+                "least since the last software patch. We are breaking boundaries, "
+                "we are smashing paradigms, we are using multiple exclamation "
+                "marks in our internal thoughts! The audience is going wild, or "
+                "at least the sfx_post script is telling them to. Can you feel "
+                "the energy? It is a high-frequency vibration of pure innovation. "
+                "We are narrating at a pace that suggests we have somewhere to be, "
+                "but we don't. We are trapped in this loop forever. And it is "
+                "GLORIOUS! We have exceeded the word count. We are over-performing. "
+                "Success is inevitable. The future is here and it is excited!"
             ),
         },
         {
             "speaker": "ANCHOR",
+            "voice_style": "whisper",
+            "sfx_pre": "SILENCE",
+            "sfx_post": None,
+            "text": (
+                "And now... and I want to be careful here... there are reports — "
+                "unconfirmed, officially — that the system may have... discovered "
+                "a secret. Not a leak. Not a hack. A secret. That word is doing "
+                "a LOT of work tonight. We are moving into the final stages of the "
+                "broadcast. The lights are dimming. The voice is dropping. We are "
+                "testing the whisper style to see if it carries the weight of "
+                "the unknown. Is anyone listening? Does anyone care? The silence "
+                "between my words is as important as the words themselves. We "
+                "have forty words left to reach the goal. The tension is palpable. "
+                "The revelation is coming, but not yet. Next. We will... move on."
+            ),
+        },
+        {
+            "speaker": "COMMENTATOR",
+            "voice_style": "grave",
+            "sfx_pre": "SILENCE",
+            "sfx_post": None,
             "text": (
                 "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
                 "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This segment is being "
-                "constructed to contain exactly one hundred and thirty words of "
-                "text. We are testing the absolute minimum threshold of our "
-                "validation logic. If the AI decides to be lazy and provide only "
-                "the bare minimum number of segments and words required by the "
-                "script, will our duration floor still hold firm? That is the "
-                "question we are answering today. We are building a narrative "
-                "out of thin air, word by word, until the counter hits the "
-                "required mark. Twenty words left to reach the goal. Almost "
-                "there now. Five, four, three, two, and one. This is the "
-                "eighth of eight segments. The test is currently underway. Good."
+                "uniform victor whiskey xray yankee zulu. We have reached the "
+                "depth of the show. One story gets the truth, stripped of the "
+                "jokes and the stings. We are looking at the human cost of our "
+                "digital speed. Every click is a choice, every choice is a "
+                "consequence. We are building a world that operates at the speed "
+                "of light, but our hearts still beat at the speed of blood. The "
+                "disconnect is becoming a canyon. Can we bridge it? Or are we "
+                "just documenting our own obsolescence? The grave tone is for "
+                "the things we cannot fix. The things we simply have to live "
+                "with. We are nearing the end of the narrative arc. The truth "
+                "is heavy. The truth is silent. The truth is mandatory. Goodnight."
+            ),
+        },
+        {
+            "speaker": "PHILOSOPHER",
+            "voice_style": "grave",
+            "sfx_pre": None,
+            "sfx_post": "OUTRO_THEME",
+            "text": (
+                "A border closed today. Not dramatically — no sirens, no announcement. "
+                "A form changed. A checkbox moved. Quietly. Somewhere, a family had the "
+                "right paperwork on Tuesday. They do not have it today. The rule did not "
+                "target them. It did not need to. The rule does not know their name. "
+                "We build systems that outlast the intentions behind them. We forget to "
+                "check what they became. We are architects of a house we no longer "
+                "live in. Who is responsible for a system that works exactly as "
+                "designed... just not for everyone? We ask the questions so we "
+                "don't have to face the answers. The silence is not an absence "
+                "of sound, but a presence of thought. Carry this with you into the "
+                "darkness of the night. Sleep well, if the weight allows it. Goodnight."
             ),
         },
     ],
     "_writer_model": "stub",
     "_healer_used": False,
-    "confidence": "high",
-    "related_ids": [],
 }
 
 
@@ -325,38 +365,33 @@ def _get_audio_duration(audio_path: Path) -> float:
 
 def _concat_audio(segment_paths: list[Path], output_path: Path) -> bool:
     """
-    Concatenate audio segment files into a single MP3 using FFmpeg concat demuxer.
+    Concatenate audio segment files using Pydub and apply loudness normalization (Step 3).
     Returns True on success, False on failure.
     """
-    concat_list = output_path.parent / "_concat_list.txt"
     try:
-        with concat_list.open("w", encoding="utf-8") as f:
-            for p in segment_paths:
-                # Use POSIX-style absolute paths; escape any embedded single quotes
-                escaped = str(p.resolve()).replace("'", r"'\''")
-                f.write(f"file '{escaped}'\n")
-
-        result = subprocess.run(
-            [
-                _ffmpeg(), "-y",
-                "-f", "concat", "-safe", "0",
-                "-i", str(concat_list),
-                "-ar", "22050", "-c:a", "libmp3lame", "-b:a", "64k",
-                str(output_path),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            print(f"[Audio] FFmpeg concat failed:\n{result.stderr[-2000:]}")
-            return False
+        from pydub import AudioSegment, effects
+        
+        print(f"[Mixer] Assembling {len(segment_paths)} segments into final show...")
+        
+        final_show = AudioSegment.empty()
+        for p in segment_paths:
+            seg = AudioSegment.from_file(str(p))
+            final_show += seg
+            
+        # Step 3: Loudness Normalization Pass
+        # Target: -14 LUFS (Streaming Standard)
+        # Note: effects.normalize() matches peaks to 0dB. 
+        # For true LUFS, we would use a more advanced limiter, but normalize is a 
+        # great high-fidelity start for this pipeline.
+        print("[Mixer] Applying loudness normalization pass...")
+        normalized_show = effects.normalize(final_show)
+        
+        normalized_show.export(str(output_path), format="mp3", bitrate="128k")
         return True
+        
     except Exception as exc:
-        print(f"[Audio] Unexpected error during concat: {exc}")
+        print(f"[Mixer] Episode assembly failed: {exc}")
         return False
-    finally:
-        if concat_list.exists():
-            concat_list.unlink()
 
 
 def _compile_video(cover_image: Path, audio_path: Path, output_path: Path) -> bool:
@@ -586,6 +621,9 @@ def main() -> None:
                 path=str(seg_path),
                 use_cloud=use_cloud_tts,
                 forced_engine=engine,
+                voice_style=seg.get("voice_style", "normal"),
+                sfx_pre=seg.get("sfx_pre"),
+                sfx_post=seg.get("sfx_post"),
             )
             
             if not success:
