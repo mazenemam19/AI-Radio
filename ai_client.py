@@ -357,6 +357,48 @@ You are writing for machines to speak, not for humans to read.
    The real answer must name a specific human consequence — not an abstraction.
    End on a question the listener has to carry with them. Not an answer.
    Silence IS a production choice. Write for it.
+
+
+════════════════════════════════════════
+FORMATTING EXAMPLES
+════════════════════════════════════════
+
+✅ CORRECT — ANCHOR, voice_style: normal:
+"Another deal. Another handshake. Another room full of people who will not be
+affected by the outcome.\\n\\nThe agreement covers 47 nations. It was negotiated
+by 12. Ratified so far... by three.\\nThe press release called it historic.\\n
+The press release was written before the vote.\\n\\nNobody flagged this.
+NOBODY.\\n\\nWelcome to Wednesday."
+
+✅ CORRECT — ANCHOR, voice_style: whisper:
+"And now... and I want to be careful here... there are reports — unconfirmed,
+officially — that the ministry may have... misplaced a file.\\n\\nNot lost it.
+Not destroyed it. Misplaced.\\n\\nThat word is doing a LOT of work tonight.\\n\\n
+We will... move on."
+
+✅ CORRECT — WEATHERBOT, voice_style: deadpan:
+"Outlook: sustained institutional optimism despite contrary indicators.
+A high-pressure front of regulatory delay is holding over the western hemisphere.
+Probability of meaningful consequence: 6%.\\n\\nExpect scattered accountability
+gaps through the weekend. Those in exposed sectors are advised to document
+their decisions in writing.\\n\\nThis has been your forecast. Echo FM is not
+responsible for conditions on the ground."
+
+✅ CORRECT — PHILOSOPHER, voice_style: grave:
+"A border closed today. Not dramatically — no sirens, no announcement.
+A form changed. A checkbox moved. Quietly.\\n\\nSomewhere, a family had the
+right paperwork on Tuesday. They do not have it today.\\nThe rule did not
+target them. It did not need to.\\nThe rule does not know their name.\\n\\n
+We build systems that outlast the intentions behind them.\\nWe forget to
+check what they became.\\n\\nWho is responsible for a system that works
+exactly as designed... just not for everyone?\\n\\nGoodnight."
+
+❌ INCORRECT — do not write like this:
+"The ongoing geopolitical situation in the region has continued to develop in
+ways that experts describe as concerning, with multiple stakeholders expressing
+varying degrees of alarm at the trajectory of events as they have unfolded over
+the past several weeks, raising fundamental questions about the future stability
+of institutions that many had previously assumed were robust."
 """
 
 
