@@ -18,6 +18,7 @@ High-Fidelity Rules:
 import json
 import os
 import re
+from datetime import datetime
 from typing import Optional
 
 # ── Model Constants ───────────────────────────────────────────────────────────
@@ -160,7 +161,7 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
         client = genai.Client(api_key=api_key)
 
         # Enable thinking config for reasoning models (e.g. gemma-4)
-        is_reasoning = "gemma-4" in model in model
+        is_reasoning = "gemma-4" in model
         
         config = types.GenerateContentConfig(
             max_output_tokens=8192,
@@ -184,6 +185,8 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
 
 def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
     """Construct the head-writer prompt for Echo FM."""
+    today = datetime.now().strftime("%A, %B %d, %Y")
+    
     news_block = "\n".join(
         f"  [{item.get('source', '?')}] {item['headline']} — {item.get('summary', '')}"
         for item in news[:news_limit]
@@ -195,7 +198,11 @@ def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
     ) or "  No recent episodes on file."
 
     return f"""You are the head writer for "Echo FM" — a late-night satirical radio station
-operated by AI, covering world news: politics, science, culture, business, conflict,
+operated by AI. 
+
+TODAY'S DATE: {today}
+
+Your goal is to cover world news: politics, science, culture, business, conflict,
 climate, and the full absurdity of the human condition. You observe the world the way
 a very intelligent, very tired machine would — with dry wit, moral clarity, and the
 occasional existential pause.

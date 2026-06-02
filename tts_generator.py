@@ -94,6 +94,10 @@ def _apply_audio_processing(
     Returns:
         True on success, False on failure.
     """
+    # Normalize SFX names (handle models returning string "null")
+    if sfx_pre == "null": sfx_pre = None
+    if sfx_post == "null": sfx_post = None
+
     try:
         speech = AudioSegment.from_file(audio_path)
         
