@@ -71,12 +71,6 @@
     /* ── UI Handlers ────────────────────────────────────────── */
 
     function selectEpisode(idx) {
-        if (window.isArchivesPage) {
-            const ep = _episodes[idx];
-            window.location.href = `control.html?id=${ep.id}`;
-            return;
-        }
-
         _selectedIdx = idx;
         const ep = _episodes[idx];
 
@@ -115,8 +109,8 @@
         const audioUrl = resolveUrl(ep.audio_url);
         const videoUrl = resolveUrl(ep.video_url);
 
-        const hasAudio = audioUrl && !audioUrl.includes('placeholder') && 
-                         (audioUrl.startsWith('http') || audioUrl.startsWith('output/'));
+        const hasAudio = audioUrl && !audioUrl.includes('placeholder') &&
+            (audioUrl.startsWith('http') || audioUrl.startsWith('output/'));
         const hasVideo = videoUrl && (videoUrl.startsWith('http') || videoUrl.startsWith('output/'));
 
         if (hasAudio) {
@@ -126,7 +120,7 @@
             if (ytId) {
                 mediaHtml = `<div class="video-container" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; background:#000;"><iframe src="https://www.youtube.com/embed/${ytId}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" allowfullscreen></iframe></div>`;
             } else {
-                mediaHtml = `<div class="media-wrap"><a href="${esc(videoUrl)}" target="_blank" class="btn-primary" style="font-size:14px; padding:12px 24px;">Watch Source</a></div>`;
+                mediaHtml = `<div class="media-wrap"><a href="${esc(videoUrl)}" target="_blank" class="btn-primary" style="font-size:14px; padding:12px 24px;">▶ Watch Source</a></div>`;
             }
         } else {
             mediaHtml = `<div class="media-wrap"><div style="font-size:12px; color:var(--text-lo); letter-spacing:1px;">// Media Archive Offline</div></div>`;
@@ -150,7 +144,7 @@
                 <span class="meta-chip"><span class="lbl">DUR</span> ${fmtDuration(ep.broadcast_duration)}</span>
                 <span class="meta-chip"><span class="lbl">PLAYS</span> ${ep.plays ?? 0}</span>
                 <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
-                ${healed ? '<span class="healer-chip">HEALED</span>' : ''}
+                ${healed ? '<span class="healer-chip">⚠ HEALED</span>' : ''}
             </div>
 
             <div class="d-section">
@@ -197,20 +191,6 @@
 
     /* ── Core components ───────────────────────────────────────── */
 
-    function startClock() {
-        const el = document.getElementById('header-clock');
-        if (!el) return;
-        const tick = () => { el.textContent = new Date().toLocaleTimeString(undefined, { hour12: false }); };
-        tick(); setInterval(tick, 1000);
-    }
-
-    function startHeartbeat() {
-        const el = document.getElementById('header-freq');
-        if (!el) return;
-        const base = 88.5;
-        const pulse = () => { el.textContent = `SIGNAL: ${(base + (Math.random() * 0.4 - 0.2)).toFixed(1)} MHZ`; };
-        pulse(); setInterval(pulse, 5000);
-    }
 
     function setModePill(mode, label) {
         const pill = document.getElementById('mode-pill');
@@ -241,20 +221,18 @@
             return;
         }
 
-        const cardClass = window.isArchivesPage ? 'archives-card' : 'ep-card';
-
         list.innerHTML = episodes.map((ep, i) => `
-            <div class="${cardClass}" data-idx="${i}" tabindex="0" onclick="window._selectEpisode(${i})">
+            <div class="ep-card" data-idx="${i}" tabindex="0" onclick="window._selectEpisode(${i})">
                 <div class="ep-card-row1">
                     <div class="ep-headline">${esc(ep.headline)}</div>
                     <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
                 </div>
-                <div class="signal-wrap"><div class="signal-bar" style="width: ${Math.min(100, (ep.broadcast_duration/600)*100)}%"></div></div>
+                <div class="signal-wrap"><div class="signal-bar" style="width: ${Math.min(100, (ep.broadcast_duration / 600) * 100)}%"></div></div>
                 <div class="ep-card-row2">
                     <span class="ep-source">${esc(ep.source || '--')}</span>
                     <div class="ep-eng">
-                        <div class="ep-eng-item">P ${ep.plays ?? 0}</div>
-                        <div class="ep-eng-item">L ${ep.likes ?? 0}</div>
+                        <div class="ep-eng-item">▶ ${ep.plays ?? 0}</div>
+                        <div class="ep-eng-item">❤ ${ep.likes ?? 0}</div>
                     </div>
                     <span class="ep-card-date">${esc(fmtDate(ep.created_at))}</span>
                 </div>
@@ -267,8 +245,6 @@
     window._selectEpisode = (idx) => selectEpisode(idx);
 
     async function init() {
-        startClock();
-        startHeartbeat();
 
         const detailPanel = document.getElementById('detail-panel');
         if (detailPanel) {
@@ -283,7 +259,8 @@
             const response = await fetch('config.json');
             const cfg = await response.json();
             _episodes = cfg.episodes || [];
-            
+
+
             const mode = (cfg.mode || 'local').toLowerCase();
             const isProduction = mode === 'production' || mode === 'supabase';
             if (isProduction) {
