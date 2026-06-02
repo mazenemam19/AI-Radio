@@ -19,17 +19,30 @@ class TestGoldStandard(unittest.TestCase):
 
     def test_ai_writer_models(self):
         """Verify the exact strings for AI Writing Model sets."""
-        # Set A: The Production Reasoning Queue
+        # Set A: Gold Standard Production Queue
         expected_a = [
-            "llama-3.3-70b-versatile",
-            "meta-llama/llama-4-scout-17b-16e-instruct",
             "gemini-3.5-flash",
-            "gemini-3.1-flash-lite"
+            "gemini-2.5-pro",
+            "gemini-3-flash-preview",
+            "gemini-2.5-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-2.5-flash-lite"
         ]
         self.assertEqual(ai_client.MODEL_SET_A, expected_a, "AI MODEL_SET_A has drifted!")
 
-        # Set B: The Local Stability Queue
-        expected_b = ["gemini-3.1-flash-lite", "gemini-2.5-flash"]
+        # Set B: Local / Development Queue
+        expected_b = [
+            "gemini-2.5-flash-lite-preview-09-2025",
+            "gemma-4-31b-it",
+            "openai/gpt-oss-120b",
+            "groq/compound",
+            "llama-3.3-70b-versatile",
+            "groq/compound-mini",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "qwen/qwen3-32b",
+            "openai/gpt-oss-20b",
+            "llama-3.1-8b-instant"
+        ]
         self.assertEqual(ai_client.MODEL_SET_B, expected_b, "AI MODEL_SET_B has drifted!")
 
     def test_audio_production_tier(self):

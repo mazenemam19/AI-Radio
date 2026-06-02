@@ -18,17 +18,28 @@ from typing import Optional
 
 # ── Model constants (exact strings — do not alter) ────────────────────────────
 
-LLAMA_3_3      = "llama-3.3-70b-versatile"
-LLAMA_4_SCOUT = "meta-llama/llama-4-scout-17b-16e-instruct"
-GEMINI_PRIMARY  = "gemini-3.5-flash"
-GEMINI_FALLBACK1 = "gemini-3.1-flash-lite"
-GEMINI_FALLBACK2 = "gemini-2.5-flash"
+GEMINI_FLASH_3_5  = "gemini-3.5-flash"
+GEMINI_PRO_2_5     = "gemini-2.5-pro"
+GEMINI_FLASH_PREVIEW_3     = "gemini-3-flash-preview"
+GEMINI_FLASH_2_5 = "gemini-2.5-flash"
+GEMINI_FLASH_LITE_3_1 = "gemini-3.1-flash-lite"
+GEMINI_FLASH_LITE_2_5 = "gemini-2.5-flash-lite"
 
+GEMINI_FLASH_LITE_PREVIEW_2_5= "gemini-2.5-flash-lite-preview-09-2025"
+GEMMA_4="gemma-4-31b-it"
+GPT_OSS_120="openai/gpt-oss-120b"
+GROQ_COMPUND="groq/compound"
+LLAMA_3_3      = "llama-3.3-70b-versatile"
+GROQ_COMPUND_MINI="groq/compound-mini"
+LLAMA_4_SCOUT = "meta-llama/llama-4-scout-17b-16e-instruct"
+QWEN_3="qwen/qwen3-32b"
+GPT_OSS_20="openai/gpt-oss-20b"
+LLAMA_3_1      ="llama-3.1-8b-instant"
 # Set A: Gold Standard Production Queue.
-MODEL_SET_A: list[str] = [GEMINI_PRIMARY, LLAMA_3_3, LLAMA_4_SCOUT, GEMINI_FALLBACK1]
+MODEL_SET_A: list[str] = [GEMINI_FLASH_3_5, GEMINI_PRO_2_5, GEMINI_FLASH_PREVIEW_3, GEMINI_FLASH_2_5, GEMINI_FLASH_LITE_3_1, GEMINI_FLASH_LITE_2_5]
 
 # Set B: Local Stability Queue.
-MODEL_SET_B: list[str] = [GEMINI_PRIMARY, GEMINI_FALLBACK1]
+MODEL_SET_B: list[str] = [GEMINI_FLASH_LITE_PREVIEW_2_5,GEMMA_4,GPT_OSS_120,GROQ_COMPUND,LLAMA_3_3,GROQ_COMPUND_MINI, LLAMA_4_SCOUT,QWEN_3,GPT_OSS_20,LLAMA_3_1]
 
 GROQ_MODELS: frozenset[str] = frozenset({LLAMA_3_3, LLAMA_4_SCOUT})
 
