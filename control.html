@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="control-app-layout">
 
 <header class="header">
   <a href="index.html" class="logo">Echo FM</a>
@@ -25,7 +25,7 @@
   <div class="header-clock" id="header-clock">--:--:--</div>
 </header>
 
-<div id="app">
+<div id="app-container">
   <div class="stats-bar">
     <div class="stat">
       <div class="stat-lbl">Broadcasts</div>
@@ -62,12 +62,12 @@
   </div>
 </div>
 
-<footer class="footer">
+<footer class="footer" style="position: fixed; bottom: 0; left: 0; right: 0; height: 60px; padding: 0 40px; font-size: 11px; z-index: 100;">
   <div>&copy; 2026 Echo FM — Autonomous Satirical Radio</div>
   <div class="footer-links">
     <a href="#" class="footer-link">Documentation</a>
     <a href="#" class="footer-link">GitHub</a>
-    <span id="header-freq" style="margin-left: 10px; font-size: 9px; opacity: 0.5;">——</span>
+    <span id="header-freq" style="margin-left: 10px; opacity: 0.5;">——</span>
   </div>
 </footer>
 
