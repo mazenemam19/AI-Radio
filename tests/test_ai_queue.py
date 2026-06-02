@@ -19,10 +19,9 @@ class TestAIQueue(unittest.TestCase):
 
     def test_ai_writer_models(self):
         """Verify the exact strings for AI Writing Model sets."""
-        # Set A: Gold Standard Production Queue
+        # Set A: Gold Standard Production Queue (High-Fidelity Reasoning)
         expected_a = [
             "gemini-3.5-flash",
-            "gemini-2.5-pro",
             "gemini-3-flash-preview",
             "gemini-2.5-flash",
             "gemini-3.1-flash-lite",
@@ -30,18 +29,14 @@ class TestAIQueue(unittest.TestCase):
         ]
         self.assertEqual(ai_client.MODEL_SET_A, expected_a, "AI MODEL_SET_A has drifted!")
 
-        # Set B: Local / Development Queue
+        # Set B: Local / Development Queue (Experimental & Preview Tiers)
         expected_b = [
-            "gemini-2.5-flash-lite",
+            "gemini-3-flash-preview",
             "gemma-4-31b-it",
-            "openai/gpt-oss-120b",
+            "gemma-4-26b-a4b-it",
             "groq/compound",
-            "llama-3.3-70b-versatile",
             "groq/compound-mini",
-            "meta-llama/llama-4-scout-17b-16e-instruct",
-            "qwen/qwen3-32b",
-            "openai/gpt-oss-20b",
-            "llama-3.1-8b-instant"
+            "meta-llama/llama-4-scout-17b-16e-instruct"
         ]
         self.assertEqual(ai_client.MODEL_SET_B, expected_b, "AI MODEL_SET_B has drifted!")
 
@@ -50,7 +45,6 @@ class TestAIQueue(unittest.TestCase):
         source = inspect.getsource(tts_generator.generate_segment_audio)
         
         # Verify the priority order: Cartesia -> Kokoro -> Edge-TTS
-        # We search for the presence and order of these calls in the cloud block.
         self.assertIn("_run_cartesia_tts", source, "Production audio missing Cartesia tier.")
         self.assertIn("_run_kokoro_tts", source, "Production audio missing Kokoro tier.")
         
