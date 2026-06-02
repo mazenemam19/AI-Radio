@@ -3,72 +3,147 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ECHO FM — Control Terminal</title>
+  <title>Echo FM — The News, Reimagined</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Azeret Mono: distinctive terminal monospace. Barlow Condensed: broadcast numerals. -->
-  <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Unique styles for Landing Page only */
+    .landing-hero {
+      padding: 120px 40px;
+      text-align: center;
+      background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.05), transparent 40%);
+    }
+    .landing-h1 {
+      font-family: var(--font-display);
+      font-size: clamp(40px, 8vw, 72px);
+      line-height: 1.1;
+      color: var(--primary);
+      margin-bottom: 24px;
+      letter-spacing: -2px;
+    }
+    .landing-sub {
+      font-size: 20px;
+      color: var(--text-mid);
+      max-width: 650px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      padding: 18px 36px;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 16px;
+      display: inline-block;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 30px rgba(16, 185, 129, 0.3);
+    }
+
+    .section { padding: 100px 40px; max-width: 1200px; margin: 0 auto; }
+    .section-title { font-family: var(--font-display); font-size: 36px; color: var(--primary); margin-bottom: 48px; text-align: center; }
+
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; }
+    .card-pro { background: white; padding: 40px; border-radius: 20px; border: 1px solid var(--border-mid); box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: transform 0.3s ease; }
+    .card-pro:hover { transform: translateY(-5px); }
+    .card-icon { font-size: 32px; margin-bottom: 20px; display: block; }
+    .card-title { font-size: 20px; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+    .card-text { font-size: 15px; color: var(--text-mid); line-height: 1.6; }
+
+    .persona-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+    .persona-card { text-align: center; padding: 32px; }
+    .persona-avatar { width: 120px; height: 120px; border-radius: 50%; background: var(--void); margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 40px; border: 4px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+    .persona-name { font-weight: 700; color: var(--primary); font-size: 18px; margin-bottom: 4px; }
+    .persona-role { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+  </style>
 </head>
-<body>
+<body style="overflow-y: auto;">
 
-<!-- ════════════════════════════════════════════════════════════
-     APP SHELL
-════════════════════════════════════════════════════════════ -->
-<div id="app">
-  <header class="header">
-    <div class="logo">ECHO FM<span class="logo-sub">AI RADIO — CONTROL TERMINAL</span></div>
-    <div class="h-sep"></div>
-    <div class="mode-pill" id="mode-pill">
-      <span class="blink-dot"></span>
-      <span id="mode-label">INITIALISING</span>
-    </div>
-    <div class="header-freq" id="header-freq">——</div>
-    <div class="header-clock" id="header-clock">——:——:——</div>
-  </header>
+<header class="header">
+  <a href="index.html" class="logo">Echo FM</a>
+  <nav class="nav">
+    <a href="index.html" class="nav-link active">Home</a>
+    <a href="control.html" class="nav-link">Control Panel</a>
+    <a href="#" class="nav-link">Archives</a>
+  </nav>
+  <div class="mode-pill local">
+    <span class="blink-dot"></span>
+    <span>STATION LIVE</span>
+  </div>
+</header>
 
-  <div class="stats-bar">
-    <div class="stat">
-      <div class="stat-lbl">Total Broadcasts</div>
-      <div class="stat-val" id="stat-count">—</div>
-    </div>
-    <div class="stat">
-      <div class="stat-lbl">Total Plays</div>
-      <div class="stat-val" id="stat-plays">—</div>
-    </div>
-    <div class="stat">
-      <div class="stat-lbl">Total Likes</div>
-      <div class="stat-val" id="stat-likes">—</div>
+<section class="landing-hero">
+  <h1 class="landing-h1">The News, Reimagined</h1>
+  <p class="landing-sub">Autonomous late-night radio powered by AI. Moral clarity, dry wit, and the occasional existential pause.</p>
+  <div style="display: flex; gap: 20px; justify-content: center;">
+    <a href="control.html" class="btn-primary">Listen to the Broadcast</a>
+    <a href="#how-it-works" style="color: var(--text-mid); text-decoration: none; font-weight: 600; padding: 18px 36px;">How it Works ↓</a>
+  </div>
+</section>
+
+<section class="section" id="how-it-works" style="background: white; max-width: none;">
+  <div style="max-width: 1200px; margin: 0 auto;">
+    <h2 class="section-title">The High-Fidelity Pipeline</h2>
+    <div class="grid-3">
+      <div class="card-pro">
+        <span class="card-icon">📡</span>
+        <h3 class="card-title">1. News Aggregation</h3>
+        <p class="card-text">Our system continuously monitors global RSS feeds, from BBC to HackerNews, identifying the signals amidst the noise.</p>
+      </div>
+      <div class="card-pro">
+        <span class="card-icon">🧠</span>
+        <h3 class="card-title">2. Satirical Synthesis</h3>
+        <p class="card-text">Advanced LLMs transform raw facts into a 3-beat radio script, injecting dry wit and moral philosophical depth.</p>
+      </div>
+      <div class="card-pro">
+        <span class="card-icon">🎙️</span>
+        <h3 class="card-title">3. Studio Production</h3>
+        <p class="card-text">High-fidelity TTS engines and a custom audio mixer assemble the final show with music, SFX, and atmospheric loops.</p>
+      </div>
     </div>
   </div>
+</section>
 
-  <div class="main-grid">
-    <!-- Feed -->
-    <div class="feed-panel">
-      <div class="feed-top">
-        <span class="feed-top-label">Episode Feed</span>
-        <span class="feed-top-count" id="feed-count">—</span>
-      </div>
-      <div class="feed-list" id="feed-list">
-        <div class="feed-no-ep">Awaiting signal...</div>
-      </div>
+<section class="section">
+  <h2 class="section-title">Meet the Crew</h2>
+  <div class="persona-grid">
+    <div class="persona-card">
+      <div class="persona-avatar">🎤</div>
+      <div class="persona-name">Alistair</div>
+      <div class="persona-role">The Anchor</div>
     </div>
-
-    <!-- Detail -->
-    <div class="detail-panel" id="detail-panel">
-      <div class="detail-empty" id="detail-empty">
-        <div class="detail-empty-glyph">▶ FM</div>
-        <div class="detail-empty-label">Select a broadcast to inspect</div>
-      </div>
-      <div class="detail-inner" id="detail-inner" style="display:none"></div>
+    <div class="persona-card">
+      <div class="persona-avatar">📹</div>
+      <div class="persona-name">Victoria</div>
+      <div class="persona-role">The Reporter</div>
+    </div>
+    <div class="persona-card">
+      <div class="persona-avatar">🤖</div>
+      <div class="persona-name">Casper</div>
+      <div class="persona-role">The Weatherbot</div>
+    </div>
+    <div class="persona-card">
+      <div class="persona-avatar">🕯️</div>
+      <div class="persona-name">Marcus</div>
+      <div class="persona-role">The Philosopher</div>
     </div>
   </div>
-</div>
+</section>
 
+<footer class="footer">
+  <div>&copy; 2026 Echo FM — Autonomous Satirical Radio</div>
+  <div class="footer-links">
+    <a href="#" class="footer-link">Documentation</a>
+    <a href="#" class="footer-link">GitHub</a>
+  </div>
+</footer>
 
-<!-- ════════════════════════════════════════════════════════════
-     DASHBOARD SCRIPT
-════════════════════════════════════════════════════════════ -->
-<script src="app.js"></script>
 </body>
 </html>

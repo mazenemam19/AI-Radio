@@ -110,20 +110,22 @@
 
     function startHeartbeat() {
         const el = document.getElementById('header-freq');
+        if (!el) return;
         const base = 88.5;
         function pulse() {
             const dev = (Math.random() * 0.4) - 0.2;
             el.textContent = `SIGNAL: ${(base + dev).toFixed(1)} MHZ`;
         }
         pulse();
-        setInterval(pulse, 3000);
+        setInterval(pulse, 5000); // Slower, more subtle pulse
     }
 
     /* ── Mode pill ─────────────────────────────────────────────── */
     function setModePill(mode, label) {
         const pill = document.getElementById('mode-pill');
         const lbl = document.getElementById('mode-label');
-        pill.className = 'mode-pill ' + mode;
+        if (!pill || !lbl) return;
+        pill.className = 'mode-pill ' + (mode === 'supabase' ? 'production' : mode);
         lbl.textContent = label;
     }
 
