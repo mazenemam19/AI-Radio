@@ -159,13 +159,21 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
         from google.genai import types
         client = genai.Client(api_key=api_key)
 
+        # Enable thinking config for reasoning models (e.g. gemma-4)
+        is_reasoning = "gemma-4" in model in model
+        
+        config = types.GenerateContentConfig(
+            max_output_tokens=8192,
+            temperature=0.9 if not is_reasoning else None, # Reasoning models prefer default temp
+        )
+        
+        if is_reasoning:
+            config.thinking_config = types.ThinkingConfig(include_thoughts=True)
+
         response = client.models.generate_content(
             model=model,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                max_output_tokens=8192,
-                temperature=0.9
-            )
+            config=config
         )
         return response.text
     except Exception as exc:
@@ -398,12 +406,13 @@ def _word_set(text: str) -> set[str]:
     return set(re.findall(r"[a-zA-Z]+", text.lower()))
 
 
-def validate_broadcast(data: dict) -> tuple[bool, str]:
+def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     """
     Validate LLM output against show structure and high-fidelity word floors.
 
     Args:
         data: The parsed JSON dictionary from the LLM.
+        env:  The current environment (local, production, etc.)
 
     Returns:
         (is_valid: bool, reason: str)
@@ -432,6 +441,10 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
     valid_speakers = {"ANCHOR", "REPORTER", "COMMENTATOR", "WEATHERBOT", "PHILOSOPHER"}
     valid_styles   = {"normal", "whisper", "grave", "excited", "deadpan"}
 
+    # Adaptive Validation (Stability Patch Part 2)
+    # Production/CI: 130 words (Gold Standard). Local/Dev: 100 words (High stability).
+    min_words = 130 if env in _PRODUCTION_ENVS else 100
+
     for i, seg in enumerate(segments):
         if not isinstance(seg, dict):
             return False, f"Segment {i} is not a dict"
@@ -457,7 +470,6 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
 
         # Word count check
         word_count = len(seg["text"].split())
-        min_words = 130 # The "Revolutionary Floor"
         if word_count < min_words:
             return False, (
                 f"Segment {i} ({seg['speaker']}) has only {word_count} word(s) — need ≥ {min_words}"
@@ -494,13 +506,15 @@ def generate_broadcast(
     model_queue = MODEL_SET_A if env in _PRODUCTION_ENVS else MODEL_SET_B
 
     for attempt, model in enumerate(model_queue):
-        # Creative Fuel: Always use max context (15 items) for high-fidelity production
-        news_limit = 15 
-        prompt = _build_prompt(news, memory, news_limit)
-        
-        # ── Smart Routing ─────────────────────────────────────────────────────
+        # ── Smart Routing & Payload Calibration ───────────────────────────────
         is_gemini = model.startswith(("gemini-", "gemma-"))
         is_groq = model.startswith(("openai/", "groq/", "qwen/", "meta-llama/", "llama-"))
+        
+        # Provider-Aware News Limits (Stability Patch Part 1)
+        # Gemini/Gemma: 15 items (~12k tokens). Groq: 6 items (~7.5k tokens).
+        news_limit = 15 if is_gemini else 6
+        
+        prompt = _build_prompt(news, memory, news_limit)
         
         provider_name = "Gemini" if is_gemini else ("Groq" if is_groq else "UNKNOWN")
 
@@ -544,8 +558,8 @@ def generate_broadcast(
 
         if data is None: continue
             
-        # Final validation
-        valid, reason = validate_broadcast(data)
+        # Final validation (Stability Patch Part 2)
+        valid, reason = validate_broadcast(data, env)
         if not valid:
             print(f"[AI] Validation failed: {reason}. Trying next model.")
             continue
