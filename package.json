@@ -4,7 +4,7 @@
   "description": "AI Radio Echo — automated satirical radio pipeline (AI → TTS → MP4 → YouTube)",
   "private": true,
   "scripts": {
-    "start":               "python main.py --env local",
+    "start":               "python main.py --env local && npm run refresh:lstat-venv",
     "dry-run":             "python main.py --env local --dry-run",
     "prod":                "python main.py --env production",
     "prod:dry":            "python main.py --env production --dry-run",
@@ -15,6 +15,7 @@
     "note:venv":           "NOTE: Use .venv/Scripts/python.exe if system python fails on pyiceberg",
     "refresh:prod-stats":  "python sync_engagement.py --env production",
     "refresh:local-stats": "python sync_engagement.py --env local",
+    "refresh:lstat-venv":  ".\\.venv\\Scripts\\python.exe sync_engagement.py --env local",
     "update:prod-config":  "python sync_config.py --env production",
     "update:local-config": "python sync_config.py --env local",
     "dashboard:prod":      "npm run refresh:prod-stats && npm run update:prod-config && python -m http.server 8080",
