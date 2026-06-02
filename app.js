@@ -109,7 +109,6 @@
     function buildDetail(ep) {
         const tags = parseTags(ep.topic_tags);
         const segments = parseAudioScript(ep.audio_script);
-        const origDiff = ep.original_headline && ep.original_headline !== ep.headline;
 
         let mediaHtml = '';
         const audioUrl = resolveUrl(ep.audio_url);
@@ -124,15 +123,15 @@
         } else if (hasVideo) {
             const ytId = getYoutubeId(videoUrl);
             if (ytId) {
-                mediaHtml = `<div class="video-container"><iframe src="https://www.youtube.com/embed/${ytId}" allowfullscreen></iframe></div>`;
+                mediaHtml = `<div class="video-container" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; background:#000;"><iframe src="https://www.youtube.com/embed/${ytId}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" allowfullscreen></iframe></div>`;
             } else {
-                mediaHtml = `<div class="media-wrap"><a href="${esc(videoUrl)}" target="_blank" class="media-yt-btn">▶ Watch Source</a></div>`;
+                mediaHtml = `<div class="media-wrap"><a href="${esc(videoUrl)}" target="_blank" class="btn-primary" style="font-size:14px; padding:12px 24px;">▶ Watch Source</a></div>`;
             }
         } else {
-            mediaHtml = `<div class="media-wrap"><div class="media-offline">// Media Archive Offline</div></div>`;
+            mediaHtml = `<div class="media-wrap"><div style="font-size:12px; color:var(--text-lo); letter-spacing:1px;">// Media Archive Offline</div></div>`;
         }
 
-        const tagsHtml = tags.length ? `<div class="tags">${tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : '';
+        const tagsHtml = tags.length ? `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:16px;">${tags.map(t => `<span class="conf-badge" style="background:var(--void); color:var(--cyan); border:1px solid var(--border-mid);">#${esc(t)}</span>`).join('')}</div>` : '';
         const scriptHtml = segments.map(seg => `
             <div class="script-seg">
                 <div class="script-speaker">${esc(seg.speaker)}</div>
@@ -143,7 +142,6 @@
 
         return `
             <div class="detail-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
-            ${origDiff ? `<div class="detail-orig">↳ orig: ${esc(ep.original_headline)}</div>` : ''}
             
             <div class="detail-meta">
                 <span class="meta-chip"><span class="lbl">SRC</span> ${esc(ep.source || '--')}</span>
@@ -162,20 +160,20 @@
             <div class="d-section">
                 <div class="d-section-lbl">// AI Insights</div>
                 <div class="my-take">${esc(ep.my_take || '')}</div>
-                ${ep.post_text ? `<div class="post-text" style="margin-top:20px; font-size:13px; color:var(--text-mid); padding:16px; background:var(--void); border-radius:8px;">${esc(ep.post_text)}</div>` : ''}
+                ${ep.post_text ? `<div style="margin-top:24px; font-size:14px; color:var(--text-mid); padding:20px; background:var(--void); border-radius:12px; line-height:1.6; border-left:4px solid var(--border-mid);">${esc(ep.post_text)}</div>` : ''}
                 ${tagsHtml}
             </div>
 
             <div class="d-section">
                 <div class="d-section-lbl">// Model Telemetry</div>
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px;">
-                    <div style="background:var(--void); padding:12px; border-radius:8px; border:1px solid var(--border);">
-                        <div style="font-size:9px; font-weight:800; color:var(--text-lo); margin-bottom:4px; text-transform:uppercase;">Writer</div>
-                        <div style="font-size:11px; font-weight:600; color:var(--primary);">${esc(ep.writer_model || '--')}</div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px;">
+                    <div style="background:var(--void); padding:16px; border-radius:12px; border:1px solid var(--border);">
+                        <div style="font-size:10px; font-weight:800; color:var(--text-lo); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Writer Model</div>
+                        <div style="font-size:12px; font-weight:700; color:var(--primary);">${esc(ep.writer_model || '--')}</div>
                     </div>
-                    <div style="background:var(--void); padding:12px; border-radius:8px; border:1px solid var(--border);">
-                        <div style="font-size:9px; font-weight:800; color:var(--text-lo); margin-bottom:4px; text-transform:uppercase;">Narrator</div>
-                        <div style="font-size:11px; font-weight:600; color:var(--primary);">${esc(ep.narrator_model || '--')}</div>
+                    <div style="background:var(--void); padding:16px; border-radius:12px; border:1px solid var(--border);">
+                        <div style="font-size:10px; font-weight:800; color:var(--text-lo); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Narrator Model</div>
+                        <div style="font-size:12px; font-weight:700; color:var(--primary);">${esc(ep.narrator_model || '--')}</div>
                     </div>
                 </div>
             </div>
@@ -214,12 +212,16 @@
     }
 
     function updateStats(cfg) {
+        const episodes = cfg.episodes || [];
         const countEl = document.getElementById('stat-count');
         const playsEl = document.getElementById('stat-plays');
         const likesEl = document.getElementById('stat-likes');
-        if (countEl) countEl.textContent = cfg.episode_count || 0;
+        const feedCountEl = document.getElementById('feed-count');
+
+        if (countEl) countEl.textContent = cfg.episode_count || episodes.length;
         if (playsEl) playsEl.textContent = (cfg.total_plays || 0).toLocaleString();
         if (likesEl) likesEl.textContent = (cfg.total_likes || 0).toLocaleString();
+        if (feedCountEl) feedCountEl.textContent = `${episodes.length} / ${cfg.episode_count || episodes.length}`;
     }
 
     function renderFeed(episodes) {
@@ -275,7 +277,6 @@
             updateStats(cfg);
             renderFeed(_episodes);
 
-            // Handle URL parameter ?id=123
             const urlParams = new URLSearchParams(window.location.search);
             const id = urlParams.get('id');
             if (id) {
