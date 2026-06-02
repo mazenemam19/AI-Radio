@@ -93,12 +93,13 @@
             inner.innerHTML = buildDetail(ep);
 
             // Accordion toggle
-            inner.querySelectorAll('.accordion-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const acc = btn.closest('.accordion');
+            const accBtn = inner.querySelector('.accordion-btn');
+            if (accBtn) {
+                accBtn.onclick = () => {
+                    const acc = accBtn.closest('.accordion');
                     acc.classList.toggle('open');
-                });
-            });
+                };
+            }
         }
 
         // Mobile: show detail panel
@@ -149,7 +150,7 @@
                 <span class="meta-chip"><span class="lbl">DUR</span> ${fmtDuration(ep.broadcast_duration)}</span>
                 <span class="meta-chip"><span class="lbl">PLAYS</span> ${ep.plays ?? 0}</span>
                 <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
-                ${healed ? '<span class="healer-chip healed">⚠ HEALED</span>' : ''}
+                ${healed ? '<span class="healer-chip">HEALED</span>' : ''}
             </div>
 
             <div class="d-section">
@@ -185,7 +186,7 @@
                         <span style="font-weight:700; font-size:13px; color:var(--primary);">SHOW DIALOGUE — ${segments.length} SEGMENTS</span>
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform 0.2s;"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                     </button>
-                    <div class="accordion-body" style="display:none; padding-top:20px;">${scriptHtml}</div>
+                    <div class="accordion-body">${scriptHtml}</div>
                 </div>
             </div>
         `;
@@ -239,8 +240,11 @@
             list.innerHTML = '<div class="feed-no-ep">No broadcasts found.</div>';
             return;
         }
+
+        const cardClass = window.isArchivesPage ? 'archives-card' : 'ep-card';
+
         list.innerHTML = episodes.map((ep, i) => `
-            <div class="ep-card" data-idx="${i}" tabindex="0">
+            <div class="${cardClass}" data-idx="${i}" tabindex="0" onclick="window._selectEpisode(${i})">
                 <div class="ep-card-row1">
                     <div class="ep-headline">${esc(ep.headline)}</div>
                     <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
@@ -256,14 +260,11 @@
                 </div>
             </div>
         `).join('');
-
-        list.querySelectorAll('.ep-card').forEach(card => {
-            card.addEventListener('click', () => selectEpisode(parseInt(card.dataset.idx, 10)));
-        });
     }
 
     let _episodes = [];
     let _selectedIdx = null;
+    window._selectEpisode = (idx) => selectEpisode(idx);
 
     async function init() {
         startClock();
@@ -273,8 +274,8 @@
         if (detailPanel) {
             const backBtn = document.createElement('div');
             backBtn.className = 'mobile-back-btn';
-            backBtn.innerHTML = '← Back to feed';
-            backBtn.addEventListener('click', () => { detailPanel.classList.remove('mobile-open'); });
+            backBtn.innerHTML = 'Back to feed';
+            backBtn.onclick = () => { detailPanel.classList.remove('mobile-open'); };
             detailPanel.insertBefore(backBtn, detailPanel.firstChild);
         }
 
@@ -286,9 +287,9 @@
             const mode = (cfg.mode || 'local').toLowerCase();
             const isProduction = mode === 'production' || mode === 'supabase';
             if (isProduction) {
-                setModePill('production', 'PRODUCTION MODE');
+                setModePill('production', 'LIVE');
             } else {
-                setModePill('local', 'LOCAL — SQLITE');
+                setModePill('local', 'DEVELOPMENT');
             }
 
             updateStats(cfg);

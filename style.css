@@ -3,11 +3,13 @@
        "Creative, Smooth, Professional"
        ═══════════════════════════════════════════════════════════ */
 :root {
+    /* Brand Colors */
     --primary: #1E293B;      /* Deep Slate */
     --secondary: #334155;    /* Slate */
     --accent: #10B981;       /* Smooth Emerald */
     --accent-glow: rgba(16, 185, 129, 0.15);
     
+    /* Functional Colors */
     --text-hi: #0F172A;      /* Ink */
     --text-mid: #475569; 
     --text-lo: #64748B; 
@@ -20,7 +22,7 @@
     --border-mid: rgba(30, 41, 59, 0.12);
     --border-active: var(--accent);
 
-    /* Status Colors */
+    /* Status Colors (increased opacity for visibility) */
     --green: #10B981;
     --green-dim: rgba(16, 185, 129, 0.15);
     --amber: #F59E0B;
@@ -30,9 +32,11 @@
     --cyan: #3B82F6;
     --cyan-dim: rgba(59, 130, 246, 0.15);
 
+    /* Typography */
     --font: 'Inter', system-ui, -apple-system, sans-serif;
     --font-display: 'Space Grotesk', sans-serif;
     
+    /* Effects */
     --radius-sm: 6px;
     --radius-md: 12px;
     --radius-lg: 24px;
@@ -119,11 +123,11 @@ body {
 .ep-card { padding: 24px; margin-bottom: 12px; border-radius: var(--radius-md); border: 1px solid transparent; cursor: pointer; transition: all var(--ease); background: transparent; }
 .ep-card:hover { background: var(--void); border-color: var(--border-mid); }
 .ep-card.active { background: var(--surface); border-color: var(--accent); box-shadow: var(--shadow-md); transform: scale(1.01); }
-.ep-card-row1 { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.ep-card-row1 { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; pointer-events: none; }
 .ep-headline { font-size: 14px; font-weight: 600; color: var(--text-hi); line-height: 1.5; flex: 1; }
-.signal-wrap { height: 4px; background: var(--void); border-radius: 2px; margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); }
+.signal-wrap { height: 4px; background: var(--void); border-radius: 2px; margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); pointer-events: none; }
 .signal-bar { height: 100%; background: var(--accent); transition: width 1s ease-out; }
-.ep-card-row2 { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-lo); font-weight: 600; }
+.ep-card-row2 { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-lo); font-weight: 600; pointer-events: none; }
 .ep-source { color: var(--primary); font-weight: 800; text-transform: uppercase; font-size: 10px; }
 .ep-eng { display: flex; gap: 8px; }
 .ep-eng-item { background: var(--void); padding: 4px 8px; border-radius: 6px; color: var(--text-mid); font-size: 10px; }
@@ -149,6 +153,11 @@ body {
 .script-speaker { font-size: 11px; font-weight: 800; color: var(--accent); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1px; }
 .script-text { font-size: 16px; color: var(--text-hi); line-height: 1.8; }
 .healer-chip { font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 20px; background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.2); }
+
+/* Accordion */
+.accordion-body { display: none; padding-top: 20px; }
+.accordion.open .accordion-body { display: block; }
+.accordion.open .accordion-btn svg { transform: rotate(180deg); }
 
 /* ══════════════════════════════════════════════════════════
        LANDING PAGE & ARCHIVES
@@ -185,7 +194,7 @@ body {
 .footer-link:hover { color: var(--primary); }
 
 /* Conf Badges */
-.conf-badge { font-size: 10px; font-weight: 800; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; border: 1px solid transparent; }
+.conf-badge { font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; border: 1px solid transparent; }
 .conf-badge.high { background: var(--green-dim); color: var(--green); border-color: rgba(16, 185, 129, 0.2); }
 .conf-badge.medium { background: var(--amber-dim); color: var(--amber); border-color: rgba(245, 158, 11, 0.2); }
 .conf-badge.low { background: var(--coral-dim); color: var(--coral); border-color: rgba(239, 68, 68, 0.2); }
