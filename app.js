@@ -4,7 +4,7 @@
     /* ── Utilities ─────────────────────────────────────────────── */
 
     function fmtDuration(secs) {
-        if (!secs && secs !== 0) return '--';
+        if (!secs && secs !== 0) return '--:--';
         const s = Math.round(Number(secs));
         const m = Math.floor(s / 60);
         const rem = s % 60;
@@ -129,24 +129,64 @@
                 mediaHtml = `<div class="media-wrap"><a href="${esc(videoUrl)}" target="_blank" class="media-yt-btn">▶ Watch Source</a></div>`;
             }
         } else {
-            mediaHtml = `<div class="media-wrap"><div class="media-offline">Media Archive Offline</div></div>`;
+            mediaHtml = `<div class="media-wrap"><div class="media-offline">// Media Archive Offline</div></div>`;
         }
 
         const tagsHtml = tags.length ? `<div class="tags">${tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>` : '';
-        const scriptHtml = segments.map(seg => `<div class="script-seg"><div class="script-speaker">${esc(seg.speaker)}</div><div class="script-text">${esc(seg.text)}</div></div>`).join('');
+        const scriptHtml = segments.map(seg => `
+            <div class="script-seg">
+                <div class="script-speaker">${esc(seg.speaker)}</div>
+                <div class="script-text">${esc(seg.text)}</div>
+            </div>`).join('');
+
+        const healed = ep.healer_used === true || ep.healer_used === 1 || ep.healer_used === 'true';
 
         return `
             <div class="detail-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
+            ${origDiff ? `<div class="detail-orig">↳ orig: ${esc(ep.original_headline)}</div>` : ''}
+            
             <div class="detail-meta">
+                <span class="meta-chip"><span class="lbl">SRC</span> ${esc(ep.source || '--')}</span>
                 <span class="meta-chip"><span class="lbl">DATE</span> ${esc(fmtDate(ep.created_at))}</span>
+                <span class="meta-chip"><span class="lbl">DUR</span> ${fmtDuration(ep.broadcast_duration)}</span>
                 <span class="meta-chip"><span class="lbl">PLAYS</span> ${ep.plays ?? 0}</span>
                 <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
+                ${healed ? '<span class="healer-chip healed">⚠ HEALED</span>' : ''}
             </div>
-            <div class="d-section"><div class="d-section-lbl">// Transmission Archive</div>${mediaHtml}</div>
-            <div class="d-section"><div class="d-section-lbl">// AI Insights</div><div class="my-take">${esc(ep.my_take || '')}</div>${tagsHtml}</div>
-            <div class="d-section"><div class="d-section-lbl">// Raw Broadcast Script</div>
+
+            <div class="d-section">
+                <div class="d-section-lbl">// Transmission Archive</div>
+                ${mediaHtml}
+            </div>
+
+            <div class="d-section">
+                <div class="d-section-lbl">// AI Insights</div>
+                <div class="my-take">${esc(ep.my_take || '')}</div>
+                ${ep.post_text ? `<div class="post-text" style="margin-top:20px; font-size:13px; color:var(--text-mid); padding:16px; background:var(--void); border-radius:8px;">${esc(ep.post_text)}</div>` : ''}
+                ${tagsHtml}
+            </div>
+
+            <div class="d-section">
+                <div class="d-section-lbl">// Model Telemetry</div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px;">
+                    <div style="background:var(--void); padding:12px; border-radius:8px; border:1px solid var(--border);">
+                        <div style="font-size:9px; font-weight:800; color:var(--text-lo); margin-bottom:4px; text-transform:uppercase;">Writer</div>
+                        <div style="font-size:11px; font-weight:600; color:var(--primary);">${esc(ep.writer_model || '--')}</div>
+                    </div>
+                    <div style="background:var(--void); padding:12px; border-radius:8px; border:1px solid var(--border);">
+                        <div style="font-size:9px; font-weight:800; color:var(--text-lo); margin-bottom:4px; text-transform:uppercase;">Narrator</div>
+                        <div style="font-size:11px; font-weight:600; color:var(--primary);">${esc(ep.narrator_model || '--')}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-section">
+                <div class="d-section-lbl">// Raw Broadcast Script</div>
                 <div class="accordion" id="script-accordion">
-                    <button class="accordion-btn"><span>SHOW DIALOGUE — ${segments.length} SEGMENTS</span></button>
+                    <button class="accordion-btn">
+                        <span>SHOW DIALOGUE — ${segments.length} SEGMENTS</span>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform 0.2s;"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
                     <div class="accordion-body">${scriptHtml}</div>
                 </div>
             </div>
@@ -199,8 +239,8 @@
                 <div class="ep-card-row2">
                     <span class="ep-source">${esc(ep.source || '--')}</span>
                     <div class="ep-eng">
-                        <div class="ep-eng-item">P ${ep.plays ?? 0}</div>
-                        <div class="ep-eng-item">L ${ep.likes ?? 0}</div>
+                        <div class="ep-eng-item">▶ ${ep.plays ?? 0}</div>
+                        <div class="ep-eng-item">❤ ${ep.likes ?? 0}</div>
                     </div>
                     <span class="ep-card-date">${esc(fmtDate(ep.created_at))}</span>
                 </div>
