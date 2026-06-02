@@ -2,13 +2,17 @@
 ai_client.py — AI Radio Echo
 LLM orchestration for satirical radio broadcast generation.
 
-Model queues (set by --env, never inferred):
-  Set A (Production): llama-3.3-70b-versatile → llama-4-scout-17b-instruct → gemini-3.5-flash → gemini-3.1-flash-lite
-  Set B (Stability):  gemini-3.1-flash-lite → gemini-2.5-flash
+Workflow:
+  1. Model selection based on environment (Set A: Production, Set B: Local).
+  2. Prompt construction using news feed and station memory.
+  3. LLM call with explicit token limits and retry logic.
+  4. Structural validation and word-count verification.
+  5. Fallback sequence on failure.
 
-Step-down: first attempt uses 15 news items; each subsequent model drops to 8.
-JSON healing attempted once on parse failure — no regex repair ever.
-Validation failure is terminal; retries are the caller's responsibility.
+High-Fidelity Rules:
+  - Minimum 130 words per segment.
+  - Mandatory Weatherbot (middle) and Philosopher (end) segments.
+  - No Jaccard word overlap > 50% between segments.
 """
 
 import json
@@ -16,32 +20,62 @@ import os
 import re
 from typing import Optional
 
-# ── Model constants (exact strings — do not alter) ────────────────────────────
+# ── Model Constants ───────────────────────────────────────────────────────────
+# Note: These IDs must match the providers' official model strings.
 
-GEMINI_FLASH_3_5  = "gemini-3.5-flash"
-GEMINI_PRO_2_5     = "gemini-2.5-pro"
-GEMINI_FLASH_PREVIEW_3     = "gemini-3-flash-preview"
-GEMINI_FLASH_2_5 = "gemini-2.5-flash"
-GEMINI_FLASH_LITE_3_1 = "gemini-3.1-flash-lite"
-GEMINI_FLASH_LITE_2_5 = "gemini-2.5-flash-lite"
+# Google Gemini series
+GEMINI_3_5_FLASH      = "gemini-3.5-flash"
+GEMINI_2_5_PRO        = "gemini-2.5-pro"
+GEMINI_3_FLASH_PREV   = "gemini-3-flash-preview"
+GEMINI_2_5_FLASH      = "gemini-2.5-flash"
+GEMINI_3_1_LITE       = "gemini-3.1-flash-lite"
+GEMINI_2_5_LITE       = "gemini-2.5-flash-lite"
+GEMINI_2_5_LITE_PREV  = "gemini-2.5-flash-lite-preview-09-2025"
 
-GEMINI_FLASH_LITE_PREVIEW_2_5= "gemini-2.5-flash-lite-preview-09-2025"
-GEMMA_4="gemma-4-31b-it"
-GPT_OSS_120="openai/gpt-oss-120b"
-GROQ_COMPUND="groq/compound"
-LLAMA_3_3      = "llama-3.3-70b-versatile"
-GROQ_COMPUND_MINI="groq/compound-mini"
-LLAMA_4_SCOUT = "meta-llama/llama-4-scout-17b-16e-instruct"
-QWEN_3="qwen/qwen3-32b"
-GPT_OSS_20="openai/gpt-oss-20b"
-LLAMA_3_1      ="llama-3.1-8b-instant"
-# Set A: Gold Standard Production Queue.
-MODEL_SET_A: list[str] = [GEMINI_FLASH_3_5, GEMINI_PRO_2_5, GEMINI_FLASH_PREVIEW_3, GEMINI_FLASH_2_5, GEMINI_FLASH_LITE_3_1, GEMINI_FLASH_LITE_2_5]
+# Meta Llama series (via Groq)
+LLAMA_3_3_70B         = "llama-3.3-70b-versatile"
+LLAMA_4_SCOUT         = "meta-llama/llama-4-scout-17b-16e-instruct"
+LLAMA_3_1_8B          = "llama-3.1-8b-instant"
 
-# Set B: Local Stability Queue.
-MODEL_SET_B: list[str] = [GEMINI_FLASH_LITE_PREVIEW_2_5,GEMMA_4,GPT_OSS_120,GROQ_COMPUND,LLAMA_3_3,GROQ_COMPUND_MINI, LLAMA_4_SCOUT,QWEN_3,GPT_OSS_20,LLAMA_3_1]
+# Experimental / Future-ready tiers
+GEMMA_4               = "gemma-4-31b-it"
+GPT_OSS_120           = "openai/gpt-oss-120b"
+GPT_OSS_20            = "openai/gpt-oss-20b"
+GROQ_COMPOUND         = "groq/compound"
+GROQ_COMPOUND_MINI    = "groq/compound-mini"
+QWEN_3                = "qwen/qwen3-32b"
 
-GROQ_MODELS: frozenset[str] = frozenset({LLAMA_3_3, LLAMA_4_SCOUT})
+# ── Model Queues ──────────────────────────────────────────────────────────────
+
+# Set A: Gold Standard Production Queue (High-Fidelity Reasoning)
+MODEL_SET_A: list[str] = [
+    GEMINI_3_5_FLASH,
+    GEMINI_2_5_PRO,
+    GEMINI_3_FLASH_PREV,
+    GEMINI_2_5_FLASH,
+    GEMINI_3_1_LITE,
+    GEMINI_2_5_LITE,
+]
+
+# Set B: Local / Development Queue (Experimental & Preview Tiers)
+MODEL_SET_B: list[str] = [
+    GEMINI_2_5_LITE_PREV,
+    GEMMA_4,
+    GPT_OSS_120,
+    GROQ_COMPOUND,
+    LLAMA_3_3_70B,
+    GROQ_COMPOUND_MINI,
+    LLAMA_4_SCOUT,
+    QWEN_3,
+    GPT_OSS_20,
+    LLAMA_3_1_8B,
+]
+
+GROQ_MODELS: frozenset[str] = frozenset({
+    LLAMA_3_3_70B, 
+    LLAMA_4_SCOUT, 
+    LLAMA_3_1_8B
+})
 
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
 
@@ -51,13 +85,12 @@ def heal_truncated_json(raw: str) -> Optional[dict]:
     """
     Attempt to salvage a truncated JSON object from an LLM response.
 
-    Strategy (no regex content patching — only structural token appending):
-      1. Try appending common closing sequences to the raw string.
-      2. Walk the raw string character-by-character to find the last properly
-         closed segment object (brace depth returns to 1), then truncate there
-         and close the array + outer object.
+    Strategy:
+      1. Simple Append: Try closing the outer dict and array if nearly complete.
+      2. Object Walking: Find the last deep-nested segment that is validly closed.
 
-    Returns a parsed dict or None if healing is impossible.
+    Returns:
+        A parsed dict or None if structural repair is impossible.
     """
     candidate = raw.strip()
 
@@ -70,7 +103,7 @@ def heal_truncated_json(raw: str) -> Optional[dict]:
         except json.JSONDecodeError:
             pass
 
-    # Pass 2: walk to last complete segment, then close
+    # Pass 2: walk to last complete segment object
     last_valid_end = -1
     brace_depth = 0
     in_string = False
@@ -91,8 +124,7 @@ def heal_truncated_json(raw: str) -> Optional[dict]:
                 brace_depth += 1
             elif ch == "}":
                 brace_depth -= 1
-                # depth 1 means we just closed a segment (still inside the array)
-                if brace_depth == 1:
+                if brace_depth == 1: # Closed a segment inside the "segments" array
                     last_valid_end = i
 
     if last_valid_end > 0:
@@ -108,16 +140,13 @@ def heal_truncated_json(raw: str) -> Optional[dict]:
     return None
 
 
-# ── LLM callers ───────────────────────────────────────────────────────────────
+# ── LLM Callers ───────────────────────────────────────────────────────────────
 
 def call_groq(prompt: str, model: str) -> Optional[str]:
-    """
-    Call the Groq chat completions API.
-    Returns the response text or None on any error (logged, not re-raised).
-    """
+    """Execute chat completion via Groq SDK."""
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key:
-        print("[AI] GROQ_API_KEY is not set — cannot call Groq.")
+        print("[AI] GROQ_API_KEY is not set.")
         return None
 
     try:
@@ -136,13 +165,10 @@ def call_groq(prompt: str, model: str) -> Optional[str]:
 
 
 def call_gemini(prompt: str, model: str) -> Optional[str]:
-    """
-    Call the Gemini API via the modern google-genai SDK.
-    Returns the response text or None on any error (logged, not re-raised).
-    """
+    """Execute content generation via modern Google GenAI SDK."""
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
-        print("[AI] GEMINI_API_KEY is not set — cannot call Gemini.")
+        print("[AI] GEMINI_API_KEY is not set.")
         return None
 
     try:
@@ -150,7 +176,6 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
         from google.genai import types
         client = genai.Client(api_key=api_key)
 
-        # Set explicit output limit to prevent truncation causing 'half scripts'
         response = client.models.generate_content(
             model=model,
             contents=prompt,
@@ -164,10 +189,10 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
         print(f"[AI] Gemini call failed (model={model}): {exc}")
         return None
 
-# ── Broadcast prompt ──────────────────────────────────────────────────────────
+# ── Prompt Engineering ────────────────────────────────────────────────────────
 
 def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
-    """Construct the LLM prompt for a full satirical radio broadcast."""
+    """Construct the head-writer prompt for Echo FM."""
     news_block = "\n".join(
         f"  [{item.get('source', '?')}] {item['headline']} — {item.get('summary', '')}"
         for item in news[:news_limit]
@@ -332,75 +357,31 @@ You are writing for machines to speak, not for humans to read.
    The real answer must name a specific human consequence — not an abstraction.
    End on a question the listener has to carry with them. Not an answer.
    Silence IS a production choice. Write for it.
-
-
-════════════════════════════════════════
-FORMATTING EXAMPLES
-════════════════════════════════════════
-
-✅ CORRECT — ANCHOR, voice_style: normal:
-"Another deal. Another handshake. Another room full of people who will not be
-affected by the outcome.\\\\n\\\\nThe agreement covers 47 nations. It was negotiated
-by 12. Ratified so far... by three.\\\\nThe press release called it historic.\\\\n
-The press release was written before the vote.\\\\n\\\\nNobody flagged this.
-NOBODY.\\\\n\\\\nWelcome to Wednesday."
-
-✅ CORRECT — ANCHOR, voice_style: whisper:
-"And now... and I want to be careful here... there are reports — unconfirmed,
-officially — that the ministry may have... misplaced a file.\\\\n\\\\nNot lost it.
-Not destroyed it. Misplaced.\\\\n\\\\nThat word is doing a LOT of work tonight.\\\\n\\\\n
-We will... move on."
-
-✅ CORRECT — WEATHERBOT, voice_style: deadpan:
-"Outlook: sustained institutional optimism despite contrary indicators.
-A high-pressure front of regulatory delay is holding over the western hemisphere.
-Probability of meaningful consequence: 6%.\\\\n\\\\nExpect scattered accountability
-gaps through the weekend. Those in exposed sectors are advised to document
-their decisions in writing.\\\\n\\\\nThis has been your forecast. Echo FM is not
-responsible for conditions on the ground."
-
-✅ CORRECT — PHILOSOPHER, voice_style: grave:
-"A border closed today. Not dramatically — no sirens, no announcement.
-A form changed. A checkbox moved. Quietly.\\\\n\\\\nSomewhere, a family had the
-right paperwork on Tuesday. They do not have it today.\\\\nThe rule did not
-target them. It did not need to.\\\\nThe rule does not know their name.\\\\n\\\\n
-We build systems that outlast the intentions behind them.\\\\nWe forget to
-check what they became.\\\\n\\\\nWho is responsible for a system that works
-exactly as designed... just not for everyone?\\\\n\\\\nGoodnight."
-
-❌ INCORRECT — do not write like this:
-"The ongoing geopolitical situation in the region has continued to develop in
-ways that experts describe as concerning, with multiple stakeholders expressing
-varying degrees of alarm at the trajectory of events as they have unfolded over
-the past several weeks, raising fundamental questions about the future stability
-of institutions that many had previously assumed were robust."
 """
 
 
-# ── Validation ────────────────────────────────────────────────────────────────
+# ── Validation Logic ──────────────────────────────────────────────────────────
 
 def _jaccard(a: set, b: set) -> float:
-    if not a or not b:
-        return 0.0
+    """Calculate Jaccard similarity index."""
+    if not a or not b: return 0.0
     return len(a & b) / len(a | b)
 
 
 def _word_set(text: str) -> set[str]:
+    """Tokenise text into a lowercased word set."""
     return set(re.findall(r"[a-zA-Z]+", text.lower()))
 
 
 def validate_broadcast(data: dict) -> tuple[bool, str]:
     """
-    Validate the parsed broadcast JSON against all spec rules.
+    Validate LLM output against show structure and high-fidelity word floors.
 
-    Checks (in order):
-      1. data is a dict with required keys.
-      2. segments is a list with ≥ 8 items.
-      3. Each segment has 'speaker', 'text', 'voice_style', 'sfx_pre', 'sfx_post'.
-      4. Each segment text has ≥ 130 words.
-      5. No segment has > 50% Jaccard word overlap with any prior segment.
+    Args:
+        data: The parsed JSON dictionary from the LLM.
 
-    Returns (is_valid: bool, reason: str).
+    Returns:
+        (is_valid: bool, reason: str)
     """
     if not isinstance(data, dict):
         return False, "Response is not a dict"
@@ -420,23 +401,22 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
         return False, f"Only {len(segments)} segment(s) — need ≥ 8"
 
     seen_word_sets: list[set] = []
-    
-    # Track mandatory segments
     has_weatherbot = False
     has_philosopher = False
 
     valid_speakers = {"ANCHOR", "REPORTER", "COMMENTATOR", "WEATHERBOT", "PHILOSOPHER"}
-    valid_styles = {"normal", "whisper", "grave", "excited", "deadpan"}
+    valid_styles   = {"normal", "whisper", "grave", "excited", "deadpan"}
 
     for i, seg in enumerate(segments):
         if not isinstance(seg, dict):
             return False, f"Segment {i} is not a dict"
         
-        # Check required segment keys
+        # Key presence
         for k in ["speaker", "text", "voice_style", "sfx_pre", "sfx_post"]:
             if k not in seg:
                 return False, f"Segment {i} missing '{k}'"
 
+        # Content validation
         if seg["speaker"] not in valid_speakers:
             return False, f"Segment {i} has invalid speaker: {seg['speaker']}"
         
@@ -450,28 +430,24 @@ def validate_broadcast(data: dict) -> tuple[bool, str]:
             if i != len(segments) - 1:
                 return False, "PHILOSOPHER must be the final segment."
 
+        # Word count check
         word_count = len(seg["text"].split())
-        min_words = 130
+        min_words = 130 # The "Revolutionary Floor"
         if word_count < min_words:
             return False, (
                 f"Segment {i} ({seg['speaker']}) has only {word_count} word(s) — need ≥ {min_words}"
             )
 
-        # Repetition / Jaccard similarity check
+        # Repetition check (anti-hallucination)
         seg_words = _word_set(seg["text"])
         for j, prev_words in enumerate(seen_word_sets):
             similarity = _jaccard(seg_words, prev_words)
             if similarity > 0.5:
-                return False, (
-                    f"Segment {i} has {similarity:.0%} Jaccard overlap with "
-                    f"segment {j} — exceeds 50% threshold"
-                )
+                return False, f"Segment {i} has >50% word overlap with segment {j}."
         seen_word_sets.append(seg_words)
 
-    if not has_weatherbot:
-        return False, "Missing mandatory WEATHERBOT segment"
-    if not has_philosopher:
-        return False, "Missing mandatory PHILOSOPHER segment"
+    if not has_weatherbot: return False, "Missing mandatory WEATHERBOT segment"
+    if not has_philosopher: return False, "Missing mandatory PHILOSOPHER segment"
 
     return True, "OK"
 
@@ -484,17 +460,11 @@ def generate_broadcast(
     env: str,
 ) -> Optional[dict]:
     """
-    Generate and validate a satirical broadcast script.
+    Generate a satirical broadcast script using a priority model queue.
 
-    Model selection (controlled entirely by env):
-      - prod-models / production → Set A (Groq → Gemini primary → Gemini fallback)
-      - local / prod-db          → Set B (Gemini primary only)
-
-    Step-down: first model gets 15 news items; each subsequent gets 8.
-    JSON healing runs once on parse failure; no regex repair ever.
-    Validation failure returns None immediately — caller is responsible for retries.
-    Returns validated dict with '_writer_model' and '_healer_used' metadata keys,
-    or None on total failure.
+    Selection:
+      - production/prod-models: Prioritizes high-tier Gemini/Groq.
+      - local/prod-db: Prioritizes preview/experimental models for dev feedback.
     """
     model_queue = MODEL_SET_A if env in _PRODUCTION_ENVS else MODEL_SET_B
 
@@ -510,47 +480,42 @@ def generate_broadcast(
 
         raw = call_groq(prompt, model) if is_groq else call_gemini(prompt, model)
         if raw is None:
-            print(f"[AI] {model} returned None — trying next model.")
+            print(f"[AI] {model} returned None. Trying next.")
             continue
 
-        # Strip accidental markdown fences the model might add
+        # Strip markdown noise
         raw = raw.strip()
         if raw.startswith("```"):
             raw = re.sub(r"^```[a-z]*\n?", "", raw)
             raw = re.sub(r"\n?```$", "", raw)
             raw = raw.strip()
 
-        # Parse JSON
+        # JSON parsing + healing
         data: Optional[dict] = None
         healer_used = False
         try:
             data = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            print(f"[AI] JSON parse failed ({exc}). Attempting heal.")
+        except json.JSONDecodeError:
+            print(f"[AI] JSON parse failed. Attempting heal.")
             data = heal_truncated_json(raw)
             if data is None:
-                print(f"[AI] Heal failed — model {model} unusable. Trying next.")
+                print(f"[AI] Heal failed. Trying next model.")
                 continue
             healer_used = True
             print("[AI] JSON healed successfully.")
 
-        # Validate structure + repetition
-        if data is None:
-            continue
+        if data is None: continue
             
+        # Final validation
         valid, reason = validate_broadcast(data)
         if not valid:
             print(f"[AI] Validation failed: {reason}. Trying next model.")
             continue
 
-        # Attach pipeline metadata
+        # Metadata attachment
         data["_writer_model"] = model
         data["_healer_used"] = healer_used
-        print(
-            f"[AI] Broadcast validated — {len(data['segments'])} segments, "
-            f"model={model}, healer={healer_used}"
-        )
+        print(f"[AI] Broadcast validated — {len(data['segments'])} segments.")
         return data
 
-    print("[AI] All models exhausted — generate_broadcast returning None.")
     return None
