@@ -125,7 +125,7 @@
             if (ytId) {
                 mediaHtml = `<div class="video-container" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; background:#000;"><iframe src="https://www.youtube.com/embed/${ytId}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" allowfullscreen></iframe></div>`;
             } else {
-                mediaHtml = `<div class="media-wrap"><a href="${esc(videoUrl)}" target="_blank" class="btn-primary" style="font-size:14px; padding:12px 24px;">▶ Watch Source</a></div>`;
+                mediaHtml = `<div class="media-wrap"><a href="${esc(videoUrl)}" target="_blank" class="btn-primary" style="font-size:14px; padding:12px 24px;">Watch Source</a></div>`;
             }
         } else {
             mediaHtml = `<div class="media-wrap"><div style="font-size:12px; color:var(--text-lo); letter-spacing:1px;">// Media Archive Offline</div></div>`;
@@ -181,11 +181,11 @@
             <div class="d-section">
                 <div class="d-section-lbl">// Raw Broadcast Script</div>
                 <div class="accordion" id="script-accordion">
-                    <button class="accordion-btn">
-                        <span>SHOW DIALOGUE — ${segments.length} SEGMENTS</span>
+                    <button class="accordion-btn" style="width:100%; display:flex; justify-content:space-between; align-items:center; background:var(--void); border:none; padding:16px; border-radius:12px; cursor:pointer;">
+                        <span style="font-weight:700; font-size:13px; color:var(--primary);">SHOW DIALOGUE — ${segments.length} SEGMENTS</span>
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform 0.2s;"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                     </button>
-                    <div class="accordion-body">${scriptHtml}</div>
+                    <div class="accordion-body" style="display:none; padding-top:20px;">${scriptHtml}</div>
                 </div>
             </div>
         `;
@@ -211,6 +211,14 @@
         pulse(); setInterval(pulse, 5000);
     }
 
+    function setModePill(mode, label) {
+        const pill = document.getElementById('mode-pill');
+        const lbl = document.getElementById('mode-label');
+        if (!pill || !lbl) return;
+        pill.className = 'mode-pill ' + (mode === 'supabase' ? 'production' : mode);
+        lbl.textContent = label;
+    }
+
     function updateStats(cfg) {
         const episodes = cfg.episodes || [];
         const countEl = document.getElementById('stat-count');
@@ -219,8 +227,8 @@
         const feedCountEl = document.getElementById('feed-count');
 
         if (countEl) countEl.textContent = cfg.episode_count || episodes.length;
-        if (playsEl) playsEl.textContent = (cfg.total_plays || 0).toLocaleString();
-        if (likesEl) likesEl.textContent = (cfg.total_likes || 0).toLocaleString();
+        if (playsEl) playsEl.textContent = (cfg.total_plays || episodes.reduce((a, e) => a + (Number(e.plays) || 0), 0)).toLocaleString();
+        if (likesEl) likesEl.textContent = (cfg.total_likes || episodes.reduce((a, e) => a + (Number(e.likes) || 0), 0)).toLocaleString();
         if (feedCountEl) feedCountEl.textContent = `${episodes.length} / ${cfg.episode_count || episodes.length}`;
     }
 
@@ -241,8 +249,8 @@
                 <div class="ep-card-row2">
                     <span class="ep-source">${esc(ep.source || '--')}</span>
                     <div class="ep-eng">
-                        <div class="ep-eng-item">▶ ${ep.plays ?? 0}</div>
-                        <div class="ep-eng-item">❤ ${ep.likes ?? 0}</div>
+                        <div class="ep-eng-item">P ${ep.plays ?? 0}</div>
+                        <div class="ep-eng-item">L ${ep.likes ?? 0}</div>
                     </div>
                     <span class="ep-card-date">${esc(fmtDate(ep.created_at))}</span>
                 </div>
@@ -274,6 +282,15 @@
             const response = await fetch('config.json');
             const cfg = await response.json();
             _episodes = cfg.episodes || [];
+            
+            const mode = (cfg.mode || 'local').toLowerCase();
+            const isProduction = mode === 'production' || mode === 'supabase';
+            if (isProduction) {
+                setModePill('production', 'PRODUCTION MODE');
+            } else {
+                setModePill('local', 'LOCAL — SQLITE');
+            }
+
             updateStats(cfg);
             renderFeed(_episodes);
 
