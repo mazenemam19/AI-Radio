@@ -174,7 +174,7 @@ body {
 .section.void { background: var(--void); max-width: none; }
 
 .section-title { font-family: var(--font-display); font-size: 42px; color: var(--primary); margin-bottom: 64px; text-align: center; font-weight: 800; }
-.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 40px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 40px; }
 .card-pro { background: white; padding: 48px; border-radius: var(--radius-lg); border: 1px solid var(--border-mid); box-shadow: var(--shadow-md); transition: transform 0.3s ease; }
 .card-pro:hover { transform: translateY(-8px); }
 .card-icon { font-size: 40px; margin-bottom: 24px; display: block; }
@@ -222,7 +222,8 @@ body {
 }
 @media (max-width: 640px) {
     .header { padding: 0 20px; gap: 20px; }
-    .nav { display: none; }
-    .stats-bar { grid-template-columns: 1fr; padding: 20px; }
-    .stat { padding: 12px 0; border-right: none !important; margin-right: 0 !important; }
+    .nav{ margin-right: 0; margin-left: auto;}
+    #mode-pill { display: none; }
+    .stats-bar { padding: 20px; }
+    .stat { padding: 12px 0; border-right: none !important; margin-right: 0 !important; align-items: center; }
 }
