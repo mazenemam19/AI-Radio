@@ -134,9 +134,11 @@
             </div>`).join('');
 
         const healed = ep.healer_used === true || ep.healer_used === 1 || ep.healer_used === 'true';
+        const origDiff = ep.original_headline && ep.original_headline !== ep.headline;
 
         return `
             <div class="detail-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
+            ${origDiff ? `<div class="detail-orig" style="font-size:12px; color:var(--text-lo); margin-top:-16px; margin-bottom:24px; font-style:italic; opacity:0.8;">↳ orig: ${esc(ep.original_headline)}</div>` : ''}
             
             <div class="detail-meta">
                 <span class="meta-chip"><span class="lbl">SRC</span> ${esc(ep.source || '--')}</span>
