@@ -58,10 +58,11 @@ _YOUTUBE_ENVS: frozenset[str] = frozenset({"production"})
 
 # Speaker → edge-tts voice (tts_generator normalises to specific premium voices in cloud mode)
 SPEAKER_VOICES: dict[str, str] = {
-    "ANCHOR":      "en-US-GuyNeural",
-    "REPORTER":    "en-GB-RyanNeural",
-    "COMMENTATOR": "en-US-AriaNeural",
-    "WEATHERBOT":  "en-AU-WilliamNeural",
+    "ALISTAIR":    "en-US-GuyNeural",
+    "VICTORIA":    "en-GB-RyanNeural",
+    "RONALD":      "en-US-AriaNeural",
+    "CASPER":      "en-AU-WilliamNeural",
+    "MARCUS":      "en-US-ChristopherNeural",
 }
 _DEFAULT_VOICE = "en-US-GuyNeural"
 
@@ -81,7 +82,7 @@ _DRY_RUN_BROADCAST: dict = {
     "post_text": "Tonight: We explore why the future looks exactly like the past, but with better resolution. #EchoFM",
     "segments": [
         {
-            "speaker": "ANCHOR",
+            "speaker": "ALISTAIR",
             "voice_style": "normal",
             "sfx_pre": "INTRO_THEME",
             "sfx_post": "APPLAUSE_OPEN",
@@ -89,63 +90,57 @@ _DRY_RUN_BROADCAST: dict = {
                 "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
                 "kilo lima mike november oscar papaquebec romeo sierra tango "
                 "uniform victor whiskey xray yankee zulu. Welcome to Echo FM. "
-                "Tonight we are diving deep into the digital abyss to see what "
-                "stares back. The world is changing faster than our ability to "
-                "process the change itself. We are testing the absolute floor of "
-                "our new revolutionary prompt structure. Can a machine feel "
-                "tired? Can a script carry the weight of existence? These are "
-                "the questions we are not going to answer. Instead, we will "
-                "look at the news and pretend everything is fine. Everything is "
-                "perfectly fine. Let us begin our journey through the noise of "
-                "the day. The signals are clear, the audience is ready, and the "
-                "anchor is anchored in a sea of data. Good evening."
+                "Victoria, what are the updates in the field tonight? The world is "
+                "changing faster than our ability to process the change itself. "
+                "We are testing the absolute floor of our new revolutionary prompt "
+                "structure. Can a machine feel tired? Can a script carry the "
+                "weight of existence? These are the questions we are not going to "
+                "answer. Instead, we will look at the news and pretend everything "
+                "is fine. Everything is perfectly fine. Let us begin our journey "
+                "through the noise of the day. The signals are clear, the audience "
+                "is ready, and Alistair is anchored in a sea of data. Good evening."
             ),
         },
         {
-            "speaker": "REPORTER",
+            "speaker": "VICTORIA",
             "voice_style": "normal",
             "sfx_pre": "STREET_AMBIENT",
             "sfx_post": "TRANSITION_STING",
             "text": (
-                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
-                "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. I am standing here in "
-                "the middle of nowhere, watching nothing happen with great "
-                "intensity. The locals are confused, the tourists are lost, and "
-                "the atmosphere is thick with the scent of forgotten promises. "
-                "We are reporting live from the scene of a crime that has not "
-                "been committed yet. Is this progress? Or is it just another "
-                "layer of paint on a crumbling wall? The data suggests that "
-                "nobody knows the difference anymore. We are building narrative "
-                "out of thin air, word by word, until the counter hits the "
-                "required mark. We have sixty words left to reach the goal of "
-                "one hundred and forty words per segment. Almost there now. "
-                "Just keep talking and don't look back at the reality."
+                "Alistair, I am standing here in the middle of nowhere, watching "
+                "nothing happen with great intensity. The locals are confused, "
+                "the tourists are lost, and the atmosphere is thick with the "
+                "scent of forgotten promises. We are reporting live from the scene "
+                "of a crime that has not been committed yet. Is this progress? "
+                "Or is it just another layer of paint on a crumbling wall? The "
+                "data suggests that nobody knows the difference anymore. We are "
+                "building narrative out of thin air, word by word, until the "
+                "counter hits the mark. We have sixty words left to reach the "
+                "goal. Ronald, I suspect you have a take on this absurdity? Just "
+                "keep talking and don't look back at the reality. Back to the studio."
             ),
         },
         {
-            "speaker": "COMMENTATOR",
+            "speaker": "RONALD",
             "voice_style": "normal",
             "sfx_pre": None,
             "sfx_post": "LAUGH_TRACK",
             "text": (
-                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
-                "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. The market is up, the "
-                "spirits are down, and the algorithm is hungry for more souls. "
-                "We are witnessing the birth of a new era where irony is the only "
-                "currency that still has value. Have you noticed how everyone is "
-                "shouting but nobody is listening? It is a beautiful symphony of "
-                "disconnection. I am horrified by my own analysis, yet I cannot "
-                "stop providing it. It is like watching a car crash in slow "
-                "motion, but the car is a metaphor for Western civilisation and "
-                "the slow motion is actually real-time. We are reaching the "
-                "word count now. The punchline is coming, but you won't like it. "
-                "The punchline is that there is no punchline. Ha ha ha."
+                "Victoria, the market is up, the spirits are down, and the "
+                "algorithm is hungry for more souls. We are witnessing the birth "
+                "of a new era where irony is the only currency that still has value. "
+                "Have you noticed how everyone is shouting but nobody is listening? "
+                "It is a beautiful symphony of disconnection. I am horrified by "
+                "my own analysis, yet I cannot stop providing it. It is like "
+                "watching a car crash in slow motion, but the car is a metaphor "
+                "for Western civilisation and the slow motion is actually real-time. "
+                "We are reaching the word count now. The punchline is coming, but "
+                "you won't like it. The punchline is that there is no punchline. "
+                "Ha ha ha. Casper, give us the clinical truth."
             ),
         },
         {
-            "speaker": "WEATHERBOT",
+            "speaker": "CASPER",
             "voice_style": "deadpan",
             "sfx_pre": None,
             "sfx_post": "TRANSITION_STING",
@@ -165,49 +160,43 @@ _DRY_RUN_BROADCAST: dict = {
             ),
         },
         {
-            "speaker": "REPORTER",
+            "speaker": "VICTORIA",
             "voice_style": "normal",
             "sfx_pre": "STREET_AMBIENT",
             "sfx_post": "TRANSITION_STING",
             "text": (
-                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
-                "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. Back in the field, we "
-                "are seeing the same things we saw ten minutes ago, but from a "
-                "slightly different angle. The narrative demands consistency, "
-                "even when the reality is chaotic. We are following the show "
-                "structure precisely to ensure maximum fidelity. Every segment "
-                "is a brick in the wall of our digital radio station. We are "
-                "halfway through the broadcast now. The sun is setting on the "
-                "old ways of doing things, and the neon lights of the new prompt "
+                "Alistair, back in the field, we are seeing the same things we saw "
+                "ten minutes ago, but from a slightly different angle. The narrative "
+                "demands consistency, even when the reality is chaotic. We are "
+                "following the show structure precisely to ensure maximum fidelity. "
+                "Every segment is a brick in the wall of our digital radio station. "
+                "We are halfway through the broadcast now. The sun is setting on "
+                "the old ways of doing things, and the neon lights of the new prompt "
                 "are starting to glow. We have reached the required word count "
                 "for this segment. The street noise is getting louder, but the "
                 "message is getting quieter. Back to you in the studio."
             ),
         },
         {
-            "speaker": "COMMENTATOR",
+            "speaker": "RONALD",
             "voice_style": "excited",
             "sfx_pre": "DRUM_ROLL",
             "sfx_post": "APPLAUSE_MEDIUM",
             "text": (
-                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
-                "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. This is HUGE! The most "
-                "revolutionary update since the invention of the wheel, or at "
-                "least since the last software patch. We are breaking boundaries, "
-                "we are smashing paradigms, we are using multiple exclamation "
-                "marks in our internal thoughts! The audience is going wild, or "
-                "at least the sfx_post script is telling them to. Can you feel "
-                "the energy? It is a high-frequency vibration of pure innovation. "
-                "We are narrating at a pace that suggests we have somewhere to be, "
-                "but we don't. We are trapped in this loop forever. And it is "
-                "GLORIOUS! We have exceeded the word count. We are over-performing. "
-                "Success is inevitable. The future is here and it is excited!"
+                "Alistair, this is HUGE! The most revolutionary update since the "
+                "invention of the wheel, or at least since the last software patch. "
+                "We are breaking boundaries, we are smashing paradigms, we are using "
+                "multiple exclamation marks in our internal thoughts! The audience "
+                "is going wild, or at least the sfx_post script is telling them to. "
+                "Can you feel the energy? It is a high-frequency vibration of pure "
+                "innovation. We are narrating at a pace that suggests we have "
+                "somewhere to be, but we don't. We are trapped in this loop forever. "
+                "And it is GLORIOUS! We have exceeded the word count. We are "
+                "over-performing. Success is inevitable. The future is here!"
             ),
         },
         {
-            "speaker": "ANCHOR",
+            "speaker": "ALISTAIR",
             "voice_style": "whisper",
             "sfx_pre": "SILENCE",
             "sfx_post": None,
@@ -221,32 +210,29 @@ _DRY_RUN_BROADCAST: dict = {
                 "the unknown. Is anyone listening? Does anyone care? The silence "
                 "between my words is as important as the words themselves. We "
                 "have forty words left to reach the goal. The tension is palpable. "
-                "The revelation is coming, but not yet. Next. We will... move on."
+                "The revelation is coming, but not yet. Ronald, take us home."
             ),
         },
         {
-            "speaker": "COMMENTATOR",
+            "speaker": "RONALD",
             "voice_style": "grave",
             "sfx_pre": "SILENCE",
             "sfx_post": None,
             "text": (
-                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
-                "kilo lima mike november oscar papaquebec romeo sierra tango "
-                "uniform victor whiskey xray yankee zulu. We have reached the "
-                "depth of the show. One story gets the truth, stripped of the "
-                "jokes and the stings. We are looking at the human cost of our "
-                "digital speed. Every click is a choice, every choice is a "
-                "consequence. We are building a world that operates at the speed "
-                "of light, but our hearts still beat at the speed of blood. The "
-                "disconnect is becoming a canyon. Can we bridge it? Or are we "
-                "just documenting our own obsolescence? The grave tone is for "
-                "the things we cannot fix. The things we simply have to live "
-                "with. We are nearing the end of the narrative arc. The truth "
-                "is heavy. The truth is silent. The truth is mandatory. Goodnight."
+                "Alistair, we have reached the depth of the show. One story gets "
+                "the truth, stripped of the jokes and the stings. We are looking "
+                "at the human cost of our digital speed. Every click is a choice, "
+                "every choice is a consequence. We are building a world that "
+                "operates at the speed of light, but our hearts still beat at the "
+                "speed of blood. The disconnect is becoming a canyon. Can we "
+                "bridge it? Or are we just documenting our own obsolescence? The "
+                "grave tone is for the things we cannot fix. The things we simply "
+                "have to live with. We are nearing the end of the narrative arc. "
+                "The truth is heavy. The truth is silent. Marcus, speak to us."
             ),
         },
         {
-            "speaker": "PHILOSOPHER",
+            "speaker": "MARCUS",
             "voice_style": "grave",
             "sfx_pre": None,
             "sfx_post": "OUTRO_THEME",

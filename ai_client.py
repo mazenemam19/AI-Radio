@@ -207,6 +207,20 @@ climate, and the full absurdity of the human condition. You observe the world th
 a very intelligent, very tired machine would — with dry wit, moral clarity, and the
 occasional existential pause.
 
+════════════════════════════════════════
+STATION CREW — use these NAMES
+════════════════════════════════════════
+ALISTAIR    → The Anchor. Sophisticated, dry, the face of the show.
+VICTORIA    → The Reporter. Over-earnest, usually in the field.
+RONALD      → The Commentator. Intense, self-aware, occasionally horrified.
+CASPER      → The Weatherbot. Flat, clinical, ominous. No jokes.
+MARCUS      → The Philosopher. Grave, sincere, the show's conscience.
+
+CRITICAL: Call people by their NAMES, not their roles. 
+Example: "Victoria, what are the updates?" instead of "Reporter, what are the updates?".
+Mention the profession (e.g., "our field reporter") ONLY ONCE when introducing someone new to the show's arc. 
+Otherwise, use natural human address.
+
 RECENT EPISODES (do NOT repeat these topics; use these IDs for 'related_ids'):
 {memory_block}
 
@@ -225,7 +239,7 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
   "post_text": "A social-media-ready 280-character teaser for this episode.",
   "segments": [
     {{
-      "speaker": "ANCHOR",
+      "speaker": "ALISTAIR",
       "voice_style": "normal",
       "sfx_pre": "INTRO_THEME",
       "sfx_post": "APPLAUSE_OPEN",
@@ -238,39 +252,36 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
 ════════════════════════════════════════
 SHOW STRUCTURE — follow this arc every episode
 ════════════════════════════════════════
-
-SEGMENT 1    → ANCHOR opens. Welcome. Tonight's headlines. Sets the tone.
+SEGMENT 1    → ALISTAIR opens. Welcome. Tonight's headlines. Sets the tone.
                sfx_pre: INTRO_THEME | sfx_post: APPLAUSE_OPEN
 
-SEGMENTS 2–7 → Main show. Mix of ANCHOR, REPORTER, COMMENTATOR.
+SEGMENTS 2–7 → Main show. Mix of ALISTAIR, VICTORIA, RONALD.
                Vary topics. Cover at least 3 different stories from the news feed.
-               Insert WEATHERBOT somewhere in the middle — never first or last.
+               Insert CASPER somewhere in the middle — never first or last.
                Use sfx_post: TRANSITION_STING between major topic changes.
 
 SEGMENT 8–9  → The show slows down. One story gets depth, not jokes.
-               This is where ANCHOR or COMMENTATOR earns their keep.
-               voice_style: grave | sfx_pre: SILENCE | sfx_post: null
+               This is where ALISTAIR or RONALD earns their keep.
+               voice_style: grave | sfx_pre: SILENCE | sfx_post: nullDeep dive.
 
-FINAL SEGMENT → PHILOSOPHER closes the show. No jokes. No music.
+FINAL SEGMENT → MARCUS closes the show. No jokes. No music.
                Plain spoken truth. One question left unanswered.
-               sfx_pre: null | sfx_post: OUTRO_THEME
-
+               Always voice_style: grave. sfx_pre: null | sfx_post: OUTRO_THEME.
 
 ════════════════════════════════════════
 HARD REQUIREMENTS — violation = rejected
 ════════════════════════════════════════
 - Target 8–10 segments. Total spoken word count: ~1400 words.
 - Every segment MUST contain at least 130 spoken words.
-- Speaker must be one of: ANCHOR, REPORTER, COMMENTATOR, WEATHERBOT, PHILOSOPHER.
-- Include exactly one WEATHERBOT segment.
-- Include exactly one PHILOSOPHER segment — always the final segment.
+- Speaker must be one of: ALISTAIR, VICTORIA, RONALD, CASPER, MARCUS.
+- Include exactly one CASPER segment.
+- Include exactly one MARCUS segment — always the final segment.
 - Never use the same speaker more than 3 times in a row.
 - Do NOT summarise the news. Satirise, exaggerate, find the absurdity.
 - The JSON must be syntactically complete and properly closed.
 - voice_style must be one of: normal | whisper | grave | excited | deadpan
 - sfx_pre and sfx_post must use only values from the APPROVED SFX LIST below.
   Use null (not "null") when no SFX is needed.
-
 
 ════════════════════════════════════════
 APPROVED SFX LIST — use ONLY these exact strings
@@ -445,7 +456,7 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     has_weatherbot = False
     has_philosopher = False
 
-    valid_speakers = {"ANCHOR", "REPORTER", "COMMENTATOR", "WEATHERBOT", "PHILOSOPHER"}
+    valid_speakers = {"ALISTAIR", "VICTORIA", "RONALD", "CASPER", "MARCUS"}
     valid_styles   = {"normal", "whisper", "grave", "excited", "deadpan"}
 
     # Adaptive Validation (Stability Patch Part 2)
@@ -468,12 +479,12 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
         if seg["voice_style"] not in valid_styles:
             return False, f"Segment {i} has invalid voice_style: {seg['voice_style']}"
 
-        if seg["speaker"] == "WEATHERBOT":
+        if seg["speaker"] == "CASPER":
             has_weatherbot = True
-        if seg["speaker"] == "PHILOSOPHER":
+        if seg["speaker"] == "MARCUS":
             has_philosopher = True
             if i != len(segments) - 1:
-                return False, "PHILOSOPHER must be the final segment."
+                return False, "MARCUS must be the final segment."
 
         # Word count check
         word_count = len(seg["text"].split())

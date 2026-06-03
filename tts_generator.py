@@ -25,21 +25,21 @@ from pydub import AudioSegment
 
 # Cartesia Sonic 3.5 curated voices (Verified June 2026)
 _CARTESIA_VOICES: dict[str, str] = {
-    "ANCHOR":      "c8f7835e-28a3-4f0c-80d7-c1302ac62aae", # Alistair (Sophisticated British Male)
-    "REPORTER":    "dc30854e-e398-4579-9dc8-16f6cb2c19b9", # Victoria (Professional British Female)
-    "COMMENTATOR": "5ee9feff-1265-424a-9d7f-8e4d431a12c7", # Ronald (Intense American Male)
-    "WEATHERBOT":  "4f7f1324-1853-48a6-b294-4e78e8036a83", # Casper (Wistful British Male)
-    "PHILOSOPHER": "8205562d-949e-49fb-9407-a690f3b06385", # Marcus (Grave American Male)
+    "ALISTAIR":    "c8f7835e-28a3-4f0c-80d7-c1302ac62aae", # Alistair
+    "VICTORIA":    "dc30854e-e398-4579-9dc8-16f6cb2c19b9", # Victoria
+    "RONALD":      "5ee9feff-1265-424a-9d7f-8e4d431a12c7", # Ronald
+    "CASPER":      "4f7f1324-1853-48a6-b294-4e78e8036a83", # Casper
+    "MARCUS":      "8205562d-949e-49fb-9407-a690f3b06385", # Marcus
 }
 _CARTESIA_DEFAULT_VOICE = "c8f7835e-28a3-4f0c-80d7-c1302ac62aae"
 
 # Kokoro-82M curated voices (June 2026)
 _KOKORO_VOICES: dict[str, str] = {
-    "ANCHOR":      "bm_george", # British Male (Matches Alistair)
-    "REPORTER":    "bf_emma",   # British Female (Matches Victoria)
-    "COMMENTATOR": "am_adam",   # American Male (Matches Ronald)
-    "WEATHERBOT":  "bm_lewis",  # British Male (Matches Casper)
-    "PHILOSOPHER": "am_michael", # American Male (Matches Marcus)
+    "ALISTAIR":    "bm_george",
+    "VICTORIA":    "bf_emma",
+    "RONALD":      "am_adam",
+    "CASPER":      "bm_lewis",
+    "MARCUS":      "am_michael",
 }
 _KOKORO_DEFAULT_VOICE = "bm_george"
 
@@ -418,6 +418,8 @@ def generate_segment_audio(
 ) -> tuple[bool, str]:
     """
     Generate TTS audio and apply voice styles/SFX (Step 1 & 2).
+    Includes quality-guard fallback: if a premium engine produces invalid audio, 
+    it tries the next engine in the priority chain.
 
     Returns:
         (success, engine_name)
@@ -427,34 +429,54 @@ def generate_segment_audio(
     preview = (text[:47] + "...") if len(text) > 50 else text
     print(f"[TTS] Narrating {word_count} words ({voice_style}): \"{preview}\"")
 
-    # 1. Generation
+    # 1. Selection & Generation
     success = False
     engine_used = "failed"
 
     if forced_engine:
+        # Strict mode: no fallback
         if forced_engine == "cartesia-sonic":
             success = _run_cartesia_tts(text, voice, path, voice_style)
         elif forced_engine == "kokoro-cloud":
             success = _run_kokoro_tts(text, voice, path)
         elif forced_engine == "edge-tts":
             success = _run_edge_tts(text, voice, path)
+        
+        if success and not _is_audio_valid(path, word_count):
+            print(f"[TTS] Quality Check Failed for forced engine '{forced_engine}'.")
+            success = False
         engine_used = forced_engine
     else:
+        # Priority Chain with Quality Guard
+        engines = []
         if use_cloud:
-            if _run_cartesia_tts(text, voice, path, voice_style):
-                success, engine_used = True, "cartesia-sonic"
-            elif _run_kokoro_tts(text, voice, path):
-                success, engine_used = True, "kokoro-cloud"
+            engines.extend(["cartesia-sonic", "kokoro-cloud"])
+        engines.append("edge-tts")
+
+        for engine in engines:
+            if engine == "cartesia-sonic":
+                ok = _run_cartesia_tts(text, voice, path, voice_style)
+            elif engine == "kokoro-cloud":
+                ok = _run_kokoro_tts(text, voice, path)
+            else:
+                ok = _run_edge_tts(text, voice, path)
+            
+            if ok:
+                if _is_audio_valid(path, word_count):
+                    success = True
+                    engine_used = engine
+                    break
+                else:
+                    print(f"[TTS] Quality Check Failed for '{engine}'. Falling back...")
+                    if Path(path).exists(): Path(path).unlink()
         
         if not success:
-            if _run_edge_tts(text, voice, path):
-                success, engine_used = True, "edge-tts"
-            else:
-                success = _generate_ffmpeg_audio_fallback(text, path)
-                engine_used = "silent-fallback"
+            # Absolute last resort: silent fallback to keep pipeline alive in restrictive envs
+            success = _generate_ffmpeg_audio_fallback(text, path)
+            engine_used = "silent-fallback"
 
-    # 2. Validation & Mixing (Steps 1 & 2)
-    if success and _is_audio_valid(path, word_count):
+    # 2. Mixing (Step 2)
+    if success:
         if _apply_audio_processing(path, voice_style, sfx_pre, sfx_post):
             return True, engine_used
     

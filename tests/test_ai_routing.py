@@ -6,7 +6,7 @@ Verifies that generate_broadcast routes to the correct API caller for each model
 
 import sys
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 from pathlib import Path
 
 # ── Import Fix ────────────────────────────────────────────────────────────────
@@ -26,21 +26,23 @@ class TestAIRouting(unittest.TestCase):
         mock_groq.return_value = '{"title": "Test", "segments": [], "confidence": "high", "related_ids": []}'
         mock_gemini.return_value = mock_groq.return_value
         
-        # Test DeepSeek (Groq)
+        # Test Gemini (Gemini SDK)
         ai_client.generate_broadcast([], [], "production")
-        # DeepSeek is first in Set A
-        mock_groq.assert_any_call(unittest.mock.ANY, ai_client.DEEPSEEK_MODEL)
+        # Gemini 3.5 Flash is first in Set A
+        mock_gemini.assert_any_call(ANY, ai_client.GEMINI_3_5_FLASH)
         
         # Reset mocks
         mock_groq.reset_mock()
         mock_gemini.reset_mock()
         
-        # Force a failure on Groq models to see if it reaches Gemini
-        mock_groq.return_value = None
-        ai_client.generate_broadcast([], [], "production")
+        # Force a failure on Gemini models to see if it reaches Groq (in Set B/Local)
+        mock_gemini.return_value = None
+        mock_groq.return_value = '{"title": "Groq Fallback", "segments": [], "confidence": "high", "related_ids": []}'
         
-        # Should have tried all 3 Groq models then moved to Gemini
-        mock_gemini.assert_any_call(unittest.mock.ANY, ai_client.GEMINI_PRIMARY)
+        ai_client.generate_broadcast([], [], "local")
+        
+        # In Local Set, it should try Gemini first, fail, then try GROQ_COMPOUND via Groq
+        mock_groq.assert_any_call(ANY, ai_client.GROQ_COMPOUND)
 
 if __name__ == "__main__":
     unittest.main()

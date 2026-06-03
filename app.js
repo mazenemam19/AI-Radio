@@ -4,7 +4,7 @@
     /* ── Utilities ─────────────────────────────────────────────── */
 
     function fmtDuration(secs) {
-        if (!secs && secs !== 0) return '—';
+        if (!secs && secs !== 0) return '--:--';
         const s = Math.round(Number(secs));
         const m = Math.floor(s / 60);
         const rem = s % 60;
@@ -12,7 +12,7 @@
     }
 
     function fmtDate(iso) {
-        if (!iso) return '—';
+        if (!iso) return '--';
         try {
             const d = new Date(iso);
             return d.toLocaleString(undefined, {
@@ -53,11 +53,6 @@
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    /**
-     * Resolves a URL, mapping local:// URIs to the local output directory.
-     * @param {string} url The URL to resolve.
-     * @return {string|null} The resolved URL or null.
-     */
     function resolveUrl(url) {
         if (!url) return null;
         if (typeof url !== 'string') return url;
@@ -73,135 +68,8 @@
         return match ? match[1] : null;
     }
 
-    function loadScript(src) {
-        return new Promise((resolve, reject) => {
-            const s = document.createElement('script');
-            s.src = src;
-            s.onload = resolve;
-            s.onerror = () => reject(new Error('Failed to load: ' + src));
-            document.head.appendChild(s);
-        });
-    }
+    /* ── UI Handlers ────────────────────────────────────────── */
 
-    function showFullscreenState(type, title, body) {
-        document.getElementById('app').style.display = 'none';
-        const el = document.createElement('div');
-        el.className = 'fs-state';
-        el.innerHTML = `
-      <div class="fs-logo">ECHO FM</div>
-      ${type === 'loading' ? '<div class="spinner"></div>' : ''}
-      <div class="fs-title ${type}">${esc(title)}</div>
-      <div class="fs-body">${body}</div>
-    `;
-        document.body.appendChild(el);
-        return el;
-    }
-
-    /* ── Clock ─────────────────────────────────────────────────── */
-    function startClock() {
-        const el = document.getElementById('header-clock');
-        function tick() {
-            const now = new Date();
-            el.textContent = now.toLocaleTimeString(undefined, { hour12: false });
-        }
-        tick();
-        setInterval(tick, 1000);
-    }
-
-    function startHeartbeat() {
-        const el = document.getElementById('header-freq');
-        const base = 88.5;
-        function pulse() {
-            const dev = (Math.random() * 0.4) - 0.2;
-            el.textContent = `SIGNAL: ${(base + dev).toFixed(1)} MHZ`;
-        }
-        pulse();
-        setInterval(pulse, 3000);
-    }
-
-    /* ── Mode pill ─────────────────────────────────────────────── */
-    function setModePill(mode, label) {
-        const pill = document.getElementById('mode-pill');
-        const lbl = document.getElementById('mode-label');
-        pill.className = 'mode-pill ' + mode;
-        lbl.textContent = label;
-    }
-
-    /* ── Stats ─────────────────────────────────────────────────── */
-    /**
-     * Updates the status bar metrics based on configuration data.
-     * @param {Object} cfg The full configuration object.
-     */
-    function updateStats(cfg) {
-        const episodes = cfg.episodes || [];
-        document.getElementById('stat-count').textContent = cfg.episode_count || episodes.length;
-        document.getElementById('stat-plays').textContent =
-            (cfg.total_plays || episodes.reduce((a, e) => a + (Number(e.plays) || 0), 0)).toLocaleString();
-        document.getElementById('stat-likes').textContent =
-            (cfg.total_likes || episodes.reduce((a, e) => a + (Number(e.likes) || 0), 0)).toLocaleString();
-        document.getElementById('header-freq').textContent =
-            `${episodes.length} EPISODE${episodes.length !== 1 ? 'S' : ''} ON RECORD`;
-        document.getElementById('feed-count').textContent =
-            `${episodes.length} / ${cfg.episode_count || episodes.length}`;
-    }
-
-    /* ── Feed rendering ────────────────────────────────────────── */
-    let _episodes = [];
-    let _selectedIdx = null;
-
-    function confClass(c) {
-        if (!c) return 'null';
-        return ['high', 'medium', 'low'].includes(c) ? c : 'null';
-    }
-    function confLabel(c) {
-        if (!c) return '—';
-        return { high: 'HIGH', medium: 'MED', low: 'LOW' }[c] || c.toUpperCase();
-    }
-
-    function renderFeed(episodes) {
-        const list = document.getElementById('feed-list');
-        if (!episodes.length) {
-            list.innerHTML = '<div class="feed-no-ep">No broadcasts generated yet.<br>Run the pipeline to see episodes here.</div>';
-            return;
-        }
-        list.innerHTML = episodes.map((ep, i) => {
-            // Target is 10 minutes (600s). Bar fills up to 100% at 10m.
-            const targetSecs = 600;
-            const progress = Math.min(100, Math.round((Number(ep.broadcast_duration) || 0) / targetSecs * 100));
-            
-            return `
-      <div class="ep-card" data-idx="${i}" tabindex="0" role="button" aria-label="Episode: ${esc(ep.headline)}">
-        <div class="ep-card-row1">
-          <div class="ep-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
-          <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
-        </div>
-        <div class="signal-wrap">
-          <div class="signal-bar" style="width: ${progress}%"></div>
-        </div>
-        <div class="ep-card-row2">
-          <span class="ep-source">${esc(ep.source || '—')}</span>
-          <span class="ep-eng">
-            <span class="ep-eng-item">▶ ${ep.plays ?? 0}</span>
-            <span class="ep-eng-item">❤ ${ep.likes ?? 0}</span>
-          </span>
-          <span>${esc(fmtDate(ep.created_at))}</span>
-          <span class="ep-duration">${fmtDuration(ep.broadcast_duration)}</span>
-        </div>
-      </div>
-    `}).join('');
-
-        // Card click handlers
-        list.querySelectorAll('.ep-card').forEach(card => {
-            function select() {
-                const idx = parseInt(card.dataset.idx, 10);
-                selectEpisode(idx);
-            }
-            card.addEventListener('click', select);
-            card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') select(); });
-        });
-    }
-
-    /* ── Detail rendering ──────────────────────────────────────── */
     function selectEpisode(idx) {
         _selectedIdx = idx;
         const ep = _episodes[idx];
@@ -211,232 +79,213 @@
             c.classList.toggle('active', i === idx);
         });
 
-        document.getElementById('detail-empty').style.display = 'none';
+        const empty = document.getElementById('detail-empty');
         const inner = document.getElementById('detail-inner');
-        inner.style.display = 'block';
+        if (empty) empty.style.display = 'none';
+        if (inner) {
+            inner.style.display = 'block';
+            inner.innerHTML = buildDetail(ep);
+
+            // Accordion toggle
+            const accBtn = inner.querySelector('.accordion-btn');
+            if (accBtn) {
+                accBtn.onclick = () => {
+                    const acc = accBtn.closest('.accordion');
+                    acc.classList.toggle('open');
+                };
+            }
+        }
 
         // Mobile: show detail panel
-        document.getElementById('detail-panel').classList.add('mobile-open');
-
-        inner.innerHTML = buildDetail(ep);
-
-        // Accordion toggle
-        inner.querySelectorAll('.accordion-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const acc = btn.closest('.accordion');
-                acc.classList.toggle('open');
-            });
-        });
+        const detailPanel = document.getElementById('detail-panel');
+        if (detailPanel) detailPanel.classList.add('mobile-open');
     }
 
     function buildDetail(ep) {
         const tags = parseTags(ep.topic_tags);
         const segments = parseAudioScript(ep.audio_script);
-        const origDiff = ep.original_headline && ep.original_headline !== ep.headline;
 
-        /* Media section */
         let mediaHtml = '';
         const audioUrl = resolveUrl(ep.audio_url);
         const videoUrl = resolveUrl(ep.video_url);
 
-        const hasAudio = audioUrl && 
-                         !audioUrl.includes('placeholder') && 
-                         (audioUrl.startsWith('http') || audioUrl.startsWith('output/'));
-        const hasVideo = videoUrl && 
-                         (videoUrl.startsWith('http') || videoUrl.startsWith('output/'));
+        const hasAudio = audioUrl && !audioUrl.includes('placeholder') &&
+            (audioUrl.startsWith('http') || audioUrl.startsWith('output/'));
+        const hasVideo = videoUrl && (videoUrl.startsWith('http') || videoUrl.startsWith('output/'));
 
         if (hasAudio) {
-            console.log('[Echo FM] Rendering audio player with URL:', audioUrl);
-            mediaHtml = `
-        <div class="media-wrap">
-          <audio controls preload="metadata" onplay="console.log('[Echo FM] Audio play started')" onerror="console.error('[Echo FM] Audio error:', this.error)">
-            <source src="${audioUrl}" type="audio/mpeg">
-            Your browser does not support the audio element.
-          </audio>
-        </div>`;
+            mediaHtml = `<div class="media-wrap"><audio controls preload="metadata"><source src="${audioUrl}" type="audio/mpeg"></audio></div>`;
         } else if (hasVideo) {
             const ytId = getYoutubeId(videoUrl);
             if (ytId) {
-                console.log('[Echo FM] Rendering YouTube iframe for ID:', ytId);
-                mediaHtml = `
-            <div class="video-container">
-              <iframe 
-                src="https://www.youtube.com/embed/${ytId}" 
-                title="YouTube video player" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                allowfullscreen>
-              </iframe>
-            </div>`;
-            } else if (videoUrl.startsWith('output/')) {
-                console.log('[Echo FM] Rendering local video player:', videoUrl);
-                mediaHtml = `
-            <div class="media-wrap">
-              <video controls width="100%" preload="metadata" style="display:block; border-radius:var(--radius); border: 1px solid var(--border-active);">
-                <source src="${videoUrl}" type="video/mp4">
-                Your browser does not support the video element.
-              </video>
-            </div>`;
+                mediaHtml = `<div class="video-container" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; background:#000;"><iframe src="https://www.youtube.com/embed/${ytId}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" allowfullscreen></iframe></div>`;
             } else {
-                console.log('[Echo FM] Rendering external video link:', videoUrl);
-                mediaHtml = `<div class="media-wrap">
-            <a href="${esc(videoUrl)}" target="_blank" rel="noopener" class="media-yt-btn">
-              ${'▶ Watch on YouTube'}
-            </a>
-          </div>`;
+                mediaHtml = `<div class="media-wrap"><a href="${esc(videoUrl)}" target="_blank" class="btn-primary" style="font-size:14px; padding:12px 24px;">▶ Watch Source</a></div>`;
             }
         } else {
-            mediaHtml = `<div class="media-wrap"><div class="media-offline">Media Archive Offline (Dry Run / Local Mode)</div></div>`;
+            mediaHtml = `<div class="media-wrap"><div style="font-size:12px; color:var(--text-lo); letter-spacing:1px;">// Media Archive Offline</div></div>`;
         }
 
-        /* Tags */
-        const tagsHtml = tags.length
-            ? `<div class="tags">${tags.map(t => `<span class="tag">#${esc(t)}</span>`).join('')}</div>`
-            : '<div style="font-size:10px;color:var(--text-lo);margin-top:8px;">No tags</div>';
+        const tagsHtml = tags.length ? `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:16px;">${tags.map(t => `<span class="conf-badge" style="background:var(--void); color:var(--cyan); border:1px solid var(--border-mid);">#${esc(t)}</span>`).join('')}</div>` : '';
+        const scriptHtml = segments.map(seg => `
+            <div class="script-seg">
+                <div class="script-speaker">${esc(seg.speaker)}</div>
+                <div class="script-text">${esc(seg.text)}</div>
+            </div>`).join('');
 
-        /* Telemetry */
         const healed = ep.healer_used === true || ep.healer_used === 1 || ep.healer_used === 'true';
-        const healedHtml = healed
-            ? `<span class="healer-chip healed">⚠ HEALED</span>`
-            : `<span class="healer-chip not-healed">CLEAN</span>`;
-
-        /* Audio script segments */
-        const scriptHtml = segments.length
-            ? segments.map(seg => `
-          <div class="script-seg">
-            <div class="script-speaker">${esc(seg.speaker)}</div>
-            <div class="script-text">${esc(seg.text)}</div>
-          </div>`).join('')
-            : `<div class="script-no-data">// No audio script recorded for this episode</div>`;
 
         return `
-      <div class="detail-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
-      ${origDiff ? `<div class="detail-orig">↳ orig: ${esc(ep.original_headline)}</div>` : ''}
+            <div class="detail-headline">${esc(ep.headline || 'Untitled Broadcast')}</div>
+            
+            <div class="detail-meta">
+                <span class="meta-chip"><span class="lbl">SRC</span> ${esc(ep.source || '--')}</span>
+                <span class="meta-chip"><span class="lbl">DATE</span> ${esc(fmtDate(ep.created_at))}</span>
+                <span class="meta-chip"><span class="lbl">DUR</span> ${fmtDuration(ep.broadcast_duration)}</span>
+                <span class="meta-chip"><span class="lbl">PLAYS</span> ${ep.plays ?? 0}</span>
+                <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
+                ${healed ? '<span class="healer-chip">⚠ HEALED</span>' : ''}
+            </div>
 
-      <div class="detail-meta">
-        <span class="meta-chip"><span class="lbl">SRC</span> ${esc(ep.source || '—')}</span>
-        <span class="meta-chip"><span class="lbl">DATE</span> ${esc(fmtDate(ep.created_at))}</span>
-        <span class="meta-chip"><span class="lbl">DURATION</span> ${fmtDuration(ep.broadcast_duration)}</span>
-        <span class="meta-chip"><span class="lbl">PLAYS</span> ${ep.plays ?? 0}</span>
-        <span class="meta-chip"><span class="lbl">LIKES</span> ${ep.likes ?? 0}</span>
-        <span class="conf-badge ${confClass(ep.confidence)}" style="font-size:9px">${confLabel(ep.confidence)}</span>
-      </div>
+            <div class="d-section">
+                <div class="d-section-lbl">// Transmission Archive</div>
+                ${mediaHtml}
+            </div>
 
-      <!-- MEDIA -->
-      <div class="d-section">
-        <div class="d-section-lbl">// Transmission Archive</div>
-        ${mediaHtml}
-      </div>
+            <div class="d-section">
+                <div class="d-section-lbl">// AI Insights</div>
+                <div class="my-take">${esc(ep.my_take || '')}</div>
+                ${ep.post_text ? `<div style="margin-top:24px; font-size:14px; color:var(--text-mid); padding:20px; background:var(--void); border-radius:12px; line-height:1.6; border-left:4px solid var(--border-mid);">${esc(ep.post_text)}</div>` : ''}
+                ${tagsHtml}
+            </div>
 
-      <!-- AI INSIGHTS -->
-      <div class="d-section">
-        <div class="d-section-lbl">// AI Insights</div>
-        ${ep.my_take ? `<div class="my-take">${esc(ep.my_take)}</div>` : ''}
-        ${ep.post_text ? `<div class="post-text">${esc(ep.post_text)}</div>` : ''}
-        ${tagsHtml}
-      </div>
+            <div class="d-section">
+                <div class="d-section-lbl">// Model Telemetry</div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px;">
+                    <div style="background:var(--void); padding:16px; border-radius:12px; border:1px solid var(--border);">
+                        <div style="font-size:10px; font-weight:800; color:var(--text-lo); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Writer Model</div>
+                        <div style="font-size:12px; font-weight:700; color:var(--primary);">${esc(ep.writer_model || '--')}</div>
+                    </div>
+                    <div style="background:var(--void); padding:16px; border-radius:12px; border:1px solid var(--border);">
+                        <div style="font-size:10px; font-weight:800; color:var(--text-lo); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">Narrator Model</div>
+                        <div style="font-size:12px; font-weight:700; color:var(--primary);">${esc(ep.narrator_model || '--')}</div>
+                    </div>
+                </div>
+            </div>
 
-      <!-- MODEL TELEMETRY -->
-      <div class="d-section">
-        <div class="d-section-lbl">// Model Telemetry</div>
-        <div class="telem-grid">
-          <div class="telem-cell">
-            <div class="telem-k">Writer Model</div>
-            <div class="telem-v">${esc(ep.writer_model || '—')}</div>
-          </div>
-          <div class="telem-cell">
-            <div class="telem-k">Narrator Model</div>
-            <div class="telem-v">${esc(ep.narrator_model || '—')}</div>
-          </div>
-          <div class="telem-cell">
-            <div class="telem-k">JSON Healer</div>
-            <div class="telem-v">${healedHtml}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- AUDIO SCRIPT ACCORDION -->
-      <div class="d-section">
-        <div class="d-section-lbl">// Raw Broadcast Script</div>
-        <div class="accordion" id="script-accordion">
-          <button class="accordion-btn" aria-expanded="false">
-            <span>SHOW DIALOGUE — ${segments.length} SEGMENT${segments.length !== 1 ? 'S' : ''}</span>
-            <svg class="accordion-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </button>
-          <div class="accordion-body">${scriptHtml}</div>
-        </div>
-      </div>
-    `;
+            <div class="d-section">
+                <div class="d-section-lbl">// Raw Broadcast Script</div>
+                <div class="accordion" id="script-accordion">
+                    <button class="accordion-btn" style="width:100%; display:flex; justify-content:space-between; align-items:center; background:var(--void); border:none; padding:16px; border-radius:12px; cursor:pointer;">
+                        <span style="font-weight:700; font-size:13px; color:var(--primary);">SHOW DIALOGUE — ${segments.length} SEGMENTS</span>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform 0.2s;"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                    <div class="accordion-body">${scriptHtml}</div>
+                </div>
+            </div>
+        `;
     }
 
-    /* ── Main init ─────────────────────────────────────────────── */
-    async function init() {
-        console.log('[Echo FM] Initialising dashboard...');
-        startClock();
-        startHeartbeat();
+    function confClass(c) { return ['high', 'medium', 'low'].includes(c) ? c : 'null'; }
+    function confLabel(c) { return { high: 'HIGH', medium: 'MED', low: 'LOW' }[c] || '--'; }
 
-        // Mobile back button
-        const detailPanel = document.getElementById('detail-panel');
-        const backBtn = document.createElement('div');
-        backBtn.className = 'mobile-back-btn';
-        backBtn.innerHTML = '← Back to feed';
-        backBtn.addEventListener('click', () => {
-            detailPanel.classList.remove('mobile-open');
-            _selectedIdx = null;
-        });
-        detailPanel.insertBefore(backBtn, detailPanel.firstChild);
+    /* ── Core components ───────────────────────────────────────── */
 
-        // Fetch config.json (Cache-safe)
-        let cfg = null;
-        try {
-            console.log('[Echo FM] Fetching configuration...');
-            const response = await fetch('config.json', { cache: 'no-store' });
-            if (!response.ok) throw new Error('Config fetch failed');
-            cfg = await response.json();
-        } catch (err) {
-            console.warn('[Echo FM] Configuration missing or failed to load:', err);
-            setModePill('error', 'NO CONFIG');
-            showFullscreenState('warn', 'SIGNAL OFFLINE',
-                `config.json not found or corrupted.<br><br>` +
-                `Run the pipeline to generate it:<br>` +
-                `<code>python main.py --env local --dry-run</code><br><br>` +
-                `Then serve this directory with:<br>` +
-                `<code>python -m http.server 8080</code>`
-            );
+
+    function setModePill(mode, label) {
+        const pill = document.getElementById('mode-pill');
+        const lbl = document.getElementById('mode-label');
+        if (!pill || !lbl) return;
+        pill.className = 'mode-pill ' + (mode === 'supabase' ? 'production' : mode);
+        lbl.textContent = label;
+    }
+
+    function updateStats(cfg) {
+        const episodes = cfg.episodes || [];
+        const countEl = document.getElementById('stat-count');
+        const playsEl = document.getElementById('stat-plays');
+        const likesEl = document.getElementById('stat-likes');
+        const feedCountEl = document.getElementById('feed-count');
+
+        if (countEl) countEl.textContent = cfg.episode_count || episodes.length;
+        if (playsEl) playsEl.textContent = (cfg.total_plays || episodes.reduce((a, e) => a + (Number(e.plays) || 0), 0)).toLocaleString();
+        if (likesEl) likesEl.textContent = (cfg.total_likes || episodes.reduce((a, e) => a + (Number(e.likes) || 0), 0)).toLocaleString();
+        if (feedCountEl) feedCountEl.textContent = `${episodes.length} / ${cfg.episode_count || episodes.length}`;
+    }
+
+    function renderFeed(episodes) {
+        const list = document.getElementById('feed-list');
+        if (!list) return;
+        if (!episodes.length) {
+            list.innerHTML = '<div class="feed-no-ep">No broadcasts found.</div>';
             return;
         }
 
-        console.log('[Echo FM] Config loaded:', { mode: cfg.mode, env: cfg.env });
+        list.innerHTML = episodes.map((ep, i) => `
+            <div class="ep-card" data-idx="${i}" tabindex="0" onclick="window._selectEpisode(${i})">
+                <div class="ep-card-row1">
+                    <div class="ep-headline">${esc(ep.headline)}</div>
+                    <span class="conf-badge ${confClass(ep.confidence)}">${confLabel(ep.confidence)}</span>
+                </div>
+                <div class="signal-wrap"><div class="signal-bar" style="width: ${Math.min(100, (ep.broadcast_duration / 600) * 100)}%"></div></div>
+                <div class="ep-card-row2">
+                    <span class="ep-source">${esc(ep.source || '--')}</span>
+                    <div class="ep-eng">
+                        <div class="ep-eng-item">▶ ${ep.plays ?? 0}</div>
+                        <div class="ep-eng-item">❤ ${ep.likes ?? 0}</div>
+                    </div>
+                    <span class="ep-card-date">${esc(fmtDate(ep.created_at))}</span>
+                </div>
+            </div>
+        `).join('');
+    }
 
-        const mode = (cfg.mode || 'local').toLowerCase();
-        const isProduction = mode === 'production' || mode === 'supabase';
+    let _episodes = [];
+    let _selectedIdx = null;
+    window._selectEpisode = (idx) => selectEpisode(idx);
 
-        if (isProduction) {
-            setModePill('production', 'PRODUCTION MODE');
-        } else {
-            setModePill('local', 'LOCAL — SQLITE');
+    async function init() {
+
+        const detailPanel = document.getElementById('detail-panel');
+        if (detailPanel) {
+            const backBtn = document.createElement('div');
+            backBtn.className = 'mobile-back-btn';
+            backBtn.innerHTML = 'Back to feed';
+            backBtn.onclick = () => { detailPanel.classList.remove('mobile-open'); };
+            detailPanel.insertBefore(backBtn, detailPanel.firstChild);
         }
 
-        const episodes = Array.isArray(cfg.episodes) ? cfg.episodes : [];
-        console.log(`[Echo FM] Loaded ${episodes.length} episodes.`);
-        _episodes = episodes;
-        updateStats(cfg);
-        renderFeed(episodes);
+        try {
+            const response = await fetch('config.json');
+            const cfg = await response.json();
+            _episodes = cfg.episodes || [];
 
-        if (!isProduction) {
-            document.getElementById('header-freq').textContent =
-                `SERVING LOCAL SQLITE — ${episodes.length} EP${episodes.length !== 1 ? 'S' : ''}`;
-        } else {
-            document.getElementById('header-freq').textContent = `PRODUCTION — LIVE DATA`;
+
+            const mode = (cfg.mode || 'local').toLowerCase();
+            const isProduction = mode === 'production' || mode === 'supabase';
+            if (isProduction) {
+                setModePill('production', 'LIVE');
+            } else {
+                setModePill('local', 'DEVELOPMENT');
+            }
+
+            updateStats(cfg);
+            renderFeed(_episodes);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('id');
+            if (id) {
+                const idx = _episodes.findIndex(e => String(e.id) === id);
+                if (idx !== -1) selectEpisode(idx);
+            }
+        } catch (err) {
+            console.error('[Echo FM] Init failed:', err);
         }
     }
 
-    /* ── Boot ──────────────────────────────────────────────────── */
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-
 })();
