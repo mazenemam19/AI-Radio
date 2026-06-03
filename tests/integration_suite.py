@@ -105,6 +105,19 @@ def run() -> None:
         _fail("MP4 exists in output/", "no .mp4 file created during this run")
         newest = None
 
+    # ── Test 5: Cover image exists in output/ ────────────────────────────────
+    new_covers = sorted(
+        [
+            f for f in OUTPUT_DIR.glob("*.png")
+            if f.stat().st_mtime >= run_start
+        ],
+        key=lambda f: f.stat().st_mtime,
+    )
+    if new_covers:
+        _ok("Cover PNG exists in output/", new_covers[-1].name)
+    else:
+        _fail("Cover PNG exists in output/", "no .png file created during this run")
+
     # ── Test 3: MP4 size > 100 KB ─────────────────────────────────────────────
     if newest is not None:
         size = newest.stat().st_size

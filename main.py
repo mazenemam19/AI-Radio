@@ -488,32 +488,82 @@ def _compile_video(cover_image: Path, audio_path: Path, output_path: Path) -> bo
 
 def _generate_cover_image(title: str, path: Path) -> bool:
     """
-    Generate a 1280×720 cover image. Tries PIL first; falls back to FFmpeg lavfi.
-    Returns True on success, False on failure.
+    Generate a 1280×720 cover image using the "Echo Deep" design tokens.
+    Tries PIL first; falls back to FFmpeg lavfi.
     """
-    # Attempt 1: Pillow (nicer output with text overlay)
+    # Attempt 1: Pillow (High-Fidelity "Echo Deep" style)
     try:
-        from PIL import Image, ImageDraw
-        img = Image.new("RGB", (1280, 720), color=(20, 20, 46))
+        from PIL import Image, ImageDraw, ImageFont
+        
+        # Echo Deep Palette
+        slate_bg = (30, 41, 59)    # #1E293B
+        emerald_acc = (16, 185, 129) # #10B981
+        white_txt = (255, 255, 255)
+        gray_txt = (148, 163, 184)   # #94A3B8
+        
+        img = Image.new("RGB", (1280, 720), color=slate_bg)
         draw = ImageDraw.Draw(img)
-        draw.rectangle([0, 0, 1280, 8], fill=(100, 80, 220))
-        draw.rectangle([0, 712, 1280, 720], fill=(100, 80, 220))
-        draw.text((80, 260), "ECHO FM", fill=(180, 160, 255))
-        draw.text((80, 340), title[:72], fill=(220, 220, 255))
-        draw.text((80, 620), "AI Radio — Automated Satirical Broadcasting", fill=(90, 90, 130))
-        img.save(str(path))
-        print(f"[Video] Cover image (PIL) → {path.name}")
-        return True
-    except Exception:
-        pass  # Fall through to FFmpeg
+        
+        # 1. Emerald Accent Bars
+        draw.rectangle([0, 0, 1280, 16], fill=emerald_acc)
+        draw.rectangle([0, 704, 1280, 720], fill=emerald_acc)
+        
+        # 2. Font Selection (Robust fallback)
+        def get_font(size, bold=False):
+            names = ["arialbd.ttf", "arial.ttf", "DejaVuSans-Bold.ttf", "DejaVuSans.ttf"] if bold else ["arial.ttf", "DejaVuSans.ttf"]
+            for name in names:
+                try: return ImageFont.truetype(name, size)
+                except: continue
+            return ImageFont.load_default()
 
-    # Attempt 2: FFmpeg lavfi colour frame
+        f_brand = get_font(44, bold=True)
+        f_title = get_font(72, bold=True)
+        f_tag   = get_font(24)
+
+        # 3. Branding (Draw triangle to avoid font issues with '▶')
+        draw.polygon([(80, 85), (80, 115), (105, 100)], fill=emerald_acc)
+        draw.text((120, 80), "ECHO FM", fill=emerald_acc, font=f_brand)
+        
+        # 4. Title (Pixel-Perfect Wrapping)
+        max_w = 1120 # 1280 - 160 margin
+        words = title.split()
+        lines = []
+        curr_line = ""
+        
+        for word in words:
+            test_line = curr_line + (" " if curr_line else "") + word
+            w_px = draw.textlength(test_line.upper(), font=f_title)
+            if w_px <= max_w:
+                curr_line = test_line
+            else:
+                if curr_line: lines.append(curr_line)
+                curr_line = word
+        if curr_line: lines.append(curr_line)
+        
+        # Vertical alignment: start higher if many lines
+        y_cursor = 300 - (len(lines[:4]) * 40)
+        for line in lines[:4]:
+            draw.text((80, y_cursor), line.upper(), fill=white_txt, font=f_title)
+            y_cursor += 85
+            
+        # 5. Tagline
+        draw.text((80, 640), "AUTONOMOUS SATIRICAL BROADCASTING // DATA-DRIVEN TRUTH", fill=gray_txt, font=f_tag)
+        
+        img.save(str(path))
+        print(f"[Video] Cover image (PIL/EchoDeep) → {path.name}")
+        return True
+    except Exception as exc:
+        print(f"[Video] PIL cover generation failed (non-fatal): {exc}")
+        pass
+
+    # Attempt 2: FFmpeg fallback (Matches the Slate background)
     try:
+        # 0x1e293b in FFmpeg color string format
         result = subprocess.run(
             [
                 _ffmpeg(), "-y",
                 "-f", "lavfi",
-                "-i", "color=c=0x14142e:size=1280x720:rate=1",
+                "-i", "color=c=0x1e293b:size=1280x720:rate=1",
                 "-vframes", "1",
                 str(path),
             ],
@@ -521,7 +571,7 @@ def _generate_cover_image(title: str, path: Path) -> bool:
             text=True,
         )
         if result.returncode == 0:
-            print(f"[Video] Cover image (FFmpeg) → {path.name}")
+            print(f"[Video] Cover image (FFmpeg/Fallback) → {path.name}")
             return True
         print(f"[Video] FFmpeg cover generation failed: {result.stderr[-500:]}")
         return False
