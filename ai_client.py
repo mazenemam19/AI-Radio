@@ -10,7 +10,7 @@ Workflow:
   5. Fallback sequence on failure.
 
 High-Fidelity Rules:
-  - Minimum 130 words per segment.
+  - Minimum 100 words per segment.
   - Mandatory Weatherbot (middle) and Philosopher (end) segments.
   - No Jaccard word overlap > 50% between segments.
 """
@@ -255,16 +255,16 @@ SHOW STRUCTURE — follow this arc every episode
 SEGMENT 1    → ALISTAIR opens. Welcome. Tonight's headlines. Sets the tone.
                sfx_pre: INTRO_THEME | sfx_post: APPLAUSE_OPEN
 
-SEGMENTS 2–7 → Main show. Mix of ALISTAIR, VICTORIA, RONALD.
-               Vary topics. Cover at least 3 different stories from the news feed.
+SEGMENTS 2–11 → Main show. Mix of ALISTAIR, VICTORIA, RONALD.
+               Vary topics. Cover at least 5 different stories from the news feed.
                Insert CASPER somewhere in the middle — never first or last.
                Use sfx_post: TRANSITION_STING between major topic changes.
 
-SEGMENT 8–9  → The show slows down. One story gets depth, not jokes.
-               This is where ALISTAIR or RONALD earns their keep.
-               voice_style: grave | sfx_pre: SILENCE | sfx_post: nullDeep dive.
+SEGMENT 12–13 → The show slows down. One story gets depth, not jokes.
+               This is where ALISTAIR or RONALD earns their keep. Deep dive.
+               voice_style: grave | sfx_pre: SILENCE | sfx_post: null
 
-FINAL SEGMENT → MARCUS closes the show. No jokes. No music.
+FINAL SEGMENT → MARCUS closes the show (Segment 14). No jokes. No music.
                Plain spoken truth. One question left unanswered.
                Always voice_style: grave. sfx_pre: null | sfx_post: OUTRO_THEME.
 
@@ -279,13 +279,13 @@ SATIRICAL EDGE & TONE
 ════════════════════════════════════════
 HARD REQUIREMENTS — violation = rejected
 ════════════════════════════════════════
-- Target 8–10 segments. Total spoken word count: ~1400 words.
+- Target 12–14 segments. Total spoken word count: ~1400 words.
 - Every segment MUST be verbose and descriptive.
-- AIM FOR 150 WORDS per segment. 130 words is the absolute minimum floor.
+- AIM FOR 110 WORDS per segment. 100 words is the absolute minimum floor.
 - Avoid brevity; use the full context of the news to build elaborate setups.
 - Speaker must be one of: ALISTAIR, VICTORIA, RONALD, CASPER, MARCUS.
 - Include exactly one CASPER segment.
-- Include exactly one MARCUS segment — always the final segment.
+- Include exactly one MARCUS segment — always the final segment (14).
 - Never use the same speaker more than 3 times in a row.
 - Do NOT summarise the news. Satirise, exaggerate, find the absurdity.
 - The JSON must be syntactically complete and properly closed.
@@ -459,8 +459,8 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     segments = data["segments"]
     if not isinstance(segments, list):
         return False, "'segments' is not a list"
-    if len(segments) < 8:
-        return False, f"Only {len(segments)} segment(s) — need ≥ 8"
+    if len(segments) < 12:
+        return False, f"Only {len(segments)} segment(s) — need ≥ 12"
 
     seen_word_sets: list[set] = []
     has_weatherbot = False
@@ -470,8 +470,8 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     valid_styles   = {"normal", "whisper", "grave", "excited", "deadpan"}
 
     # Adaptive Validation (Stability Patch Part 2)
-    # Production/CI: 130 words (Gold Standard). Local/Dev: 100 words (High stability).
-    min_words = 130 if env in _PRODUCTION_ENVS else 100
+    # 100 words is the absolute stable floor for all models/envs.
+    min_words = 100
 
     for i, seg in enumerate(segments):
         if not isinstance(seg, dict):

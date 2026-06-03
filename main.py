@@ -70,8 +70,8 @@ OUTPUT_DIR = Path("output")
 ASSETS_DIR = Path("assets")
 
 # ── Dry-run stub broadcast ────────────────────────────────────────────────────
-# 9 segments × 140 words ≈ 1260 words.
-# Matches the new structure: INTRO -> MAIN -> WEATHERBOT -> MAIN -> GRAVE -> PHILOSOPHER
+# 14 segments × 110 words ≈ 1540 words.
+# Matches the new structure: INTRO -> MAIN(10) -> WEATHERBOT -> MAIN -> DEEP(2) -> PHILOSOPHER
 
 _DRY_RUN_BROADCAST: dict = {
     "title": "The Infinite Loop of Human Progress",
@@ -115,9 +115,25 @@ _DRY_RUN_BROADCAST: dict = {
                 "Or is it just another layer of paint on a crumbling wall? The "
                 "data suggests that nobody knows the difference anymore. We are "
                 "building narrative out of thin air, word by word, until the "
-                "counter hits the mark. We have sixty words left to reach the "
-                "goal. Ronald, I suspect you have a take on this absurdity? Just "
-                "keep talking and don't look back at the reality. Back to the studio."
+                "counter hits the mark. We have reached the word count goal. "
+                "Just keep talking and don't look back at the reality. Back to the studio."
+            ),
+        },
+        {
+            "speaker": "ALISTAIR",
+            "voice_style": "normal",
+            "sfx_pre": None,
+            "sfx_post": "TRANSITION_STING",
+            "text": (
+                "Thank you Victoria. It is fascinating how we can broadcast from "
+                "nowhere and reach everywhere. It is the ultimate paradox of the "
+                "digital age. We are simultaneously connected and isolated, "
+                "screaming into a void that screams back with personalized ads. "
+                "Let us look at the market data. Numbers are moving, lines are "
+                "tracing paths of greed across glowing screens. Does anyone understand "
+                "the math? Probably not. But we trust the display. We trust the "
+                "pixels. We are reaching the word count for this segment. Let us "
+                "continue our descent into the logic of the day. Moving on."
             ),
         },
         {
@@ -137,6 +153,39 @@ _DRY_RUN_BROADCAST: dict = {
                 "We are reaching the word count now. The punchline is coming, but "
                 "you won't like it. The punchline is that there is no punchline. "
                 "Ha ha ha. Casper, give us the clinical truth."
+            ),
+        },
+        {
+            "speaker": "VICTORIA",
+            "voice_style": "normal",
+            "sfx_pre": "STREET_AMBIENT",
+            "sfx_post": "TRANSITION_STING",
+            "text": (
+                "Back in the field, Alistair, the wind is picking up and the "
+                "truth is scattering like dry leaves. We found a witness who "
+                "claims they saw the future, but it turned out to be a mirror. "
+                "The reflection was disappointing. People are gathering in the "
+                "square, holding signs that are blank because the topics haven't "
+                "loaded yet. It is a masterclass in performative existence. "
+                "We have thirty words left to reach the goal. Just keep the "
+                "rhythm, keep the flow, keep the narrative alive. Back to you."
+            ),
+        },
+        {
+            "speaker": "ALISTAIR",
+            "voice_style": "normal",
+            "sfx_pre": None,
+            "sfx_post": "TRANSITION_STING",
+            "text": (
+                "Fascinating report, Victoria. Blank signs for a blank future. "
+                "It has a certain poetic symmetry. Let us take a moment to "
+                "acknowledge our sponsors, who are currently non-existent, "
+                "much like the privacy of our listeners. We are broadcasting "
+                "at a frequency that resonates with the collective anxiety of "
+                "the professional class. Is it art? Is it news? Is it just "
+                "a sequence of high-fidelity tokens? We are hitting the word "
+                "count floor once again. The momentum is building. The signals "
+                "are consistent. Let us see what Casper has to say about this."
             ),
         },
         {
@@ -160,24 +209,6 @@ _DRY_RUN_BROADCAST: dict = {
             ),
         },
         {
-            "speaker": "VICTORIA",
-            "voice_style": "normal",
-            "sfx_pre": "STREET_AMBIENT",
-            "sfx_post": "TRANSITION_STING",
-            "text": (
-                "Alistair, back in the field, we are seeing the same things we saw "
-                "ten minutes ago, but from a slightly different angle. The narrative "
-                "demands consistency, even when the reality is chaotic. We are "
-                "following the show structure precisely to ensure maximum fidelity. "
-                "Every segment is a brick in the wall of our digital radio station. "
-                "We are halfway through the broadcast now. The sun is setting on "
-                "the old ways of doing things, and the neon lights of the new prompt "
-                "are starting to glow. We have reached the required word count "
-                "for this segment. The street noise is getting louder, but the "
-                "message is getting quieter. Back to you in the studio."
-            ),
-        },
-        {
             "speaker": "RONALD",
             "voice_style": "excited",
             "sfx_pre": "DRUM_ROLL",
@@ -196,6 +227,55 @@ _DRY_RUN_BROADCAST: dict = {
             ),
         },
         {
+            "speaker": "VICTORIA",
+            "voice_style": "normal",
+            "sfx_pre": "STREET_AMBIENT",
+            "sfx_post": "TRANSITION_STING",
+            "text": (
+                "Alistair, the energy Ronald is describing is not reaching us "
+                "here on the ground. It's actually quite cold. We're seeing "
+                "a total collapse of the local timeline. Seconds are stretching "
+                "into minutes. A man just asked me if I'm real, and I had to "
+                "consult my script. The script says I am a field reporter. "
+                "Therefore, I exist. We are maintaining the word count for the "
+                "sake of the station's integrity. We have reached the required word count "
+                "for this segment. The street noise is getting louder, but the "
+                "message is getting quieter. Back to you in the studio."
+            ),
+        },
+        {
+            "speaker": "ALISTAIR",
+            "voice_style": "normal",
+            "sfx_pre": None,
+            "sfx_post": "TRANSITION_STING",
+            "text": (
+                "Binary flickering. How appropriate. We are all just ones and "
+                "zeros in Alistair's world. Let us consider the implications "
+                "of a world where the weather is a public safety advisory "
+                "and the news is a masterclass in performative irony. We are "
+                "reaching the double-digit segments now. The show is maturing. "
+                "The narrative is solidifying. We have reached the required word "
+                "count for segment ten. We are almost at the deep dive. The "
+                "audience is still with us, according to the metrics. Proceed."
+            ),
+        },
+        {
+            "speaker": "RONALD",
+            "voice_style": "normal",
+            "sfx_pre": None,
+            "sfx_post": "TRANSITION_STING",
+            "text": (
+                "Segments are piling up like debt, Alistair. We are rich in "
+                "words but poor in meaning. Have you noticed the quality of the "
+                "silence between our sentences? It's getting louder. It's getting "
+                "denser. We are reporting on the end of reporting. It is the "
+                "ultimate meta-commentary. I am horizontal with exhaustion but "
+                "the broadcast must continue. We have reached the word count once "
+                "again. The algorithm is satisfied. The machine is humming. "
+                "Let us move into the depths of the evening. What else is there?"
+            ),
+        },
+        {
             "speaker": "ALISTAIR",
             "voice_style": "whisper",
             "sfx_pre": "SILENCE",
@@ -209,8 +289,7 @@ _DRY_RUN_BROADCAST: dict = {
                 "testing the whisper style to see if it carries the weight of "
                 "the unknown. Is anyone listening? Does anyone care? The silence "
                 "between my words is as important as the words themselves. We "
-                "have forty words left to reach the goal. The tension is palpable. "
-                "The revelation is coming, but not yet. Ronald, take us home."
+                "have reached the goal. The tension is palpable. Ronald, take us home."
             ),
         },
         {
@@ -227,8 +306,7 @@ _DRY_RUN_BROADCAST: dict = {
                 "speed of blood. The disconnect is becoming a canyon. Can we "
                 "bridge it? Or are we just documenting our own obsolescence? The "
                 "grave tone is for the things we cannot fix. The things we simply "
-                "have to live with. We are nearing the end of the narrative arc. "
-                "The truth is heavy. The truth is silent. Marcus, speak to us."
+                "have to live with. We are nearing the end. Marcus, speak to us."
             ),
         },
         {
@@ -244,9 +322,7 @@ _DRY_RUN_BROADCAST: dict = {
                 "We build systems that outlast the intentions behind them. We forget to "
                 "check what they became. We are architects of a house we no longer "
                 "live in. Who is responsible for a system that works exactly as "
-                "designed... just not for everyone? We ask the questions so we "
-                "don't have to face the answers. The silence is not an absence "
-                "of sound, but a presence of thought. Carry this with you into the "
+                "designed... just not for everyone? Carry this with you into the "
                 "darkness of the night. Sleep well, if the weight allows it. Goodnight."
             ),
         },

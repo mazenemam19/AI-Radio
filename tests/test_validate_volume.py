@@ -1,14 +1,16 @@
 """
 tests/test_validate_volume.py — TDD for Volume Pressure logic.
-Verifies that validate_broadcast enforces the new 12-15 segment requirement.
+Verifies that validate_broadcast enforces the new 12-14 segment requirement with 100-word floor.
 """
 
 import sys
 import unittest
+import copy
 from ai_client import validate_broadcast
 
 class TestVolumeValidation(unittest.TestCase):
     def setUp(self):
+        words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november"]
         self.base_data = {
             "title": "Test Episode",
             "topic_tags": ["test"],
@@ -17,40 +19,44 @@ class TestVolumeValidation(unittest.TestCase):
             "post_text": "Test post.",
             "related_ids": [],
             "segments": [
-                {"speaker": "ALISTAIR", "text": "Word " * 140, "voice_style": "normal", "sfx_pre": None, "sfx_post": None} 
-                for _ in range(8)
+                {"speaker": "ALISTAIR", "text": f"{words[i]} " * 105, "voice_style": "normal", "sfx_pre": None, "sfx_post": None} 
+                for i in range(14)
             ]
         }
+        # Ensure mandatory segments are present to satisfy validation
+        self.base_data["segments"][6]["speaker"] = "CASPER"
+        self.base_data["segments"][-1]["speaker"] = "MARCUS"
 
     def test_minimum_segments_fail(self):
-        """Should fail if less than 8 segments are provided."""
-        words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet"]
-        for count in range(1, 8):
+        """Should fail if less than 12 segments are provided."""
+        for count in range(1, 12):
             with self.subTest(count=count):
-                data = self.base_data.copy()
-                data["segments"] = [
-                    {"speaker": "ALISTAIR", "text": f"{words[i%len(words)]} " * 140, "voice_style": "normal", "sfx_pre": None, "sfx_post": None} 
-                    for i in range(count)
-                ]
+                data = copy.deepcopy(self.base_data)
+                data["segments"] = data["segments"][:count]
                 valid, reason = validate_broadcast(data, "local")
                 self.assertFalse(valid, f"Should have failed for {count} segments: {reason}")
 
     def test_minimum_segments_pass(self):
-        """Should pass if 8 or more segments are provided."""
-        words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet"]
-        for count in range(8, 11):
+        """Should pass if 12 or more segments are provided."""
+        for count in range(12, 15):
             with self.subTest(count=count):
-                data = self.base_data.copy()
-                data["segments"] = [
-                    {"speaker": "ALISTAIR", "text": f"{words[i%len(words)]} " * 140, "voice_style": "normal", "sfx_pre": None, "sfx_post": None} 
-                    for i in range(count)
-                ]
-                # Ensure mandatory segments are present to satisfy validation
-                data["segments"][len(data["segments"])//2]["speaker"] = "CASPER"
+                data = copy.deepcopy(self.base_data)
+                data["segments"] = data["segments"][:count]
+                # Re-assign Marcus to final slot
+                for seg in data["segments"]:
+                    if seg["speaker"] == "MARCUS": seg["speaker"] = "ALISTAIR"
                 data["segments"][-1]["speaker"] = "MARCUS"
                 
                 valid, reason = validate_broadcast(data, "local")
                 self.assertTrue(valid, f"Should have passed for {count} segments: {reason}")
+
+    def test_word_floor_fail(self):
+        """Should fail if any segment is below 100 words."""
+        data = self.base_data.copy()
+        data["segments"][0]["text"] = "Too short"
+        valid, reason = validate_broadcast(data, "production")
+        self.assertFalse(valid)
+        self.assertIn("need ≥ 100", reason)
 
 if __name__ == "__main__":
     unittest.main()
