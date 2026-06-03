@@ -37,29 +37,24 @@ LLAMA_4_SCOUT         = "meta-llama/llama-4-scout-17b-16e-instruct"
 # Experimental / Future-ready tiers
 GEMMA_4               = "gemma-4-31b-it"
 GEMMA_4_A4B           = "gemma-4-26b-a4b-it"
-GROQ_COMPOUND         = "groq/compound"
-GROQ_COMPOUND_MINI    = "groq/compound-mini"
 
 # ── Model Queues ──────────────────────────────────────────────────────────────
 
 # Set A: Gold Standard Production Queue (High-Fidelity Reasoning)
 MODEL_SET_A: list[str] = [
     GEMINI_3_5_FLASH,
-    GEMINI_3_FLASH_PREV,
-    GEMINI_2_5_FLASH,
     GEMINI_3_1_LITE_PREV,
     GEMINI_2_5_LITE,
-]
-
-# Set B: Local / Development Queue (Experimental & Preview Tiers)
-MODEL_SET_B: list[str] = [
     GEMINI_3_FLASH_PREV,
+    LLAMA_4_SCOUT,
+    GEMINI_2_5_FLASH,
     GEMMA_4,
     GEMMA_4_A4B,
-    GROQ_COMPOUND,
-    GROQ_COMPOUND_MINI,
-    LLAMA_4_SCOUT,
 ]
+
+# Set B: Local / Development Queue (Baseline Stability)
+# Derived dynamically to prioritize lighter/preview models for local testing.
+MODEL_SET_B: list[str] = MODEL_SET_A[::-1]
 
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
 

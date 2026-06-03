@@ -22,23 +22,20 @@ class TestAIQueue(unittest.TestCase):
         # Set A: Gold Standard Production Queue (High-Fidelity Reasoning)
         expected_a = [
             "gemini-3.5-flash",
-            "gemini-3-flash-preview",
-            "gemini-2.5-flash",
             "gemini-3.1-flash-lite-preview",
-            "gemini-2.5-flash-lite"
+            "gemini-2.5-flash-lite",
+            "gemini-3-flash-preview",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "gemini-2.5-flash",
+            "gemma-4-31b-it",
+            "gemma-4-26b-a4b-it",
         ]
         self.assertEqual(ai_client.MODEL_SET_A, expected_a, "AI MODEL_SET_A has drifted!")
 
-        # Set B: Local / Development Queue (Experimental & Preview Tiers)
-        expected_b = [
-            "gemini-3-flash-preview",
-            "gemma-4-31b-it",
-            "gemma-4-26b-a4b-it",
-            "groq/compound",
-            "groq/compound-mini",
-            "meta-llama/llama-4-scout-17b-16e-instruct"
-        ]
-        self.assertEqual(ai_client.MODEL_SET_B, expected_b, "AI MODEL_SET_B has drifted!")
+        # Set B: Local / Development Queue (Baseline Stability)
+        # Should be exact reverse of Set A
+        expected_b = expected_a[::-1]
+        self.assertEqual(ai_client.MODEL_SET_B, expected_b, "AI MODEL_SET_B is not the reverse of Set A!")
 
     def test_audio_production_tier(self):
         """Verify the priority order of high-fidelity TTS engines for production."""
