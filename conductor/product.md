@@ -17,5 +17,5 @@ The product aims to achieve **100% Autonomy** in its production cycle, deliverin
 - **Self-Assessment Gates:** Automated measurement against baseline metrics (duration, metadata, quality) to ensure zero regression.
 - **Multimedia Compilation:** Generating cover art and compiling final video artifacts automatically.
 - **High-Fidelity Audio Production:** Advanced multi-track mixing (SFX, ambient loops), dynamic voice styling (whisper, excited, etc.), and professional broadcast mastering.
-- **Multi-channel Distribution:** Automated uploads to **YouTube** and archiving in a **High-Fidelity Multi-page Website**. The site features a professional landing page and a restyled "Echo Deep" Station Control Panel that supports both local (SQLite) and production (Supabase) data sources.
+- **Multi-channel Distribution:** Automated uploads to **YouTube** and archiving in a **High-Fidelity Multi-page Website**. The site features a professional landing page and a restyled "Echo FM" Station Control Panel that supports both local (SQLite) and production (Supabase) data sources.
 - **Engagement Telemetry:** High-performance synchronization of audience metrics (Plays, Likes) and real-time station-wide telemetry display.

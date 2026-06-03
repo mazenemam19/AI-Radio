@@ -40,7 +40,7 @@ GEMMA_4_A4B           = "gemma-4-26b-a4b-it"
 
 # ── Model Queues ──────────────────────────────────────────────────────────────
 
-# Set A: Gold Standard Production Queue (High-Fidelity Reasoning)
+# Set A: Production Queue (High-Fidelity Reasoning)
 MODEL_SET_A: list[str] = [
     GEMINI_3_5_FLASH,
     GEMINI_3_1_LITE_PREV,

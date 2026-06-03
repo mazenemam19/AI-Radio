@@ -13,7 +13,7 @@ class TestRebrandingStyle(unittest.TestCase):
         self.css_content = self.css_path.read_text(encoding="utf-8")
 
     def test_design_tokens(self):
-        """Should contain the new 'Echo Deep' color palette."""
+        """Should contain the new 'Echo FM' color palette."""
         tokens = {
             "--primary": "#1E293B",
             "--secondary": "#334155",

@@ -470,15 +470,16 @@ def _compile_video(cover_image: Path, audio_path: Path, output_path: Path) -> bo
 
 def _generate_cover_image(title: str, path: Path) -> bool:
     """
-    Generate a 1280×720 cover image using the "Echo Deep" design tokens.
+    Generate a 1280×720 cover image using the "Echo FM" design tokens.
     Tries PIL first; falls back to FFmpeg lavfi.
     """
-    # Attempt 1: Pillow (High-Fidelity "Echo Deep" style)
+    # Attempt 1: Pillow (High-Fidelity "Echo FM" style)
     try:
         from PIL import Image, ImageDraw, ImageFont
-        
-        # Echo Deep Palette
+
+        # Echo FM Palette
         slate_bg = (30, 41, 59)    # #1E293B
+
         emerald_acc = (16, 185, 129) # #10B981
         white_txt = (255, 255, 255)
         gray_txt = (148, 163, 184)   # #94A3B8

@@ -19,7 +19,7 @@ class TestAIQueue(unittest.TestCase):
 
     def test_ai_writer_models(self):
         """Verify the exact strings for AI Writing Model sets."""
-        # Set A: Gold Standard Production Queue (High-Fidelity Reasoning)
+        # Set A: Production Queue (High-Fidelity Reasoning)
         expected_a = [
             "gemini-3.5-flash",
             "gemini-3.1-flash-lite-preview",

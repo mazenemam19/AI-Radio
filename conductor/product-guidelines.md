@@ -13,7 +13,7 @@ These guidelines define the stylistic, behavioral, and technical boundaries for 
 - **Audience Feedback:** Simulated audience reactions including **laugh tracks**, **boos**, and **applause** to create an immersive live atmosphere.
 
 ## Branding & Visuals
-- **Aesthetic:** **Structured Minimalism**. Use deep slates and emerald accents ("Echo Deep" palette) with modern typography (Space Grotesk) to package the show's intellectual and satirical depth.
+- **Aesthetic:** **Structured Minimalism**. Use deep slates and emerald accents ("Echo FM" palette) with modern typography (Space Grotesk) to package the show's intellectual and satirical depth.
 - **Visual Identity:** A high-fidelity multi-page website featuring a narrative-driven landing page and a professional data-dense control panel.
 - **Cover Art:** Visuals should evoke a "Live from the Data Center" televised feel, using minimalist broadcast graphics.
 
