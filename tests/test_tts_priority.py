@@ -31,14 +31,16 @@ class TestTTSPriority(unittest.TestCase):
     @patch("tts_generator._run_kokoro_tts")
     @patch("tts_generator._run_edge_tts")
     @patch("tts_generator._is_audio_valid")
-    def test_priority_fallthrough(self, mock_valid, mock_edge, mock_kokoro, mock_cartesia):
+    @patch("tts_generator._apply_audio_processing")
+    def test_priority_fallthrough(self, mock_apply, mock_valid, mock_edge, mock_kokoro, mock_cartesia):
         """Should try Cartesia, then Kokoro, then Edge-TTS."""
         # Scenario: Cartesia fails, Kokoro succeeds
         mock_cartesia.return_value = False
         mock_kokoro.return_value = True
         mock_valid.return_value = True
+        mock_apply.return_value = True
         
-        success, engine = tts_generator.generate_segment_audio("Test", "ANCHOR", self.output_path, use_cloud=True)
+        success, engine = tts_generator.generate_segment_audio("Test", "ALISTAIR", self.output_path, use_cloud=True)
         
         self.assertTrue(success)
         self.assertEqual(engine, "kokoro-cloud")
@@ -50,14 +52,16 @@ class TestTTSPriority(unittest.TestCase):
     @patch("tts_generator._run_kokoro_tts")
     @patch("tts_generator._run_edge_tts")
     @patch("tts_generator._is_audio_valid")
-    def test_full_fallback(self, mock_valid, mock_edge, mock_kokoro, mock_cartesia):
+    @patch("tts_generator._apply_audio_processing")
+    def test_full_fallback(self, mock_apply, mock_valid, mock_edge, mock_kokoro, mock_cartesia):
         """Should fall all the way to Edge-TTS if premium fails."""
         mock_cartesia.return_value = False
         mock_kokoro.return_value = False
         mock_edge.return_value = True
         mock_valid.return_value = True
+        mock_apply.return_value = True
         
-        success, engine = tts_generator.generate_segment_audio("Test", "ANCHOR", self.output_path, use_cloud=True)
+        success, engine = tts_generator.generate_segment_audio("Test", "ALISTAIR", self.output_path, use_cloud=True)
         
         self.assertTrue(success)
         self.assertEqual(engine, "edge-tts")
@@ -69,14 +73,16 @@ class TestTTSPriority(unittest.TestCase):
     @patch("tts_generator._run_kokoro_tts")
     @patch("tts_generator._run_edge_tts")
     @patch("tts_generator._is_audio_valid")
-    def test_quality_failure_triggers_fallback(self, mock_valid, mock_edge, mock_kokoro, mock_cartesia):
+    @patch("tts_generator._apply_audio_processing")
+    def test_quality_failure_triggers_fallback(self, mock_apply, mock_valid, mock_edge, mock_kokoro, mock_cartesia):
         """Should fallback if an engine succeeds but its output is invalid (too short)."""
         # Scenario: Cartesia succeeds writing a file, but Quality Guard REJECTS it.
         mock_cartesia.return_value = True
         mock_valid.side_effect = [False, True] # False for Cartesia, True for Kokoro
         mock_kokoro.return_value = True
+        mock_apply.return_value = True
         
-        success, engine = tts_generator.generate_segment_audio("Test words", "ANCHOR", self.output_path, use_cloud=True)
+        success, engine = tts_generator.generate_segment_audio("Test words", "ALISTAIR", self.output_path, use_cloud=True)
         
         self.assertTrue(success)
         self.assertEqual(engine, "kokoro-cloud") # Should have moved past Cartesia
