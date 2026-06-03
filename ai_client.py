@@ -197,6 +197,13 @@ def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
         for m in memory[:5]
     ) or "  No recent episodes on file."
 
+    # ── Stability Strategy Note (DO NOT REMOVE) ──────────────────────────────────
+    # Models systematically underperform (producing ~110-120 when asked for 150).
+    # We "over-ask" in the prompt (150 target / 130 floor) to ensure the physical 
+    # output consistently hits our actual internal baseline (100 floor).
+    # DO NOT lower the numbers in the prompt string below to match the validator.
+    # ──────────────────────────────────────────────────────────────────────────────
+
     return f"""You are the head writer for "Echo FM" — a late-night satirical radio station
 operated by AI. 
 
@@ -279,10 +286,10 @@ SATIRICAL EDGE & TONE
 ════════════════════════════════════════
 HARD REQUIREMENTS — violation = rejected
 ════════════════════════════════════════
-- Target 12–14 segments. Total spoken word count: ~1400 words.
-- Every segment MUST be verbose and descriptive.
-- AIM FOR 110 WORDS per segment. 100 words is the absolute minimum floor.
-- Avoid brevity; use the full context of the news to build elaborate setups.
+- Target 12–14 segments. Total spoken word count: ~1800+ words.
+- Every segment MUST be verbose, descriptive, and intellectually dense.
+- AIM FOR 150 WORDS per segment. 130 words is the ABSOLUTE minimum floor.
+- DO NOT summarize. Build elaborate, multi-layered satirical setups.
 - Speaker must be one of: ALISTAIR, VICTORIA, RONALD, CASPER, MARCUS.
 - Include exactly one CASPER segment.
 - Include exactly one MARCUS segment — always the final segment (14).
