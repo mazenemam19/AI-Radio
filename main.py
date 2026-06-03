@@ -132,8 +132,10 @@ _DRY_RUN_BROADCAST: dict = {
                 "Let us look at the market data. Numbers are moving, lines are "
                 "tracing paths of greed across glowing screens. Does anyone understand "
                 "the math? Probably not. But we trust the display. We trust the "
-                "pixels. We are reaching the word count for this segment. Let us "
-                "continue our descent into the logic of the day. Moving on."
+                "pixels. We are reaching the word count for this segment now. "
+                "We must ensure that every single segment carries enough weight "
+                "to satisfy our new high-fidelity validation logic. The signals "
+                "are clear. Let us continue our descent into the logic of the day."
             ),
         },
         {

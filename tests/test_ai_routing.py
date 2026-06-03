@@ -41,8 +41,9 @@ class TestAIRouting(unittest.TestCase):
         
         ai_client.generate_broadcast([], [], "local")
         
-        # In Local Set, it should try Gemini first, fail, then try GROQ_COMPOUND via Groq
-        mock_groq.assert_any_call(ANY, ai_client.GROQ_COMPOUND)
+        # In Local Set (reverse of Set A), it should try Gemini/Gemma models first, 
+        # fail, then reach LLAMA_4_SCOUT via Groq.
+        mock_groq.assert_any_call(ANY, ai_client.LLAMA_4_SCOUT)
 
 if __name__ == "__main__":
     unittest.main()
