@@ -539,8 +539,8 @@ def generate_broadcast(
         is_groq = model.startswith(("openai/", "groq/", "qwen/", "meta-llama/", "llama-"))
         
         # Provider-Aware News Limits (Stability Patch Part 1)
-        # Gemini/Gemma: 15 items (~12k tokens). Groq: 6 items (~7.5k tokens).
-        news_limit = 15 if is_gemini else 6
+        # Gemini/Gemma: 20 items (~16k tokens). Groq: 6 items (~7.5k tokens).
+        news_limit = 20 if is_gemini else 6
         
         prompt = _build_prompt(news, memory, news_limit)
         
