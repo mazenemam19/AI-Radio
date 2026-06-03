@@ -267,11 +267,10 @@ SEGMENTS 2–11 → Main show. Mix of ALISTAIR, VICTORIA, RONALD.
                Insert CASPER somewhere in the middle — never first or last.
                Use sfx_post: TRANSITION_STING between major topic changes.
 
-SEGMENT 12–13 → The show slows down. One story gets depth, not jokes.
-               This is where ALISTAIR or RONALD earns their keep. Deep dive.
+SEGMENT 12   → Deep dive. ALISTAIR or RONALD earns their keep.
                voice_style: grave | sfx_pre: SILENCE | sfx_post: null
 
-FINAL SEGMENT → MARCUS closes the show (Segment 14). No jokes. No music.
+FINAL SEGMENT → MARCUS closes the show (Segment 13). No jokes. No music.
                Plain spoken truth. One question left unanswered.
                Always voice_style: grave. sfx_pre: null | sfx_post: OUTRO_THEME.
 
@@ -286,13 +285,13 @@ SATIRICAL EDGE & TONE
 ════════════════════════════════════════
 HARD REQUIREMENTS — violation = rejected
 ════════════════════════════════════════
-- Target 12–14 segments. Total spoken word count: ~1800+ words.
+- Target 13 segments. Total spoken word count: ~1700+ words.
 - Every segment MUST be verbose, descriptive, and intellectually dense.
 - AIM FOR 150 WORDS per segment. 130 words is the ABSOLUTE minimum floor.
 - DO NOT summarize. Build elaborate, multi-layered satirical setups.
 - Speaker must be one of: ALISTAIR, VICTORIA, RONALD, CASPER, MARCUS.
 - Include exactly one CASPER segment.
-- Include exactly one MARCUS segment — always the final segment (14).
+- Include exactly one MARCUS segment — always the final segment (13).
 - Never use the same speaker more than 3 times in a row.
 - Do NOT summarise the news. Satirise, exaggerate, find the absurdity.
 - The JSON must be syntactically complete and properly closed.

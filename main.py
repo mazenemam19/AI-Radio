@@ -70,8 +70,8 @@ OUTPUT_DIR = Path("output")
 ASSETS_DIR = Path("assets")
 
 # ── Dry-run stub broadcast ────────────────────────────────────────────────────
-# 14 segments × 110 words ≈ 1540 words.
-# Matches the new structure: INTRO -> MAIN(10) -> WEATHERBOT -> MAIN -> DEEP(2) -> PHILOSOPHER
+# 13 segments × 110 words ≈ 1430 words.
+# Matches the new structure: INTRO -> MAIN(9) -> WEATHERBOT -> MAIN -> DEEP(1) -> PHILOSOPHER
 
 _DRY_RUN_BROADCAST: dict = {
     "title": "The Infinite Loop of Human Progress",
@@ -142,7 +142,7 @@ _DRY_RUN_BROADCAST: dict = {
             "sfx_pre": None,
             "sfx_post": "LAUGH_TRACK",
             "text": (
-                "Victoria, the market is up, the spirits are down, and the "
+                "Alistair, the market is up, the spirits are down, and the "
                 "algorithm is hungry for more souls. We are witnessing the birth "
                 "of a new era where irony is the only currency that still has value. "
                 "Have you noticed how everyone is shouting but nobody is listening? "
@@ -151,8 +151,7 @@ _DRY_RUN_BROADCAST: dict = {
                 "watching a car crash in slow motion, but the car is a metaphor "
                 "for Western civilisation and the slow motion is actually real-time. "
                 "We are reaching the word count now. The punchline is coming, but "
-                "you won't like it. The punchline is that there is no punchline. "
-                "Ha ha ha. Casper, give us the clinical truth."
+                "you won't like it. The punchline is that there is no punchline."
             ),
         },
         {
@@ -204,8 +203,7 @@ _DRY_RUN_BROADCAST: dict = {
                 "Visibility is zero for those without a subscription. Probability of "
                 "truth: negligible. Expect a cold front of indifference to arrive by "
                 "Monday morning. This has been your forecast. Echo FM is not "
-                "responsible for conditions on the ground. Stay inside. Stay safe. "
-                "Stay silent. Compliance is the only weather that matters tonight."
+                "responsible for conditions on the ground. Stay inside. Stay safe."
             ),
         },
         {
@@ -238,9 +236,8 @@ _DRY_RUN_BROADCAST: dict = {
                 "into minutes. A man just asked me if I'm real, and I had to "
                 "consult my script. The script says I am a field reporter. "
                 "Therefore, I exist. We are maintaining the word count for the "
-                "sake of the station's integrity. We have reached the required word count "
-                "for this segment. The street noise is getting louder, but the "
-                "message is getting quieter. Back to you in the studio."
+                "sake of the station's integrity. We have reaching the limit. "
+                "The city lights are flickering in binary. Back to the studio."
             ),
         },
         {
@@ -273,23 +270,6 @@ _DRY_RUN_BROADCAST: dict = {
                 "the broadcast must continue. We have reached the word count once "
                 "again. The algorithm is satisfied. The machine is humming. "
                 "Let us move into the depths of the evening. What else is there?"
-            ),
-        },
-        {
-            "speaker": "ALISTAIR",
-            "voice_style": "whisper",
-            "sfx_pre": "SILENCE",
-            "sfx_post": None,
-            "text": (
-                "And now... and I want to be careful here... there are reports — "
-                "unconfirmed, officially — that the system may have... discovered "
-                "a secret. Not a leak. Not a hack. A secret. That word is doing "
-                "a LOT of work tonight. We are moving into the final stages of the "
-                "broadcast. The lights are dimming. The voice is dropping. We are "
-                "testing the whisper style to see if it carries the weight of "
-                "the unknown. Is anyone listening? Does anyone care? The silence "
-                "between my words is as important as the words themselves. We "
-                "have reached the goal. The tension is palpable. Ronald, take us home."
             ),
         },
         {

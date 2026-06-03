@@ -20,7 +20,7 @@ class TestVolumeValidation(unittest.TestCase):
             "related_ids": [],
             "segments": [
                 {"speaker": "ALISTAIR", "text": f"{words[i]} " * 105, "voice_style": "normal", "sfx_pre": None, "sfx_post": None} 
-                for i in range(14)
+                for i in range(13)
             ]
         }
         # Ensure mandatory segments are present to satisfy validation
@@ -38,7 +38,7 @@ class TestVolumeValidation(unittest.TestCase):
 
     def test_minimum_segments_pass(self):
         """Should pass if 12 or more segments are provided."""
-        for count in range(12, 15):
+        for count in range(12, 14):
             with self.subTest(count=count):
                 data = copy.deepcopy(self.base_data)
                 data["segments"] = data["segments"][:count]
