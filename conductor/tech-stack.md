@@ -15,7 +15,7 @@ Echo FM utilizes a hybrid local/cloud stack designed for high availability and z
 
 ## Data Persistence & Infrastructure
 - **Supabase:** Cloud database and storage for production episodes and artifacts.
-- **Gate Checks:** Automated regression testing comparing new runs against baseline item 74.
+- **Gate Checks:** Automated regression testing comparing new runs against the latest baseline episode.
 - **SQLite:** Local database for development, allowing for "air-gapped" testing. The UI provides unified access to both Supabase and SQLite via dedicated `serve:supabase` and `serve:sqlite` scripts.
 - **dotenv:** Management of environment profiles (local, production, etc.).
 
