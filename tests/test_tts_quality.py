@@ -9,7 +9,7 @@ import unittest
 import tempfile
 import shutil
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from pathlib import Path
 
 # ── Import Fix ────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ PROJ_ROOT = Path(__file__).parent.parent
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
-import tts_generator
+import tts_generator # noqa: E402
 
 class TestTTSQualityGuard(unittest.TestCase):
     def setUp(self):
@@ -60,7 +60,7 @@ class TestTTSQualityGuard(unittest.TestCase):
     def test_audio_invalid_zero_byte(self):
         """Zero-byte file should be INVALID."""
         zero_path = os.path.join(self.test_dir, "zero.wav")
-        with open(zero_path, "wb") as f:
+        with open(zero_path, "wb") as _:
             pass
         is_valid = tts_generator._is_audio_valid(zero_path, 130)
         self.assertFalse(is_valid)

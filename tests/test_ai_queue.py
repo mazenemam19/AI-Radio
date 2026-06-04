@@ -7,9 +7,9 @@ PROJ_ROOT = Path(__file__).parent.parent
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
-import ai_client
-import tts_generator
-import inspect
+import ai_client # noqa: E402
+import tts_generator # noqa: E402
+import inspect # noqa: E402
 
 class TestAIQueue(unittest.TestCase):
     """

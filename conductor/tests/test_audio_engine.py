@@ -20,7 +20,6 @@ try:
 except ImportError:
     AudioSegment = None
 
-import tts_generator
 
 class TestAudioEngine(unittest.TestCase):
     def setUp(self):

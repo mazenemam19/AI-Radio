@@ -12,7 +12,7 @@ PROJ_ROOT = Path(__file__).parent.parent
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
-from db_client import DBClient
+from db_client import DBClient # noqa: E402
 
 def measure(limit: int = 10):
     print(f"\n[MEASURE] Auditing last {limit} episodes...")
@@ -39,7 +39,7 @@ def measure(limit: int = 10):
             
         try:
             segments = json.loads(script)
-        except:
+        except Exception:
             continue
 
         valid_count += 1

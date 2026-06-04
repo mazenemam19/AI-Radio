@@ -25,8 +25,10 @@ def test_has_audio_logic():
     
     # Simulate the resolveUrl logic
     def resolveUrl(url):
-        if not url: return None
-        if not isinstance(url, str): return url
+        if not url:
+            return None
+        if not isinstance(url, str):
+            return url
         if url.startswith('local://'):
             return 'output/' + url[8:]
         return url

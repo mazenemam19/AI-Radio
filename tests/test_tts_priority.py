@@ -9,7 +9,7 @@ import unittest
 import tempfile
 import shutil
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from pathlib import Path
 
 # ── Import Fix ────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ PROJ_ROOT = Path(__file__).parent.parent
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
-import tts_generator
+import tts_generator # noqa: E402
 
 class TestTTSPriority(unittest.TestCase):
     def setUp(self):

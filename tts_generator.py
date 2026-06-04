@@ -14,11 +14,9 @@ Voice Styles:
 """
 
 import asyncio
-import json
 import os
 import shutil
 import subprocess
-from datetime import date
 from pathlib import Path
 from typing import Optional
 from pydub import AudioSegment
@@ -95,8 +93,10 @@ def _apply_audio_processing(
         True on success, False on failure.
     """
     # Normalize SFX names (handle models returning string "null")
-    if sfx_pre == "null": sfx_pre = None
-    if sfx_post == "null": sfx_post = None
+    if sfx_pre == "null":
+        sfx_pre = None
+    if sfx_post == "null":
+        sfx_post = None
 
     try:
         speech = AudioSegment.from_file(audio_path)
@@ -107,7 +107,7 @@ def _apply_audio_processing(
             speech = _simulate_reverb(speech)
         
         # 2. Ambient Underlay (Looping)
-        ambient_path = Path(f"sfx/STREET_AMBIENT.mp3")
+        ambient_path = Path("sfx/STREET_AMBIENT.mp3")
         if ambient_path.exists():
             ambient = AudioSegment.from_file(str(ambient_path))
             # Loop ambient to cover speech duration
@@ -186,7 +186,7 @@ def _generate_ffmpeg_audio_fallback(text: str, path: str) -> bool:
         [
             ffmpeg, "-y",
             "-f", "lavfi",
-            "-i", f"anullsrc=r=22050:cl=mono",
+            "-i", "anullsrc=r=22050:cl=mono",
             "-t", str(duration_secs),
             "-c:a", "libmp3lame", "-b:a", "64k",
             path,
@@ -264,8 +264,10 @@ def _run_cartesia_tts(text: str, voice: str, path: str, voice_style: str = "norm
     
     # Map styles to Cartesia numeric speed (0.6 - 1.5)
     speed = 1.0
-    if voice_style in ("grave", "deadpan"): speed = 0.9
-    if voice_style == "excited": speed = 1.1
+    if voice_style in ("grave", "deadpan"):
+        speed = 0.9
+    if voice_style == "excited":
+        speed = 1.1
 
     try:
         import requests
@@ -398,7 +400,7 @@ def _is_audio_valid(path: str, word_count: int) -> bool:
     print(f"[TTS] Quality Check: {path} has {word_count} words in {duration:.1f}s (~{wpm:.0f} WPM).")
     
     if wpm > 300:
-        print(f"[TTS] Quality Alert: Audio too fast/short for word count.")
+        print("[TTS] Quality Alert: Audio too fast/short for word count.")
         return False
     
     return True
@@ -468,7 +470,8 @@ def generate_segment_audio(
                     break
                 else:
                     print(f"[TTS] Quality Check Failed for '{engine}'. Falling back...")
-                    if Path(path).exists(): Path(path).unlink()
+                    if Path(path).exists():
+                        Path(path).unlink()
         
         if not success:
             # Absolute last resort: silent fallback to keep pipeline alive in restrictive envs

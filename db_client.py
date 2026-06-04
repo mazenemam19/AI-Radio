@@ -12,7 +12,6 @@ Public interface is identical across all backends.
 """
 
 import json
-import mimetypes
 import os
 import re
 import sqlite3

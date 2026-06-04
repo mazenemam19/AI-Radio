@@ -3,7 +3,6 @@ tests/test_validate_volume.py — TDD for Volume Pressure logic.
 Verifies that validate_broadcast enforces the new 12-14 segment requirement with 100-word floor.
 """
 
-import sys
 import unittest
 import copy
 from ai_client import validate_broadcast
@@ -13,6 +12,7 @@ class TestVolumeValidation(unittest.TestCase):
         words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november"]
         self.base_data = {
             "title": "Test Episode",
+            "summary": "This is a comprehensive summary of the test episode that meets the thirty word requirement for validation purposes in the high fidelity production pipeline of echo fm radio station. Extra words added here.",
             "topic_tags": ["test"],
             "confidence": "high",
             "my_take": "Test editorial.",
@@ -44,7 +44,8 @@ class TestVolumeValidation(unittest.TestCase):
                 data["segments"] = data["segments"][:count]
                 # Re-assign Marcus to final slot
                 for seg in data["segments"]:
-                    if seg["speaker"] == "MARCUS": seg["speaker"] = "ALISTAIR"
+                    if seg["speaker"] == "MARCUS":
+                        seg["speaker"] = "ALISTAIR"
                 data["segments"][-1]["speaker"] = "MARCUS"
                 
                 valid, reason = validate_broadcast(data, "local")

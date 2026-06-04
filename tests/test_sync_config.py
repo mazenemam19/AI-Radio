@@ -48,7 +48,8 @@ def run() -> None:
     try:
         # Test 1: local mode
         print("\n[Test] Running sync_config.py --env local...")
-        if CONFIG_JSON.exists(): CONFIG_JSON.unlink()
+        if CONFIG_JSON.exists():
+            CONFIG_JSON.unlink()
         subprocess.run([sys.executable, str(SYNC_CONFIG_PY), "--env", "local"], cwd=str(PROJ_ROOT), check=True)
         if CONFIG_JSON.exists():
             data = json.loads(CONFIG_JSON.read_text(encoding="utf-8"))
@@ -61,7 +62,8 @@ def run() -> None:
 
         # Test 2: production mode (requires env vars)
         print("\n[Test] Running sync_config.py --env production...")
-        if CONFIG_JSON.exists(): CONFIG_JSON.unlink()
+        if CONFIG_JSON.exists():
+            CONFIG_JSON.unlink()
         # Note: In the new 'Static Bake' mode, production sync requires Supabase credentials 
         # to be set in the environment so it can fetch episodes.
         env = os.environ.copy()

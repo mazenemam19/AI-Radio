@@ -12,7 +12,6 @@ HTMLStripper:    defined once at module level, not inside any loop.
 import random
 import re
 from html.parser import HTMLParser
-from typing import Optional
 
 import feedparser
 import requests

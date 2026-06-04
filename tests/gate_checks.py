@@ -7,7 +7,6 @@ Exit code 1: Regression detected.
 """
 
 import sys
-import json
 from pathlib import Path
 
 # ── Import Fix ────────────────────────────────────────────────────────────────
@@ -15,7 +14,7 @@ PROJ_ROOT = Path(__file__).parent.parent
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
-from db_client import DBClient
+from db_client import DBClient # noqa: E402
 
 # ── Baseline Constants (Run 74) ───────────────────────────────────────────────
 BASELINE_ID = 74

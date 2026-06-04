@@ -5,7 +5,6 @@ Standalone script to synchronize YouTube engagement metrics with the database.
 """
 
 import argparse
-import os
 import sys
 from pathlib import Path
 

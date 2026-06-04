@@ -6,7 +6,7 @@ Verifies that generate_broadcast routes to the correct API caller for each model
 
 import sys
 import unittest
-from unittest.mock import patch, MagicMock, ANY
+from unittest.mock import patch, ANY
 from pathlib import Path
 
 # ── Import Fix ────────────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@ PROJ_ROOT = Path(__file__).parent.parent
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
-import ai_client
+import ai_client # noqa: E402
 
 class TestAIRouting(unittest.TestCase):
     @patch("ai_client.call_groq")

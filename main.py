@@ -496,8 +496,10 @@ def _generate_cover_image(title: str, path: Path) -> bool:
         def get_font(size, bold=False):
             names = ["arialbd.ttf", "arial.ttf", "DejaVuSans-Bold.ttf", "DejaVuSans.ttf"] if bold else ["arial.ttf", "DejaVuSans.ttf"]
             for name in names:
-                try: return ImageFont.truetype(name, size)
-                except: continue
+                try:
+                    return ImageFont.truetype(name, size)
+                except Exception:
+                    continue
             return ImageFont.load_default()
 
         f_brand = get_font(44, bold=True)
@@ -520,9 +522,11 @@ def _generate_cover_image(title: str, path: Path) -> bool:
             if w_px <= max_w:
                 curr_line = test_line
             else:
-                if curr_line: lines.append(curr_line)
+                if curr_line:
+                    lines.append(curr_line)
                 curr_line = word
-        if curr_line: lines.append(curr_line)
+        if curr_line:
+            lines.append(curr_line)
         
         # Vertical alignment: start higher if many lines
         y_cursor = 300 - (len(lines[:4]) * 40)
@@ -656,8 +660,10 @@ def main() -> None:
         memory = db.fetch_recent_memory(limit=10)
         history = []
         for m in memory:
-            if m.get("original_headline"): history.append(m["original_headline"])
-            if m.get("headline"): history.append(m["headline"])
+            if m.get("original_headline"):
+                history.append(m["original_headline"])
+            if m.get("headline"):
+                history.append(m["headline"])
 
         print("[2/10] Fetching news...")
         from news_fetcher import fetch_news
@@ -728,8 +734,10 @@ def main() -> None:
                 episode_success = False
                 # Cleanup partial files to avoid concatenation errors
                 for p in current_attempt_files:
-                    if p.exists(): p.unlink()
+                    if p.exists():
+                        p.unlink()
                 break
+
             
             current_attempt_files.append(seg_path)
             print(f"  [{i+1}/{len(segments)}] {speaker} → {seg_path.name} ({engine})")

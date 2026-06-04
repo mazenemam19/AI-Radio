@@ -1,13 +1,21 @@
 name: AI Radio Echo
 
+# ── Single source of truth for Python version ─────────────────────────────
+env:
+  PYTHON_VERSION: "3.11"
+
+# ── Minimum permissions (read-only; no write access needed) ───────────────
+permissions:
+  contents: read
+
 on:
-  # ── Scheduled production run — every 6 hours ──────────────────────────────
+  # ── Scheduled production run — every 6 hours ────────────────────────────
   # 4 runs/day × 10 Groq TTS requests = 40 RPD (well clear of 100 RPD wall)
   # 4 runs/day × 2.5 min compute × 30 days ≈ 300 min/month (15% of free tier)
   schedule:
     - cron: "0 */6 * * *"
 
-  # ── CI: runs on every push and pull request ───────────────────────────────
+  # ── CI: runs on every push and pull request ──────────────────────────────
   push:
     branches: ["main"]
   pull_request:
@@ -38,22 +46,17 @@ jobs:
     name: CI — dry-run (local)
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'pull_request'
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup environment
+        uses: ./.github/actions/setup
         with:
-          python-version: "3.11"
-          cache: pip
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
+      - name: Lint (ruff)
+        run: pip install ruff && ruff check .
 
       - name: Run dry-run pipeline (CI gate)
         run: python main.py --env local --dry-run
@@ -61,40 +64,36 @@ jobs:
       - name: Run integration suite
         run: python tests/integration_suite.py
 
-  # ── Production job: full run every 6 hours ─────────────────────────────────
+  # ── Production job: full run every 6 hours ────────────────────────────────
   broadcast:
     name: Broadcast — ${{ github.event.inputs.env || 'production' }}
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-
+    timeout-minutes: 30
+    concurrency:
+      group: broadcast
+      cancel-in-progress: false   # let the running job finish; queue the next
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup environment
+        uses: ./.github/actions/setup
         with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Run pipeline
         env:
-          GEMINI_API_KEY:           ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY:             ${{ secrets.GROQ_API_KEY }}
-          CARTESIA_API_KEY:         ${{ secrets.CARTESIA_API_KEY }}
-          KOKORO_API_KEY:           ${{ secrets.KOKORO_API_KEY }}
-          SUPABASE_URL:             ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY:             ${{ secrets.SUPABASE_KEY }}
-          YOUTUBE_CLIENT_ID:        ${{ secrets.YOUTUBE_CLIENT_ID }}
-          YOUTUBE_CLIENT_SECRET:    ${{ secrets.YOUTUBE_CLIENT_SECRET }}
-          YOUTUBE_REFRESH_TOKEN:    ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-          WEBSITE_URL:              ${{ secrets.WEBSITE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CARTESIA_API_KEY: ${{ secrets.CARTESIA_API_KEY }}
+          KOKORO_API_KEY: ${{ secrets.KOKORO_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          WEBSITE_URL: ${{ secrets.WEBSITE_URL }}
         run: |
           ENV="${{ github.event.inputs.env || 'production' }}"
           DRY="${{ github.event.inputs.dry_run || 'false' }}"
@@ -105,7 +104,7 @@ jobs:
           fi
 
       - name: Upload output artifacts
-        if: always()
+        if: success() && github.event.inputs.dry_run != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: episode-output-${{ github.run_number }}
@@ -117,7 +116,7 @@ jobs:
         run: |
           if [ -n "${{ secrets.NETLIFY_BUILD_HOOK }}" ]; then
             echo "[Pipeline] Triggering Netlify build hook..."
-            curl -X POST -d {} "${{ secrets.NETLIFY_BUILD_HOOK }}"
+            curl --fail -X POST -d {} "${{ secrets.NETLIFY_BUILD_HOOK }}"
           else
             echo "[Pipeline] Skipping website update: NETLIFY_BUILD_HOOK secret is not set."
           fi

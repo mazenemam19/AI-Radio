@@ -28,7 +28,7 @@ sys.modules["google.auth"] = MagicMock()
 sys.modules["google.auth.transport"] = MagicMock()
 sys.modules["google.auth.transport.requests"] = mock_auth
 
-import publisher
+import publisher # noqa: E402
 
 class TestEngagementSync(unittest.TestCase):
     @patch("os.environ.get")

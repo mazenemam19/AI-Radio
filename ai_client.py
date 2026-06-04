@@ -454,7 +454,8 @@ SILENCE             → Complete silence — no music, no ambient
 
 def _jaccard(a: set, b: set) -> float:
     """Calculate Jaccard similarity index."""
-    if not a or not b: return 0.0
+    if not a or not b:
+        return 0.0
     return len(a & b) / len(a | b)
 
 
@@ -544,8 +545,10 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
                 return False, f"Segment {i} has >50% word overlap with segment {j}."
         seen_word_sets.append(seg_words)
 
-    if not has_weatherbot: return False, "Missing mandatory WEATHERBOT segment"
-    if not has_philosopher: return False, "Missing mandatory PHILOSOPHER segment"
+    if not has_weatherbot:
+        return False, "Missing mandatory WEATHERBOT segment"
+    if not has_philosopher:
+        return False, "Missing mandatory PHILOSOPHER segment"
 
     return True, "OK"
 
@@ -609,15 +612,16 @@ def generate_broadcast(
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
-            print(f"[AI] JSON parse failed. Attempting heal.")
+            print("[AI] JSON parse failed. Attempting heal.")
             data = heal_truncated_json(raw)
             if data is None:
-                print(f"[AI] Heal failed. Trying next model.")
+                print("[AI] Heal failed. Trying next model.")
                 continue
             healer_used = True
             print("[AI] JSON healed successfully.")
 
-        if data is None: continue
+        if data is None:
+            continue
             
         # Final validation (Stability Patch Part 2)
         valid, reason = validate_broadcast(data, env)

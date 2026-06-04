@@ -14,7 +14,6 @@ Exit 1 = one or more tests failed.
 """
 
 import asyncio
-import os
 import shutil
 import sqlite3
 import subprocess
@@ -124,7 +123,7 @@ def test_tts() -> bool:
 
         if not ok:
             if _is_network_error(err):
-                print(f"    Network/SSL blocked in this environment (not a code bug).")
+                print("    Network/SSL blocked in this environment (not a code bug).")
                 print(f"    Treating as SKIP → PASS. Error: {err[:120]}")
                 return True   # Environment limitation — not a pipeline failure
             print(f"    edge-tts error: {err}")
@@ -183,9 +182,9 @@ def test_ffmpeg() -> bool:
             ok_tuple = asyncio.run(
                 _edge_tts_synthesise(TEST_TTS_TEXT, "en-US-GuyNeural", str(audio_path))
             )
-            tts_ok, tts_err = ok_tuple
+            tts_ok, _ = ok_tuple
         except RuntimeError:
-            tts_ok, tts_err = False, ""
+            tts_ok, _ = False, ""
 
         if not tts_ok or not audio_path.exists():
             # Generate 3 seconds of silent audio via FFmpeg (works in restricted envs)

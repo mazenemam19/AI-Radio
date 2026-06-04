@@ -17,7 +17,7 @@ PROJ_ROOT = Path(__file__).parent.parent
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
-import tts_generator
+import tts_generator # noqa: E402
 
 class TestCartesiaTTS(unittest.TestCase):
     def setUp(self):
