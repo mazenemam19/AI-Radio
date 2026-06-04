@@ -61,8 +61,8 @@ _YOUTUBE_ENVS: frozenset[str] = frozenset({"production"})
 # Speaker → edge-tts voice (tts_generator normalises to specific premium voices in cloud mode)
 SPEAKER_VOICES: dict[str, str] = {
     "ALISTAIR":    "en-US-GuyNeural",
-    "VICTORIA":    "en-GB-RyanNeural",
-    "RONALD":      "en-US-AriaNeural",
+    "VICTORIA":    "en-US-AriaNeural",
+    "RONALD":      "en-GB-RyanNeural",
     "CASPER":      "en-AU-WilliamNeural",
     "MARCUS":      "en-US-ChristopherNeural",
 }
