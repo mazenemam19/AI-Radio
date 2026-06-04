@@ -75,6 +75,7 @@ ASSETS_DIR = Path("assets")
 
 _DRY_RUN_BROADCAST: dict = {
     "title": "The Infinite Loop of Human Progress",
+    "summary": "A typical Echo FM broadcast where Alistair and Victoria explore the circular nature of technology, while Ronald provides Silicon Valley cynicism and Marcus closes with a grave reflection on human continuity.",
     "topic_tags": ["philosophy", "infrastructure", "absurdity"],
     "confidence": "high",
     "related_ids": [],
@@ -585,6 +586,7 @@ def build_episode_metadata(
         "source":            news_items[0].get("source", "") if news_items else "",
         "topic_tags":        broadcast.get("topic_tags", sources),
         "my_take":           broadcast.get("my_take", ""),
+        "summary":           broadcast.get("summary", ""),
         "post_text":         broadcast.get("post_text", ""),
         "audio_script":      json.dumps([s["text"] for s in broadcast.get("segments", [])]),
         "audio_url":         audio_url,
@@ -652,10 +654,10 @@ def main() -> None:
     else:
         print("[2/10] Fetching recent memory from DB...")
         memory = db.fetch_recent_memory(limit=10)
-        history = [
-            m.get("original_headline") or m.get("headline", "")
-            for m in memory
-        ]
+        history = []
+        for m in memory:
+            if m.get("original_headline"): history.append(m["original_headline"])
+            if m.get("headline"): history.append(m["headline"])
 
         print("[2/10] Fetching news...")
         from news_fetcher import fetch_news
@@ -705,7 +707,7 @@ def main() -> None:
         episode_success = True
 
         for i, seg in enumerate(segments):
-            speaker: str = seg.get("speaker", "ANCHOR")
+            speaker: str = seg.get("speaker", "ALISTAIR")
             voice: str = SPEAKER_VOICES.get(speaker, _DEFAULT_VOICE)
             seg_path = OUTPUT_DIR / f"ep_{timestamp}_seg_{i:02d}.mp3"
 

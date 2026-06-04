@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS memory_log (
   source             TEXT,
   topic_tags         TEXT,     -- Parsed as text affinity in SQLite, native array compatible on Supabase
   my_take            TEXT,
+  summary            TEXT,
   post_text          TEXT,
   audio_script       TEXT,
   audio_url          TEXT,

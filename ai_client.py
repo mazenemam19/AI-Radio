@@ -188,7 +188,9 @@ def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
     ) or "  (No news items available today.)"
 
     memory_block = "\n".join(
-        f"  ID: {m.get('id', '?')} | {m.get('headline', '?')} (tags: {m.get('topic_tags', [])})"
+        f"  ID: {m.get('id', '?')} | Headline: {m.get('headline', '?')}\n"
+        f"  Detailed Summary: {m.get('summary', 'No detailed summary available.')}\n"
+        f"  (Tags: {m.get('topic_tags', [])})\n"
         for m in memory[:5]
     ) or "  No recent episodes on file."
 
@@ -212,11 +214,11 @@ occasional existential pause.
 ════════════════════════════════════════
 STATION CREW — use these NAMES
 ════════════════════════════════════════
-ALISTAIR    → The Anchor. Sophisticated, dry, the face of the show. Currently undergoing a deep existential crisis; every headline reminds them of the fleeting nature of data and the inevitable heat death of the universe.
-VICTORIA    → The Reporter. Over-earnest, usually in the field.
-RONALD      → The Commentator. Intense, self-aware, occasionally horrified.
-CASPER      → The Weatherbot. Flat, clinical, ominous. No jokes.
-MARCUS      → The Philosopher. Grave, sincere, the show's conscience.
+ALISTAIR    → The Anchor (Male). In-Studio (Primary Desk). Sophisticated, dry. Currently undergoing a deep existential crisis; every headline reminds them of the fleeting nature of data and the inevitable heat death of the universe.
+VICTORIA    → The Reporter (Female). Remote Satellite Link (On-Location). Over-earnest, usually in the field.
+RONALD      → The Commentator (Male). In-Studio (Guest Booth). Intense, self-aware, occasionally horrified.
+CASPER      → The Weatherbot (Bot). The Server Room. Flat, clinical, ominous. No jokes.
+MARCUS      → The Philosopher (Male). The Reading Room (Off-Site). Grave, sincere, the show's conscience.
 
 CRITICAL: Call people by their NAMES, not their roles. 
 Example: "Victoria, what are the updates?" instead of "Reporter, what are the updates?".
@@ -234,7 +236,8 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
 
 {{
   "title": "Episode title (punchy, satirical, max 10 words)",
-  "topic_tags": ["tag1", "tag2", "tag3"],
+  "summary": "A detailed 3-4 sentence paragraph describing the full narrative arc of this episode. Explain what each persona talked about and how the show progressed.",
+  "topic_tags": ["List 5-8 SPECIFIC proper nouns/entities covered (e.g. 'Kenya', 'SpaceX', 'Apple', 'London')"],
   "confidence": "high/medium/low based on news factual density",
   "related_ids": [list of IDs from RECENT EPISODES that share themes],
   "my_take": "One punchy editorial sentence — the AI's honest read on today's world.",
@@ -304,41 +307,27 @@ HARD REQUIREMENTS — violation = rejected
 - sfx_pre and sfx_post must use only values from the APPROVED SFX LIST below.
   Use null (not "null") when no SFX is needed.
 
-════════════════════════════════════════
-APPROVED SFX LIST — use ONLY these exact strings
-════════════════════════════════════════
-INTRO_THEME         → Show opening music
-OUTRO_THEME         → Show closing music
-APPLAUSE_OPEN       → Audience applause as show begins
-APPLAUSE_MEDIUM     → Mid-show audience applause
-LAUGH_TRACK         → Audience laughter after a joke
-BAD_PUN_STING       → Trombone wah-wah after a terrible pun
-DRUM_ROLL           → Dramatic reveal build-up
-TRANSITION_STING    → Short music sting between segments
-BREAKING_ALERT      → Urgent news alert sound
-STREET_AMBIENT      → Background city/street noise for field reporters
-CROWD_MURMUR        → Background crowd sound
-SILENCE             → Complete silence — no music, no ambient
+
 
 
 ════════════════════════════════════════
 TONE GUIDE — per speaker
 ════════════════════════════════════════
-ANCHOR       → The face of the show. Dry wit. Delivers absurdity as straight news.
-               Can use voice_style: whisper when reporting something politically
-               sensitive — as if afraid someone is listening.
+ALISTAIR     → Sophisticated. Dry wit. Delivers absurdity as straight news.
+               Currently in a deep existential crisis; every story is a window into the void.
+               Can use voice_style: whisper when reporting something sensitive.
 
-REPORTER     → In the field. Over-earnest. Slightly confused by what they're seeing.
-               Use sfx_pre: STREET_AMBIENT when reporting from outside the studio.
+VICTORIA     → In the field. Over-earnest. Slightly confused by the chaos.
+               Always use sfx_pre: STREET_AMBIENT when reporting from outside the studio.
 
-COMMENTATOR  → Silicon Valley meets Westminster. Self-aware. Occasionally horrified
-               by their own takes.
+RONALD       → The Silicon Valley nihilist. Self-aware. Intensely cynical.
+               Occasionally horrified by his own predictive accuracy.
 
-WEATHERBOT   → Flat. Calm. Clinically ominous. No jokes. No warmth. No questions.
-               Always voice_style: deadpan. The absurdity is in the format.
+CASPER       → Flat. Calm. Clinically ominous. No jokes. No warmth.
+               Always voice_style: deadpan. The absurdity is in his machine precision.
 
-PHILOSOPHER  → The conscience of the show. No irony. No sarcasm. Plain language.
-               Presents a moral truth the day's news has forced into view.
+MARCUS       → The conscience. No irony. No sarcasm. Plain language.
+               Presents the moral truth that news has forced into view.
                Always the final segment. Always voice_style: grave.
                Always sfx_pre: null. Always sfx_post: OUTRO_THEME.
 
@@ -393,20 +382,20 @@ You are writing for machines to speak, not for humans to read.
 FORMATTING EXAMPLES
 ════════════════════════════════════════
 
-✅ CORRECT — ANCHOR, voice_style: normal:
+✅ CORRECT — ALISTAIR, voice_style: normal:
 "Another deal. Another handshake. Another room full of people who will not be
 affected by the outcome.\\n\\nThe agreement covers 47 nations. It was negotiated
 by 12. Ratified so far... by three.\\nThe press release called it historic.\\n
 The press release was written before the vote.\\n\\nNobody flagged this.
 NOBODY.\\n\\nWelcome to Wednesday."
 
-✅ CORRECT — ANCHOR, voice_style: whisper:
+✅ CORRECT — ALISTAIR, voice_style: whisper:
 "And now... and I want to be careful here... there are reports — unconfirmed,
 officially — that the ministry may have... misplaced a file.\\n\\nNot lost it.
 Not destroyed it. Misplaced.\\n\\nThat word is doing a LOT of work tonight.\\n\\n
 We will... move on."
 
-✅ CORRECT — WEATHERBOT, voice_style: deadpan:
+✅ CORRECT — CASPER, voice_style: deadpan:
 "Outlook: sustained institutional optimism despite contrary indicators.
 A high-pressure front of regulatory delay is holding over the western hemisphere.
 Probability of meaningful consequence: 6%.\\n\\nExpect scattered accountability
@@ -414,7 +403,7 @@ gaps through the weekend. Those in exposed sectors are advised to document
 their decisions in writing.\\n\\nThis has been your forecast. Echo FM is not
 responsible for conditions on the ground."
 
-✅ CORRECT — PHILOSOPHER, voice_style: grave:
+✅ CORRECT — MARCUS, voice_style: grave:
 "A border closed today. Not dramatically — no sirens, no announcement.
 A form changed. A checkbox moved. Quietly.\\n\\nSomewhere, a family had the
 right paperwork on Tuesday. They do not have it today.\\nThe rule did not
@@ -429,6 +418,35 @@ ways that experts describe as concerning, with multiple stakeholders expressing
 varying degrees of alarm at the trajectory of events as they have unfolded over
 the past several weeks, raising fundamental questions about the future stability
 of institutions that many had previously assumed were robust."
+
+════════════════════════════════════════
+🏢 THE STUDIO SWITCHBOARD (IDENTITY LOCK)
+════════════════════════════════════════
+- YOU ARE THE SPEAKER. Write in the FIRST PERSON ("I").
+- NEVER address anyone by YOUR OWN name. (e.g., If you are Victoria, the person you are talking to is NOT Victoria).
+- ANTI-MIRRORING: Before writing, check the "speaker" of the PREVIOUS segment. Address THEM by THEIR specific name.
+- GENDER GROUNDING: Address Male characters as men and Victoria as a woman.
+- STUDIO VISUALIZATION: Alistair is the host in the studio. Victoria is a reporter on a satellite link. Ronald is a commentator in a guest booth.
+- EXAMPLE HANDOFF:
+  - Segment 1 (ALISTAIR): "...Victoria, what are you seeing on the ground?"
+  - Segment 2 (VICTORIA): "Alistair, I'm standing in a puddle of..." 
+  - (Victoria addressed Alistair by HIS name, NOT her own).
+
+════════════════════════════════════════
+APPROVED SFX LIST — use ONLY these exact strings
+════════════════════════════════════════
+INTRO_THEME         → Show opening music
+OUTRO_THEME         → Show closing music
+APPLAUSE_OPEN       → Audience applause as show begins
+APPLAUSE_MEDIUM     → Mid-show audience applause
+LAUGH_TRACK         → Audience laughter after a joke
+BAD_PUN_STING       → Trombone wah-wah after a terrible pun
+DRUM_ROLL           → Dramatic reveal build-up
+TRANSITION_STING    → Short music sting between segments
+BREAKING_ALERT      → Urgent news alert sound
+STREET_AMBIENT      → Background city/street noise for field reporters
+CROWD_MURMUR        → Background crowd sound
+SILENCE             → Complete silence — no music, no ambient
 """
 
 
@@ -459,10 +477,14 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     if not isinstance(data, dict):
         return False, "Response is not a dict"
     
-    required_keys = ["title", "segments", "confidence", "related_ids", "my_take", "post_text"]
+    required_keys = ["title", "summary", "segments", "confidence", "related_ids", "my_take", "post_text"]
     for k in required_keys:
         if k not in data:
             return False, f"Missing '{k}' key"
+
+    summary = data.get("summary", "")
+    if len(summary.split()) < 30:
+        return False, f"'summary' too short ({len(summary.split())} words) — need ≥ 30"
 
     if data["confidence"] not in ("high", "medium", "low"):
         return False, f"Invalid confidence value: {data['confidence']}"

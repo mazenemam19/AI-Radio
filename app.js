@@ -157,6 +157,7 @@
             <div class="d-section">
                 <div class="d-section-lbl">// AI Insights</div>
                 <div class="my-take">${esc(ep.my_take || '')}</div>
+                ${ep.summary ? `<div class="summary-box" style="margin-top:24px; font-size:14px; color:var(--text-mid); line-height:1.6; padding:20px; background:var(--void); border-radius:12px; border-left:4px solid var(--border-mid);">${esc(ep.summary)}</div>` : ''}
                 ${ep.post_text ? `<div style="margin-top:24px; font-size:14px; color:var(--text-mid); padding:20px; background:var(--void); border-radius:12px; line-height:1.6; border-left:4px solid var(--border-mid);">${esc(ep.post_text)}</div>` : ''}
                 ${tagsHtml}
             </div>
