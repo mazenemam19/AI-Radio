@@ -50,6 +50,8 @@ _MIN_DURATION: dict[str, int] = {
     "production":  420,
 }
 
+MAX_DURATION_SECS = 888 # 14.8 minutes (Safe YouTube threshold)
+
 # Cloud TTS: Premium high-fidelity tiers; local TTS: edge-tts only
 _CLOUD_TTS_ENVS: frozenset[str] = frozenset({"prod-models", "production"})
 
@@ -439,9 +441,10 @@ def _concat_audio(segment_paths: list[Path], output_path: Path) -> bool:
         return False
 
 
-def _compile_video(cover_image: Path, audio_path: Path, output_path: Path) -> bool:
+def _compile_video(cover_image: Path, audio_path: Path, output_path: Path, duration: float) -> bool:
     """
     Combine a static cover image + audio into an MP4 using FFmpeg.
+    Uses -t flag to ensure exact duration matching.
     Returns True on success, False on failure.
     """
     result = subprocess.run(
@@ -457,7 +460,7 @@ def _compile_video(cover_image: Path, audio_path: Path, output_path: Path) -> bo
             "-tune", "stillimage",
             "-c:a", "aac", "-b:a", "128k",
             "-pix_fmt", "yuv420p",
-            "-shortest",
+            "-t", str(duration),
             str(output_path),
         ],
         capture_output=True,
@@ -761,11 +764,18 @@ def main() -> None:
     # ── Step 5: Duration check ────────────────────────────────────────────────
     print("[5/10] Checking audio duration...")
     duration = _get_audio_duration(audio_path)
-    print(f"[5/10] Duration: {duration:.1f}s  (minimum for env='{env}': {min_duration}s)")
+    print(f"[5/10] Duration: {duration:.1f}s  (min: {min_duration}s, max: {MAX_DURATION_SECS}s)")
+    
     if duration < min_duration:
         _fail(
             f"Audio duration {duration:.1f}s is below the {min_duration}s minimum "
             f"for env='{env}'. Aborting pipeline."
+        )
+    
+    if duration > MAX_DURATION_SECS:
+        _fail(
+            f"Audio duration {duration:.1f}s exceeds the {MAX_DURATION_SECS}s maximum. "
+            f"Aborting pipeline to maintain broadcast quality."
         )
 
     # ── Step 6: Cover image ───────────────────────────────────────────────────
@@ -777,7 +787,7 @@ def main() -> None:
     # ── Step 7: Compile video ─────────────────────────────────────────────────
     print("[7/10] Compiling MP4...")
     video_path = OUTPUT_DIR / f"ep_{timestamp}.mp4"
-    if not _compile_video(cover_path, audio_path, video_path):
+    if not _compile_video(cover_path, audio_path, video_path, duration):
         _fail("FFmpeg video compilation failed.")
 
     # Mandatory post-compile file checks (spec requirement)
@@ -786,7 +796,14 @@ def main() -> None:
     video_size = video_path.stat().st_size
     if video_size == 0:
         _fail(f"Video file is zero bytes: {video_path}")
-    print(f"[7/10] Video compiled → {video_path.name} ({video_size:,} bytes)")
+    
+    # Verify video duration matches audio duration
+    video_duration = _get_audio_duration(video_path)
+    print(f"[7/10] Video duration: {video_duration:.1f}s (Audio: {duration:.1f}s)")
+    if abs(video_duration - duration) > 2.0:
+        _fail(f"Video duration mismatch! Video: {video_duration:.1f}s, Audio: {duration:.1f}s")
+    
+    print(f"[7/10] Video compiled & verified → {video_path.name} ({video_size:,} bytes)")
 
     # ── Step 8: YouTube upload ────────────────────────────────────────────────
     video_url: Optional[str] = None

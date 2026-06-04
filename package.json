@@ -1,6 +1,6 @@
 {
   "name": "ai-radio-echo",
-  "version": "1.11.0",
+  "version": "1.11.1",
   "description": "AI Radio Echo — automated satirical radio pipeline (AI → TTS → MP4 → YouTube)",
   "private": true,
   "scripts": {
