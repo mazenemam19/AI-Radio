@@ -65,7 +65,9 @@ Copy `.env.example` to `.env` and fill the keys.
 Fetches up to 5 items from each RSS feed and 10 from HackerNews. Items are **deduplicated** against the last 10 episode headlines using a significance-weighted keyword overlap check (sharing ≥3 keywords).
 
 ### Step 2b — AI Script Generation (`ai_client.py`)
-Constructs a complex prompt containing the 20-item news feed. If the LLM returns truncated JSON, a recursive **JSON Healer** salvages completed segments. Validation requires ≥12 segments and ≥100 words per segment.
+Constructs a complex prompt containing the 20-item news feed and station memory. If the LLM returns truncated JSON, a recursive **JSON Healer** salvages completed segments.
+- **Expansion Layer:** If segments are too short, the system calls a dedicated expansion loop to lengthen them.
+- **Validation:** Enforces a strict 130-word floor and verified `word_count` metadata.
 
 ### Step 3 — TTS Synthesis (`tts_generator.py`)
 Processes segments using a **Unified Master Engine**. It attempts the entire episode with one engine (Cartesia → Kokoro → Edge) to ensure vocal consistency. A **Quality Guard** rejects any audio with a WPM > 300.
@@ -96,9 +98,11 @@ Processes segments using a **Unified Master Engine**. It attempts the entire epi
 | `broadcast_duration`| INT | Total length in seconds |
 
 ## ⚖️ Stability & Quality Rules
-1. **100-Word Floor:** Every segment must exceed 100 words (the prompt "over-asks" for 150 to ensure this).
-2. **20 News Items:** Production runs ingest 20 news items for high-fidelity context.
-3. **13 Segments:** Fixed show arc (Intro -> Main(9) -> Weatherbot -> Main -> Deep Dive -> Philosopher).
+1. **130-Word Floor:** Every segment must exceed 130 words.
+2. **Word Count Anchoring:** Every segment JSON must include a `word_count` key that matches the actual text length (+/- 5 words).
+3. **Best-Effort Expansion:** If a model under-delivers on length, the system triggers a recursive expansion pass to hit the floor.
+4. **20 News Items:** Production runs ingest 20 news items to provide sufficient creative fuel.
+5. **13 Segments:** Fixed show arc (Intro -> Main(9) -> Weatherbot -> Main -> Deep Dive -> Philosopher).
 
 ---
 For a deep dive into the technical implementation, see [ARCHITECTURE.md](./ARCHITECTURE.md).
