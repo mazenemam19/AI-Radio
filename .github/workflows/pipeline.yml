@@ -1,5 +1,10 @@
 name: AI Radio Echo
 
+# ── Concurrency: Stop old runs if a new one is triggered ──────────────────
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # ── Single source of truth for Python version ─────────────────────────────
 env:
   PYTHON_VERSION: "3.11"
@@ -45,6 +50,7 @@ jobs:
   ci:
     name: CI — dry-run (local)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - name: Checkout
@@ -69,10 +75,7 @@ jobs:
     name: Broadcast — ${{ github.event.inputs.env || 'production' }}
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    timeout-minutes: 30
-    concurrency:
-      group: broadcast
-      cancel-in-progress: false   # let the running job finish; queue the next
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
