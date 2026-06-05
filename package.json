@@ -4,21 +4,29 @@
   "description": "AI Radio Echo — automated satirical radio pipeline (AI → TTS → MP4 → YouTube)",
   "private": true,
   "scripts": {
-    "py":                  "node scripts/py.js",
-    "start":               "npm run py -- main.py --env local",
-    "dry-run":             "npm run py -- main.py --env local --dry-run",
-    "prod":                "npm run py -- main.py --env production",
-    "prod:dry":            "npm run py -- main.py --env production --dry-run",
-    "verify":              "npm run py -- verify_system.py",
-    "test":                "npm run py -- tests/integration_suite.py",
-    "test:ci":             "npm run py -- main.py --env local --dry-run",
-    "setup":               "npm run py -- -m pip install -r requirements.txt",
-    "refresh:prod-stats":  "npm run py -- sync_engagement.py --env production",
+    "py": "node scripts/py.js",
+    "start": "npm run py -- main.py --env local",
+    "dry-run": "npm run py -- main.py --env local --dry-run",
+    "prod": "npm run py -- main.py --env production",
+    "prod:dry": "npm run py -- main.py --env production --dry-run",
+    "verify": "npm run py -- verify_system.py",
+    "test": "npm run py -- tests/integration_suite.py",
+    "test:ci": "npm run py -- main.py --env local --dry-run",
+    "setup": "npm run py -- -m pip install -r requirements.txt",
+    "lint": "npm run py -- -m ruff check .",
+    "refresh:prod-stats": "npm run py -- sync_engagement.py --env production",
     "refresh:local-stats": "npm run py -- sync_engagement.py --env local",
-    "update:prod-config":  "npm run py -- sync_config.py --env production",
+    "update:prod-config": "npm run py -- sync_config.py --env production",
     "update:local-config": "npm run py -- sync_config.py --env local",
-    "serve:prod":          "npm run refresh:prod-stats && npm run update:prod-config && npm run py -- -m http.server 8080",
-    "serve:local":         "npm run refresh:local-stats && npm run update:local-config && npm run py -- -m http.server 8080"
+    "serve:prod": "npm run refresh:prod-stats && npm run update:prod-config && npm run py -- -m http.server 8080",
+    "serve:local": "npm run refresh:local-stats && npm run update:local-config && npm run py -- -m http.server 8080",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.py": [
+      "npm run py -- -m ruff check --fix",
+      "npm run py -- -m ruff format"
+    ]
   },
   "engines": {
     "node": ">=18.0.0"
@@ -34,5 +42,9 @@
     "groq",
     "ffmpeg"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7"
+  }
 }

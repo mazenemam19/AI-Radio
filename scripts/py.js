@@ -21,12 +21,15 @@ const venvPath = isWin
 // 2. Select the command
 const pythonCmd = fs.existsSync(venvPath) ? venvPath : 'python';
 
-// 3. Extract arguments (excluding 'node' and 'scripts/py.js')
-const args = process.argv.slice(2);
+// 3. Extract and quote arguments (excluding 'node' and 'scripts/py.js')
+const args = process.argv.slice(2).map(arg => {
+  // If argument contains spaces and isn't already quoted, wrap it in double quotes
+  return (arg.includes(' ') && !arg.startsWith('"')) ? `"${arg}"` : arg;
+});
 
 // 4. Log for developer clarity (silent in CI/Production usually, but helpful for debugging)
 if (process.env.DEBUG) {
-  console.log(`[PyRunner] Using: ${pythonCmd}`);
+  console.log(`[PyRunner] Executing: ${pythonCmd} ${args.join(' ')}`);
 }
 
 // 5. Execute and pass through all I/O

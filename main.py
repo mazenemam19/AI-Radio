@@ -35,6 +35,7 @@ from typing import Optional, NoReturn
 # ── dotenv (optional — CI has no .env file) ───────────────────────────────────
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass  # Env vars injected directly (GitHub Actions secrets, shell export, etc.)
@@ -45,13 +46,13 @@ VALID_ENVS: tuple[str, ...] = ("local", "prod-db", "prod-models", "production")
 
 # Minimum acceptable broadcast duration (7-10m sweet spot)
 _MIN_DURATION: dict[str, int] = {
-    "local":       420,
-    "prod-db":     420,
+    "local": 420,
+    "prod-db": 420,
     "prod-models": 420,
-    "production":  420,
+    "production": 420,
 }
 
-MAX_DURATION_SECS = 888 # 14.8 minutes (Safe YouTube threshold)
+MAX_DURATION_SECS = 888  # 14.8 minutes (Safe YouTube threshold)
 
 # Cloud TTS: Premium high-fidelity tiers; local TTS: edge-tts only
 _CLOUD_TTS_ENVS: frozenset[str] = frozenset({"prod-models", "production"})
@@ -61,11 +62,11 @@ _YOUTUBE_ENVS: frozenset[str] = frozenset({"production"})
 
 # Speaker → edge-tts voice (tts_generator normalises to specific premium voices in cloud mode)
 SPEAKER_VOICES: dict[str, str] = {
-    "ALISTAIR":    "en-US-GuyNeural",
-    "VICTORIA":    "en-US-AriaNeural",
-    "RONALD":      "en-GB-RyanNeural",
-    "CASPER":      "en-AU-WilliamNeural",
-    "MARCUS":      "en-US-ChristopherNeural",
+    "ALISTAIR": "en-US-GuyNeural",
+    "VICTORIA": "en-US-AriaNeural",
+    "RONALD": "en-GB-RyanNeural",
+    "CASPER": "en-AU-WilliamNeural",
+    "MARCUS": "en-US-ChristopherNeural",
 }
 _DEFAULT_VOICE = "en-US-GuyNeural"
 
@@ -378,8 +379,11 @@ _DRY_RUN_BROADCAST: dict = {
 
 # ── Argument parsing ───────────────────────────────────────────────────────────
 
+
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="AI Radio Echo — pipeline orchestrator")
+    parser = argparse.ArgumentParser(
+        description="AI Radio Echo — pipeline orchestrator"
+    )
     parser.add_argument(
         "--env",
         choices=VALID_ENVS,
@@ -400,6 +404,7 @@ def _parse_args() -> argparse.Namespace:
 
 # ── Pipeline failure helper ────────────────────────────────────────────────────
 
+
 def _fail(message: str) -> NoReturn:
     """Log a pipeline failure and exit with code 1."""
     print(f"\n[PIPELINE FAILURE] {message}", file=sys.stderr)
@@ -407,6 +412,7 @@ def _fail(message: str) -> NoReturn:
 
 
 # ── FFmpeg helpers ─────────────────────────────────────────────────────────────
+
 
 def _ffmpeg() -> str:
     """Return the FFmpeg binary path or raise RuntimeError."""
@@ -433,9 +439,13 @@ def _get_audio_duration(audio_path: Path) -> float:
     if ffprobe:
         r = subprocess.run(
             [
-                ffprobe, "-v", "quiet",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
+                ffprobe,
+                "-v",
+                "quiet",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 str(audio_path),
             ],
             capture_output=True,
@@ -476,31 +486,33 @@ def _concat_audio(segment_paths: list[Path], output_path: Path) -> bool:
     """
     try:
         from pydub import AudioSegment, effects
-        
+
         print(f"[Mixer] Assembling {len(segment_paths)} segments into final show...")
-        
+
         final_show = AudioSegment.empty()
         for p in segment_paths:
             seg = AudioSegment.from_file(str(p))
             final_show += seg
-            
+
         # Step 3: Loudness Normalization Pass
         # Target: -14 LUFS (Streaming Standard)
-        # Note: effects.normalize() matches peaks to 0dB. 
-        # For true LUFS, we would use a more advanced limiter, but normalize is a 
+        # Note: effects.normalize() matches peaks to 0dB.
+        # For true LUFS, we would use a more advanced limiter, but normalize is a
         # great high-fidelity start for this pipeline.
         print("[Mixer] Applying loudness normalization pass...")
         normalized_show = effects.normalize(final_show)
-        
+
         normalized_show.export(str(output_path), format="mp3", bitrate="128k")
         return True
-        
+
     except Exception as exc:
         print(f"[Mixer] Episode assembly failed: {exc}")
         return False
 
 
-def _compile_video(cover_image: Path, audio_path: Path, output_path: Path, duration: float) -> bool:
+def _compile_video(
+    cover_image: Path, audio_path: Path, output_path: Path, duration: float
+) -> bool:
     """
     Combine a static cover image + audio into an MP4 using FFmpeg.
     Uses -t flag to ensure exact duration matching.
@@ -508,19 +520,34 @@ def _compile_video(cover_image: Path, audio_path: Path, output_path: Path, durat
     """
     result = subprocess.run(
         [
-            _ffmpeg(), "-y",
-            "-loop", "1",
-            "-framerate", "1",
-            "-i", str(cover_image),
-            "-i", str(audio_path),
-            "-map", "0:v:0",
-            "-map", "1:a:0",
-            "-c:v", "libx264",
-            "-tune", "stillimage",
-            "-preset", "veryfast",
-            "-c:a", "aac", "-b:a", "128k",
-            "-pix_fmt", "yuv420p",
-            "-t", str(duration),
+            _ffmpeg(),
+            "-y",
+            "-loop",
+            "1",
+            "-framerate",
+            "1",
+            "-i",
+            str(cover_image),
+            "-i",
+            str(audio_path),
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-c:v",
+            "libx264",
+            "-tune",
+            "stillimage",
+            "-preset",
+            "veryfast",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-pix_fmt",
+            "yuv420p",
+            "-t",
+            str(duration),
             str(output_path),
         ],
         capture_output=True,
@@ -542,22 +569,26 @@ def _generate_cover_image(title: str, path: Path) -> bool:
         from PIL import Image, ImageDraw, ImageFont
 
         # Echo FM Palette
-        slate_bg = (30, 41, 59)    # #1E293B
+        slate_bg = (30, 41, 59)  # #1E293B
 
-        emerald_acc = (16, 185, 129) # #10B981
+        emerald_acc = (16, 185, 129)  # #10B981
         white_txt = (255, 255, 255)
-        gray_txt = (148, 163, 184)   # #94A3B8
-        
+        gray_txt = (148, 163, 184)  # #94A3B8
+
         img = Image.new("RGB", (1280, 720), color=slate_bg)
         draw = ImageDraw.Draw(img)
-        
+
         # 1. Emerald Accent Bars
         draw.rectangle([0, 0, 1280, 16], fill=emerald_acc)
         draw.rectangle([0, 704, 1280, 720], fill=emerald_acc)
-        
+
         # 2. Font Selection (Robust fallback)
         def get_font(size, bold=False):
-            names = ["arialbd.ttf", "arial.ttf", "DejaVuSans-Bold.ttf", "DejaVuSans.ttf"] if bold else ["arial.ttf", "DejaVuSans.ttf"]
+            names = (
+                ["arialbd.ttf", "arial.ttf", "DejaVuSans-Bold.ttf", "DejaVuSans.ttf"]
+                if bold
+                else ["arial.ttf", "DejaVuSans.ttf"]
+            )
             for name in names:
                 try:
                     return ImageFont.truetype(name, size)
@@ -567,18 +598,18 @@ def _generate_cover_image(title: str, path: Path) -> bool:
 
         f_brand = get_font(44, bold=True)
         f_title = get_font(72, bold=True)
-        f_tag   = get_font(24)
+        f_tag = get_font(24)
 
         # 3. Branding (Draw triangle to avoid font issues with '▶')
         draw.polygon([(80, 85), (80, 115), (105, 100)], fill=emerald_acc)
         draw.text((120, 80), "ECHO FM", fill=emerald_acc, font=f_brand)
-        
+
         # 4. Title (Pixel-Perfect Wrapping)
-        max_w = 1120 # 1280 - 160 margin
+        max_w = 1120  # 1280 - 160 margin
         words = title.split()
         lines = []
         curr_line = ""
-        
+
         for word in words:
             test_line = curr_line + (" " if curr_line else "") + word
             w_px = draw.textlength(test_line.upper(), font=f_title)
@@ -590,16 +621,21 @@ def _generate_cover_image(title: str, path: Path) -> bool:
                 curr_line = word
         if curr_line:
             lines.append(curr_line)
-        
+
         # Vertical alignment: start higher if many lines
         y_cursor = 300 - (len(lines[:4]) * 40)
         for line in lines[:4]:
             draw.text((80, y_cursor), line.upper(), fill=white_txt, font=f_title)
             y_cursor += 85
-            
+
         # 5. Tagline
-        draw.text((80, 640), "AUTONOMOUS SATIRICAL BROADCASTING // DATA-DRIVEN TRUTH", fill=gray_txt, font=f_tag)
-        
+        draw.text(
+            (80, 640),
+            "AUTONOMOUS SATIRICAL BROADCASTING // DATA-DRIVEN TRUTH",
+            fill=gray_txt,
+            font=f_tag,
+        )
+
         img.save(str(path))
         print(f"[Video] Cover image (PIL/EchoFM) → {path.name}")
         return True
@@ -612,10 +648,14 @@ def _generate_cover_image(title: str, path: Path) -> bool:
         # 0x1e293b in FFmpeg color string format
         result = subprocess.run(
             [
-                _ffmpeg(), "-y",
-                "-f", "lavfi",
-                "-i", "color=c=0x1e293b:size=1280x720:rate=1",
-                "-vframes", "1",
+                _ffmpeg(),
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=0x1e293b:size=1280x720:rate=1",
+                "-vframes",
+                "1",
                 str(path),
             ],
             capture_output=True,
@@ -633,6 +673,7 @@ def _generate_cover_image(title: str, path: Path) -> bool:
 
 # ── Episode metadata helper ────────────────────────────────────────────────────
 
+
 def build_episode_metadata(
     news_items: list[dict],
     broadcast: dict,
@@ -644,32 +685,39 @@ def build_episode_metadata(
     narrator_model: str,
 ) -> dict:
     """Assemble the dict for insert_post."""
-    headline = broadcast.get("title") or (news_items[0]["headline"] if news_items else "AI Radio Echo — Automated Broadcast")
-    sources  = list({item.get("source", "") for item in news_items[:10] if item.get("source")})
+    headline = broadcast.get("title") or (
+        news_items[0]["headline"]
+        if news_items
+        else "AI Radio Echo — Automated Broadcast"
+    )
+    sources = list(
+        {item.get("source", "") for item in news_items[:10] if item.get("source")}
+    )
 
     return {
-        "headline":          headline,
+        "headline": headline,
         "original_headline": news_items[0]["headline"] if news_items else headline,
-        "source":            news_items[0].get("source", "") if news_items else "",
-        "topic_tags":        broadcast.get("topic_tags", sources),
-        "my_take":           broadcast.get("my_take", ""),
-        "summary":           broadcast.get("summary", ""),
-        "post_text":         broadcast.get("post_text", ""),
-        "audio_script":      json.dumps([s["text"] for s in broadcast.get("segments", [])]),
-        "audio_url":         audio_url,
-        "video_url":         video_url,
-        "confidence":        broadcast.get("confidence", "high"),
-        "related_ids":       broadcast.get("related_ids", []),
-        "likes":             0,
-        "plays":             0,
+        "source": news_items[0].get("source", "") if news_items else "",
+        "topic_tags": broadcast.get("topic_tags", sources),
+        "my_take": broadcast.get("my_take", ""),
+        "summary": broadcast.get("summary", ""),
+        "post_text": broadcast.get("post_text", ""),
+        "audio_script": json.dumps([s["text"] for s in broadcast.get("segments", [])]),
+        "audio_url": audio_url,
+        "video_url": video_url,
+        "confidence": broadcast.get("confidence", "high"),
+        "related_ids": broadcast.get("related_ids", []),
+        "likes": 0,
+        "plays": 0,
         "broadcast_duration": int(duration),
-        "healer_used":       healer_used,
-        "writer_model":      writer_model,
-        "narrator_model":    narrator_model,
+        "healer_used": healer_used,
+        "writer_model": writer_model,
+        "narrator_model": narrator_model,
     }
 
 
 # ── Main pipeline ──────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     args = _parse_args()
@@ -677,11 +725,11 @@ def main() -> None:
     dry_run: bool = args.dry_run
 
     print(
-        f"\n{'='*60}\n"
+        f"\n{'=' * 60}\n"
         f"  AI Radio — Echo\n"
         f"  env={env}  |  dry_run={dry_run}\n"
         f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"{'='*60}\n"
+        f"{'=' * 60}\n"
     )
 
     use_cloud_tts: bool = env in _CLOUD_TTS_ENVS
@@ -699,6 +747,7 @@ def main() -> None:
     # ── Step 1: Initialise DB ───────────────────────────────────────────────────────
     print("[1/10] Initialising database client...")
     from db_client import DBClient
+
     try:
         db = DBClient(env)
     except Exception as exc:
@@ -707,6 +756,7 @@ def main() -> None:
     # ── Step 0: Sync Engagement (New) ─────────────────────────────────────────
     if not dry_run:
         from publisher import sync_engagement_stats
+
         try:
             sync_engagement_stats(db)
         except Exception as exc:
@@ -736,11 +786,12 @@ def main() -> None:
                     parsed_tags = json.loads(tags)
                     if isinstance(parsed_tags, list):
                         history.extend(parsed_tags)
-                except:
+                except Exception:
                     pass
 
         print("[2/10] Fetching news...")
         from news_fetcher import fetch_news
+
         news = fetch_news(history)
         if not news:
             print("[Pipeline] No new stories today. Exiting cleanly.")
@@ -750,7 +801,8 @@ def main() -> None:
         # ── Step 2b: Generate broadcast ───────────────────────────────────────
         print("[2b/10] Generating AI broadcast script...")
         from ai_client import generate_broadcast
-        for attempt in range(2):   # 1 retry — caller's responsibility per spec
+
+        for attempt in range(2):  # 1 retry — caller's responsibility per spec
             broadcast = generate_broadcast(news, memory, env)
             if broadcast is not None:
                 break
@@ -759,11 +811,11 @@ def main() -> None:
 
         if broadcast is None:
             _fail("AI broadcast generation failed after all attempts.")
-    
+
     # Final safety check for Pyright
     if broadcast is None:
         _fail("Broadcast object is missing.")
-    
+
     # Use a non-optional variable for the rest of main to satisfy Pyright
     final_broadcast: dict = broadcast
 
@@ -776,8 +828,12 @@ def main() -> None:
     from tts_generator import generate_segment_audio
 
     # Define the high-fidelity priority chain
-    engine_tiers = ["cartesia-sonic", "kokoro-cloud", "edge-tts"] if use_cloud_tts else ["edge-tts"]
-    
+    engine_tiers = (
+        ["cartesia-sonic", "kokoro-cloud", "edge-tts"]
+        if use_cloud_tts
+        else ["edge-tts"]
+    )
+
     final_segment_files: list[Path] = []
     actual_narrator_model = "unknown"
 
@@ -792,7 +848,7 @@ def main() -> None:
                 speaker: str = seg.get("speaker", "ALISTAIR")
                 voice: str = SPEAKER_VOICES.get(speaker, _DEFAULT_VOICE)
                 seg_path = OUTPUT_DIR / f"ep_{timestamp}_seg_{i:02d}.mp3"
-                
+
                 f = executor.submit(
                     generate_segment_audio,
                     text=seg["text"],
@@ -818,7 +874,9 @@ def main() -> None:
                     episode_success = False
 
             if not episode_success or not all(r and r[0] for r in results):
-                print(f"[TTS] Master Engine '{engine}' failed. Wiping partial audio and trying next tier.")
+                print(
+                    f"[TTS] Master Engine '{engine}' failed. Wiping partial audio and trying next tier."
+                )
                 episode_success = False
                 for r in results:
                     if r and r[1].exists():
@@ -845,14 +903,16 @@ def main() -> None:
     # ── Step 5: Duration check ────────────────────────────────────────────────
     print("[5/10] Checking audio duration...")
     duration = _get_audio_duration(audio_path)
-    print(f"[5/10] Duration: {duration:.1f}s  (min: {min_duration}s, max: {MAX_DURATION_SECS}s)")
-    
+    print(
+        f"[5/10] Duration: {duration:.1f}s  (min: {min_duration}s, max: {MAX_DURATION_SECS}s)"
+    )
+
     if duration < min_duration:
         _fail(
             f"Audio duration {duration:.1f}s is below the {min_duration}s minimum "
             f"for env='{env}'. Aborting pipeline."
         )
-    
+
     if duration > MAX_DURATION_SECS:
         _fail(
             f"Audio duration {duration:.1f}s exceeds the {MAX_DURATION_SECS}s maximum. "
@@ -877,20 +937,25 @@ def main() -> None:
     video_size = video_path.stat().st_size
     if video_size == 0:
         _fail(f"Video file is zero bytes: {video_path}")
-    
+
     # Verify video duration matches audio duration
     video_duration = _get_audio_duration(video_path)
     print(f"[7/10] Video duration: {video_duration:.1f}s (Audio: {duration:.1f}s)")
     if abs(video_duration - duration) > 2.0:
-        _fail(f"Video duration mismatch! Video: {video_duration:.1f}s, Audio: {duration:.1f}s")
-    
-    print(f"[7/10] Video compiled & verified → {video_path.name} ({video_size:,} bytes)")
+        _fail(
+            f"Video duration mismatch! Video: {video_duration:.1f}s, Audio: {duration:.1f}s"
+        )
+
+    print(
+        f"[7/10] Video compiled & verified → {video_path.name} ({video_size:,} bytes)"
+    )
 
     # ── Step 8: YouTube upload ────────────────────────────────────────────────
     video_url: Optional[str] = None
     if use_youtube:
         print("[8/10] Uploading to YouTube...")
         from publisher import upload_to_youtube
+
         description = final_broadcast.get("post_text", "")
         tags = final_broadcast.get("topic_tags", [])
         video_url = upload_to_youtube(str(video_path), title, description, tags)
@@ -908,7 +973,7 @@ def main() -> None:
         print("[9/10] DRY RUN — skipping DB write.")
     else:
         print("[9/10] Saving episode to database...")
-        
+
         # Register artifacts (Local URI or Cloud URL)
         # Note: We prioritize YouTube for videos to avoid Supabase storage limits.
         final_audio_url = db.upload_file(audio_path)
@@ -932,21 +997,23 @@ def main() -> None:
     # ── Step 10: Sync config ──────────────────────────────────────────────────
     print("[10/10] Syncing config.js...")
     from sync_config import sync_env_to_config
+
     sync_env_to_config(env)
 
     # ── Step 11: Self-Assessment (New) ────────────────────────────────────────
     if not dry_run:
         from tests.gate_checks import check_latest_run
+
         if not check_latest_run(env):
             _fail("Episode failed self-assessment gate checks. See log for details.")
 
     print(
-        f"\n{'='*60}\n"
+        f"\n{'=' * 60}\n"
         f"  ✅  Pipeline complete\n"
         f"  Video : {video_path.name}  ({video_size:,} bytes)\n"
         f"  Duration : {duration:.1f}s\n"
         f"  env={env}  |  dry_run={dry_run}\n"
-        f"{'='*60}\n"
+        f"{'=' * 60}\n"
     )
 
 
