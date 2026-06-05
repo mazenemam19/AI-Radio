@@ -105,10 +105,11 @@ The system is designed to "fail forward" through multiple layers:
 
 ### 3. Audio Engineering (The Mixer)
 The `tts_generator.py` and `main.py` collaborate to produce radio-quality audio:
+- **Parallel TTS Generation:** The station uses a `ThreadPoolExecutor` (5 workers) to narrate all 13 segments concurrently. This reduces the Studio Phase duration from ~5 minutes to ~60 seconds.
 - **SFX Priority:** Scripts define `sfx_pre` and `sfx_post` (stings, applause, laugh tracks) which are mixed with precision timing.
 - **Atmospheric Looping:** Field reports automatically trigger a `-22dB STREET_AMBIENT` loop mixed behind the narrator.
 - **Mastering:** The final assembly undergoes a **Loudness Normalization Pass** (Target: -14 LUFS) to ensure professional streaming volume consistency.
-- **Duration Gate:** All broadcasts are capped at **14.8 minutes (888s)** to stay within the 15-minute high-fidelity threshold. FFmpeg uses the `-t` flag for exact millisecond clipping between audio and video.
+- **Duration Gate:** All broadcasts are capped at **14.8 minutes (888s)** to stay within the 15-minute high-fidelity threshold. FFmpeg uses the `-t` flag for exact millisecond clipping between audio and video, and the `-preset veryfast` flag to accelerate compilation by ~60%.
 
 ### 4. Identity & State Awareness
 To prevent "Identity Mirroring" (where a character addresses others by their own name), the station uses:

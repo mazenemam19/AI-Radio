@@ -65,5 +65,6 @@ class TestTTSQualityGuard(unittest.TestCase):
         is_valid = tts_generator._is_audio_valid(zero_path, 100)
         self.assertFalse(is_valid)
 
+
 if __name__ == "__main__":
     unittest.main()

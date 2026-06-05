@@ -27,6 +27,7 @@ import re
 import shutil
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, NoReturn
@@ -516,6 +517,7 @@ def _compile_video(cover_image: Path, audio_path: Path, output_path: Path, durat
             "-map", "1:a:0",
             "-c:v", "libx264",
             "-tune", "stillimage",
+            "-preset", "veryfast",
             "-c:a", "aac", "-b:a", "128k",
             "-pix_fmt", "yuv420p",
             "-t", str(duration),
@@ -770,42 +772,52 @@ def main() -> None:
 
     for engine in engine_tiers:
         print(f"[TTS] Attempting unified narration with Master Engine: '{engine}'")
-        current_attempt_files: list[Path] = []
         episode_success = True
 
-        for i, seg in enumerate(segments):
-            speaker: str = seg.get("speaker", "ALISTAIR")
-            voice: str = SPEAKER_VOICES.get(speaker, _DEFAULT_VOICE)
-            seg_path = OUTPUT_DIR / f"ep_{timestamp}_seg_{i:02d}.mp3"
+        # Parallel TTS Generation (Speed Patch)
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_index = {}
+            for i, seg in enumerate(segments):
+                speaker: str = seg.get("speaker", "ALISTAIR")
+                voice: str = SPEAKER_VOICES.get(speaker, _DEFAULT_VOICE)
+                seg_path = OUTPUT_DIR / f"ep_{timestamp}_seg_{i:02d}.mp3"
+                
+                f = executor.submit(
+                    generate_segment_audio,
+                    text=seg["text"],
+                    voice=voice,
+                    path=str(seg_path),
+                    use_cloud=use_cloud_tts,
+                    forced_engine=engine,
+                    voice_style=seg.get("voice_style", "normal"),
+                    sfx_pre=seg.get("sfx_pre"),
+                    sfx_post=seg.get("sfx_post"),
+                )
+                future_to_index[f] = (i, seg_path)
 
-            # Use 'Strict Mode' (forced_engine) to ensure no mid-episode fallback inside the function
-            success, _ = generate_segment_audio(
-                text=seg["text"],
-                voice=voice,
-                path=str(seg_path),
-                use_cloud=use_cloud_tts,
-                forced_engine=engine,
-                voice_style=seg.get("voice_style", "normal"),
-                sfx_pre=seg.get("sfx_pre"),
-                sfx_post=seg.get("sfx_post"),
-            )
-            
-            if not success:
-                print(f"[TTS] Master Engine '{engine}' failed at segment {i+1}. Wiping partial audio and trying next tier.")
+            # Collect results in order to maintain log clarity
+            results = [None] * len(segments)
+            for f in future_to_index:
+                try:
+                    success, _ = f.result()
+                    idx, path = future_to_index[f]
+                    results[idx] = (success, path)
+                except Exception as exc:
+                    print(f"[TTS] Thread execution failed: {exc}")
+                    episode_success = False
+
+            if not episode_success or not all(r and r[0] for r in results):
+                print(f"[TTS] Master Engine '{engine}' failed. Wiping partial audio and trying next tier.")
                 episode_success = False
-                # Cleanup partial files to avoid concatenation errors
-                for p in current_attempt_files:
-                    if p.exists():
-                        p.unlink()
-                break
+                for r in results:
+                    if r and r[1].exists():
+                        r[1].unlink()
+                continue
 
-            
-            current_attempt_files.append(seg_path)
-            print(f"  [{i+1}/{len(segments)}] {speaker} → {seg_path.name} ({engine})")
-
-        if episode_success:
-            final_segment_files = current_attempt_files
+            # All succeeded
+            final_segment_files = [r[1] for r in results if r]
             actual_narrator_model = engine
+
             print(f"[TTS] Unified narration COMPLETE using '{engine}'.")
             break
     else:

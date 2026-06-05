@@ -20,7 +20,10 @@ Echo FM utilizes a hybrid local/cloud stack designed for high availability and z
 - **dotenv:** Management of environment profiles (local, production, etc.).
 
 ## Media & Distribution
-- **FFmpeg:** The "engine" for audio concatenation and MP4 video compilation.
+- **FFmpeg:** The "engine" for audio concatenation and MP4 video compilation. Optimized with `-preset veryfast` for high-speed production.
 - **Pydub:** High-level audio manipulation for multi-track mixing and acoustic effects.
 - **Pillow (PIL):** Procedural generation of broadcast cover art and visuals.
 - **YouTube Data API:** Automated publishing pipeline for the final broadcasts.
+
+## Concurrency & Performance
+- **Python Threading:** `ThreadPoolExecutor` utilized for parallelized TTS generation (5 workers) to maximize pipeline velocity.
