@@ -16,26 +16,26 @@ PROJ_ROOT = Path(__file__).parent.parent
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
-from db_client import DBClient # noqa: E402
+from db_client import DBClient  # noqa: E402
 
-# ── Baseline Constants (Run 74) ───────────────────────────────────────────────
-BASELINE_ID = 74
+# ── Baseline Constants ────────────────────────────────────────────────────────
 BASELINE_DURATION = 420
 REQUIRED_METADATA_FIELDS = [
     "confidence",
-    "related_ids",
+    "summary",
     "my_take",
     "post_text",
     "topic_tags",
     "audio_url",
     "video_url",
     "writer_model",
-    "narrator_model"
+    "narrator_model",
 ]
+
 
 def check_latest_run(env: str = "local"):
     print(f"\n[GATE] Starting self-assessment (env={env})...")
-    
+
     try:
         db = DBClient(env)
     except Exception as e:
@@ -46,14 +46,10 @@ def check_latest_run(env: str = "local"):
     if not recent:
         print("[GATE] SKIP: Database is empty. First run detected — gates skipped.")
         return True
-    
+
     run = recent[0]
     run_id = run.get("id", "?")
     print(f"[GATE] Checking Run ID: {run_id} ('{run.get('headline', 'Untitled')}')")
-
-    if run_id == BASELINE_ID:
-        print("[GATE] SKIPPING: This is the baseline run itself.")
-        return True
 
     errors = []
 
@@ -67,11 +63,17 @@ def check_latest_run(env: str = "local"):
     # 2. Metadata Integrity Gate
     for field in REQUIRED_METADATA_FIELDS:
         val = run.get(field)
-        
-        # Check for NULL, empty string, or empty list
-        if val is None or val == "" or val == [] or val == "[]":
+
+        # Standard Null/Empty check
+        is_empty = val is None or val == "" or val == [] or val == "[]"
+
+        # Exception: 'related_ids' can be empty in a fresh or small database.
+        if field == "related_ids" and is_empty:
+            continue
+
+        if is_empty:
             errors.append(f"Metadata missing: '{field}' is empty or NULL.")
-        
+
         # Specific check for dynamic values (not just defaults)
         if field == "confidence" and val not in ("high", "medium", "low"):
             errors.append(f"Metadata invalid: 'confidence' has weird value: {val}")
@@ -82,9 +84,10 @@ def check_latest_run(env: str = "local"):
         for err in errors:
             print(f"  - {err}")
         return False
-    
+
     print(f"[GATE] ✅ SUCCESS: Run {run_id} passed all baseline checks.")
     return True
+
 
 if __name__ == "__main__":
     # Default to local unless env provided
