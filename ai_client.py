@@ -503,10 +503,6 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     valid_speakers = {"ALISTAIR", "VICTORIA", "RONALD", "CASPER", "MARCUS"}
     valid_styles   = {"normal", "whisper", "grave", "excited", "deadpan"}
 
-    # Adaptive Validation (Stability Patch Part 2)
-    # 100 words is the absolute stable floor for all models/envs.
-    min_words = 100
-
     for i, seg in enumerate(segments):
         if not isinstance(seg, dict):
             return False, f"Segment {i} is not a dict"
