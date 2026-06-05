@@ -74,16 +74,31 @@ def _is_duplicate(headline: str, history: list[str]) -> bool:
 
     Criteria (per spec):
       - Exact headline match (case-insensitive, stripped).
-      - 3 or more significant keyword overlaps. (2 is too aggressive — spec note.)
+      - 3 or more significant keyword overlaps.
+      - NEW: If a history item is a short tag (1-2 words), block if it appears in new sig words.
     """
     norm = headline.strip().lower()
     new_sig = _significant_words(headline)
 
     for prev in history:
-        if prev.strip().lower() == norm:
+        prev_norm = prev.strip().lower()
+        if prev_norm == norm:
             return True
-        if len(new_sig & _significant_words(prev)) >= 3:
+        
+        prev_sig = _significant_words(prev)
+        if not prev_sig:
+            continue
+
+        # Tag-Aware Check: If the history item is a short tag (1-2 words),
+        # block if all its words appear in the new headline.
+        if len(prev_sig) <= 2:
+            if prev_sig.issubset(new_sig):
+                return True
+
+        # Standard Headline Overlap (3+ words)
+        if len(new_sig & prev_sig) >= 3:
             return True
+            
     return False
 
 

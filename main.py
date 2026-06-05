@@ -601,7 +601,7 @@ def _generate_cover_image(title: str, path: Path) -> bool:
         draw.text((80, 640), "AUTONOMOUS SATIRICAL BROADCASTING // DATA-DRIVEN TRUTH", fill=gray_txt, font=f_tag)
         
         img.save(str(path))
-        print(f"[Video] Cover image (PIL/EchoDeep) → {path.name}")
+        print(f"[Video] Cover image (PIL/EchoFM) → {path.name}")
         return True
     except Exception as exc:
         print(f"[Video] PIL cover generation failed (non-fatal): {exc}")
@@ -727,6 +727,17 @@ def main() -> None:
                 history.append(m["original_headline"])
             if m.get("headline"):
                 history.append(m["headline"])
+            # Add topic tags to history to block repeating specific entities
+            tags = m.get("topic_tags", [])
+            if isinstance(tags, list):
+                history.extend(tags)
+            elif isinstance(tags, str):
+                try:
+                    parsed_tags = json.loads(tags)
+                    if isinstance(parsed_tags, list):
+                        history.extend(parsed_tags)
+                except:
+                    pass
 
         print("[2/10] Fetching news...")
         from news_fetcher import fetch_news
