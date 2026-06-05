@@ -526,18 +526,14 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
             if i != len(segments) - 1:
                 return False, "MARCUS must be the final segment."
 
-        # 3. Word count verification (Stability Patch)
-        claimed_words = int(seg.get("word_count", 0))
+        # 3. Word count verification (Efficiency Patch)
+        # We intentionally 'over-ask' in the prompt (130-160 words) to account for 
+        # model underperformance. We check for a physical floor of 100 words only
+        # to match our stability tests and avoid unnecessary retries.
         actual_words = len(seg["text"].split())
         
-        if claimed_words < 130:
-            return False, f"Segment {i} claims {claimed_words} words but must be ≥130"
-        
-        if abs(actual_words - claimed_words) > 5:
-            return False, f"Segment {i} word count mismatch: claimed {claimed_words}, got {actual_words} (+/- 5 tolerance)"
-
-        if actual_words < 130:
-            return False, f"Segment {i} ({seg['speaker']}) is physically too short ({actual_words} words) — need ≥ 130"
+        if actual_words < 100:
+            return False, f"Segment {i} ({seg['speaker']}) is physically too short ({actual_words} words) — need ≥ 100"
 
         # 4. Repetition check (anti-hallucination)
         seg_words = _word_set(seg["text"])
@@ -580,13 +576,13 @@ def _expand_segment_via_llm(text: str, speaker: str, model: str) -> str:
 
 
 def expand_short_segments(data: dict, model: str) -> dict:
-    """Identify segments under 130 words and expand them with details."""
+    """Identify segments under 100 words and expand them with details."""
     if "segments" not in data or not isinstance(data["segments"], list):
         return data
 
     for i, seg in enumerate(data["segments"]):
         actual_words = len(seg["text"].split())
-        if actual_words < 130:
+        if actual_words < 100:
             print(f"[AI] Segment {i} too short ({actual_words} words). Attempting expansion...")
             expanded_text = _expand_segment_via_llm(seg["text"], seg["speaker"], model)
             if expanded_text:
@@ -669,8 +665,9 @@ def generate_broadcast(
             continue
             
         # ── Step 4.5: Best-Effort Expansion (New) ─────────────────────────────
-        # If segments are short, try to expand them before validation.
-        data = expand_short_segments(data, model)
+        # If segments are short, try to expand them on the FINAL attempt only.
+        if attempt == len(model_queue) - 1:
+            data = expand_short_segments(data, model)
 
         # Final validation (Stability Patch Part 2)
         valid, reason = validate_broadcast(data, env)

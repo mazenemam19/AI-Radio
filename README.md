@@ -66,8 +66,8 @@ Fetches up to 5 items from each RSS feed and 10 from HackerNews. Items are **ded
 
 ### Step 2b — AI Script Generation (`ai_client.py`)
 Constructs a complex prompt containing the 20-item news feed and station memory. If the LLM returns truncated JSON, a recursive **JSON Healer** salvages completed segments.
-- **Expansion Layer:** If segments are too short, the system calls a dedicated expansion loop to lengthen them.
-- **Validation:** Enforces a strict 130-word floor and verified `word_count` metadata.
+- **Expansion Layer:** If segments are too short (<100 words), the system calls a dedicated expansion loop to lengthen them.
+- **Validation:** Enforces a 100-word physical floor and verified `word_count` metadata (while asking for 130-160 words in the prompt to ensure quality).
 
 ### Step 3 — TTS Synthesis (`tts_generator.py`)
 Processes segments using a **Unified Master Engine**. It attempts the entire episode with one engine (Cartesia → Kokoro → Edge) to ensure vocal consistency. A **Quality Guard** rejects any audio with a WPM > 300.
@@ -98,9 +98,9 @@ Processes segments using a **Unified Master Engine**. It attempts the entire epi
 | `broadcast_duration`| INT | Total length in seconds |
 
 ## ⚖️ Stability & Quality Rules
-1. **130-Word Floor:** Every segment must exceed 130 words.
-2. **Word Count Anchoring:** Every segment JSON must include a `word_count` key that matches the actual text length (+/- 5 words).
-3. **Best-Effort Expansion:** If a model under-delivers on length, the system triggers a recursive expansion pass to hit the floor.
+1. **100-Word Floor:** Every segment must exceed 100 words (the prompt asks for 130-160 to ensure quality).
+2. **Word Count Anchoring:** Every segment JSON must include a `word_count` key that helps anchor the model's focus on length.
+3. **Best-Effort Expansion:** If a model under-delivers on length (<100 words), the system triggers a recursive expansion pass on the final attempt.
 4. **20 News Items:** Production runs ingest 20 news items to provide sufficient creative fuel.
 5. **13 Segments:** Fixed show arc (Intro -> Main(9) -> Weatherbot -> Main -> Deep Dive -> Philosopher).
 

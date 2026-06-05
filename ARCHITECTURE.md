@@ -99,8 +99,8 @@ Echo FM maintains vocal consistency by selecting a **Single Master Engine** per 
 ### 2. Resilience & Retry Logic
 The system is designed to "fail forward" through multiple layers:
 - **AI Synthesis Retry:** If the primary LLM fails validation, the system retries once more. If both fail, it moves to the next model in the prioritized **Smart Router** queue.
-- **Recursive Expansion Layer:** If a model returns high-quality content but fails the 130-word floor, the system triggers a targeted expansion pass using the same model to lengthen the segment while preserving tone.
-- **JSON Healer & Anchoring:** A custom brace-walking algorithm repairs truncated JSON. Every segment includes a `word_count` metadata key that the model must self-report, anchoring its attention on length to prevent "compression hallucinations."
+- **Recursive Expansion Layer:** If a model returns high-quality content but fails the 100-word floor on the final attempt, the system triggers a targeted expansion pass using the same model to lengthen the segment while preserving tone.
+- **JSON Healer & Anchoring:** A custom brace-walking algorithm repairs truncated JSON. Every segment includes a `word_count` metadata key that the model must self-report, anchoring its attention on length (aiming for 130-160 words) while validating against a 100-word stable floor.
 - **Master Engine Fallback:** To maintain vocal consistency, the station uses a single "Master Engine" (Cartesia → Kokoro → Edge-TTS) per episode. If an engine fails mid-broadcast, the system **wipes all partial audio artifacts** and restarts the entire narration from segment 1 using the next available engine.
 
 ### 3. Audio Engineering (The Mixer)

@@ -59,13 +59,13 @@ class TestVolumeValidation(unittest.TestCase):
                 self.assertTrue(valid, f"Should have passed for {count} segments: {reason}")
 
     def test_word_floor_fail(self):
-        """Should fail if any segment is below 130 words."""
+        """Should fail if any segment is below 100 words."""
         data = copy.deepcopy(self.base_data)
         data["segments"][0]["text"] = "Too short"
         data["segments"][0]["word_count"] = 2
         valid, reason = validate_broadcast(data, "production")
         self.assertFalse(valid)
-        self.assertIn("must be ≥130", reason)
+        self.assertIn("need ≥ 100", reason)
 
 if __name__ == "__main__":
     unittest.main()
