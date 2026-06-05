@@ -428,7 +428,7 @@ of institutions that many had previously assumed were robust."
 - GENDER GROUNDING: Address Male characters as men and Victoria as a woman.
 - STUDIO VISUALIZATION: Alistair is the host in the studio. Victoria is a reporter on a satellite link. Ronald is a commentator in a guest booth.
 - EXAMPLE HANDOFF:
-  - Segment 1 (ALISTAIR): "...Victoria, what are you seeing on the ground?"
+  - Segment 1 (ALISTAIR): "...Welcome ... to Echo FM!"
   - Segment 2 (VICTORIA): "Alistair, I'm standing in a puddle of..." 
   - (Victoria addressed Alistair by HIS name, NOT her own).
 
