@@ -195,11 +195,10 @@ def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
     ) or "  No recent episodes on file."
 
     # ── Stability Strategy Note (DO NOT REMOVE) ──────────────────────────────────
-    # Models systematically underperform (producing ~110-120 when asked for 150).
-    # We "over-ask" in the prompt (150 target / 130 floor) to ensure the physical 
-    # output consistently hits our actual internal baseline (100 floor).
-    # DO NOT lower the numbers in the prompt string below to match the validator.
+    # Models systematically underperform. We now use explicit word-count enforcement
+    # (130-160 word range) and mandatory 'word_count' JSON keys to anchor attention.
     # ──────────────────────────────────────────────────────────────────────────────
+
 
     return f"""You are the head writer for "Echo FM" — a late-night satirical radio station
 operated by AI. 
@@ -248,6 +247,7 @@ with this EXACT structure — no markdown fences, no preamble, no commentary:
       "voice_style": "normal",
       "sfx_pre": "INTRO_THEME",
       "sfx_post": "APPLAUSE_OPEN",
+      "word_count": 145,
       "text": "Segment text written for TTS delivery. See all rules below."
     }}
   ]
@@ -293,10 +293,10 @@ HANDOFFS & DIALOGUE FLOW
 ════════════════════════════════════════
 HARD REQUIREMENTS — violation = rejected
 ════════════════════════════════════════
-- Target 13 segments. Total spoken word count: ~1700+ words.
+- Target 13 segments. Total spoken word count: ~1700+ words. **That's ~130 words minimum per segment.**
+- EACH SEGMENT MUST be exactly 130-160 words. Count every word. If a segment is under 130, it fails.
 - Every segment MUST be verbose, descriptive, and intellectually dense.
-- AIM FOR 150 WORDS per segment. 130 words is the ABSOLUTE minimum floor.
-- DO NOT summarize. Build elaborate, multi-layered satirical setups.
+- Do NOT write short segments. Do NOT compress. Expand.
 - Speaker must be one of: ALISTAIR, VICTORIA, RONALD, CASPER, MARCUS.
 - Include exactly one CASPER segment.
 - Include exactly one MARCUS segment — always the final segment (13).
@@ -503,20 +503,16 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     valid_speakers = {"ALISTAIR", "VICTORIA", "RONALD", "CASPER", "MARCUS"}
     valid_styles   = {"normal", "whisper", "grave", "excited", "deadpan"}
 
-    # Adaptive Validation (Stability Patch Part 2)
-    # 100 words is the absolute stable floor for all models/envs.
-    min_words = 100
-
     for i, seg in enumerate(segments):
         if not isinstance(seg, dict):
             return False, f"Segment {i} is not a dict"
         
-        # Key presence
-        for k in ["speaker", "text", "voice_style", "sfx_pre", "sfx_post"]:
+        # 1. Key presence & Schema
+        for k in ["speaker", "text", "voice_style", "sfx_pre", "sfx_post", "word_count"]:
             if k not in seg:
                 return False, f"Segment {i} missing '{k}'"
 
-        # Content validation
+        # 2. Content validation
         if seg["speaker"] not in valid_speakers:
             return False, f"Segment {i} has invalid speaker: {seg['speaker']}"
         
@@ -530,14 +526,16 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
             if i != len(segments) - 1:
                 return False, "MARCUS must be the final segment."
 
-        # Word count check
-        word_count = len(seg["text"].split())
-        if word_count < min_words:
-            return False, (
-                f"Segment {i} ({seg['speaker']}) has only {word_count} word(s) — need ≥ {min_words}"
-            )
+        # 3. Word count verification (Efficiency Patch)
+        # We intentionally 'over-ask' in the prompt (130-160 words) to account for 
+        # model underperformance. We check for a physical floor of 100 words only
+        # to match our stability tests and avoid unnecessary retries.
+        actual_words = len(seg["text"].split())
+        
+        if actual_words < 100:
+            return False, f"Segment {i} ({seg['speaker']}) is physically too short ({actual_words} words) — need ≥ 100"
 
-        # Repetition check (anti-hallucination)
+        # 4. Repetition check (anti-hallucination)
         seg_words = _word_set(seg["text"])
         for j, prev_words in enumerate(seen_word_sets):
             similarity = _jaccard(seg_words, prev_words)
@@ -551,6 +549,49 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
         return False, "Missing mandatory PHILOSOPHER segment"
 
     return True, "OK"
+
+
+# ── Post-Process Expansion Layer ──────────────────────────────────────────────
+
+def _expand_segment_via_llm(text: str, speaker: str, model: str) -> str:
+    """Ask the model to expand a specific segment to 140+ words."""
+    prompt = f"""Expand the following radio script segment for speaker {speaker}.
+    The current segment is too short. Expand it to exactly 140-160 words while 
+    maintaining the satirical tone and persona. Return ONLY the expanded text, 
+    no commentary, no intro, no labels.
+    
+    CURRENT TEXT:
+    {text}
+    """
+    is_gemini = model.startswith(("gemini-", "gemma-"))
+    is_groq = model.startswith(("openai/", "groq/", "qwen/", "meta-llama/", "llama-"))
+    
+    expanded = None
+    if is_groq:
+        expanded = call_groq(prompt, model)
+    elif is_gemini:
+        expanded = call_gemini(prompt, model)
+    
+    return expanded.strip() if expanded else text
+
+
+def expand_short_segments(data: dict, model: str) -> dict:
+    """Identify segments under 100 words and expand them with details."""
+    if "segments" not in data or not isinstance(data["segments"], list):
+        return data
+
+    for i, seg in enumerate(data["segments"]):
+        actual_words = len(seg["text"].split())
+        if actual_words < 100:
+            print(f"[AI] Segment {i} too short ({actual_words} words). Attempting expansion...")
+            expanded_text = _expand_segment_via_llm(seg["text"], seg["speaker"], model)
+            if expanded_text:
+                # Clean up any "Expanded text:" or "Here is the expanded segment:" prefix
+                cleaned = re.sub(r"^(Expanded text:|Here is the expanded segment:|Segment \d+:)\s*", "", expanded_text, flags=re.I)
+                seg["text"] = cleaned
+                seg["word_count"] = len(cleaned.split())
+                print(f"  -> Expanded to {seg['word_count']} words.")
+    return data
 
 
 # ── Orchestrator ──────────────────────────────────────────────────────────────
@@ -623,6 +664,11 @@ def generate_broadcast(
         if data is None:
             continue
             
+        # ── Step 4.5: Best-Effort Expansion (New) ─────────────────────────────
+        # If segments are short, try to expand them on the FINAL attempt only.
+        if attempt == len(model_queue) - 1:
+            data = expand_short_segments(data, model)
+
         # Final validation (Stability Patch Part 2)
         valid, reason = validate_broadcast(data, env)
         if not valid:

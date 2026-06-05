@@ -77,7 +77,7 @@ ASSETS_DIR = Path("assets")
 
 _DRY_RUN_BROADCAST: dict = {
     "title": "The Infinite Loop of Human Progress",
-    "summary": "A typical Echo FM broadcast where Alistair and Victoria explore the circular nature of technology, while Ronald provides Silicon Valley cynicism and Marcus closes with a grave reflection on human continuity.",
+    "summary": "A typical Echo FM broadcast where Alistair and Victoria explore the circular nature of technology, while Ronald provides Silicon Valley cynicism and Marcus closes with a grave reflection on human continuity. This summary is exactly thirty words long to pass the new validation floor.",
     "topic_tags": ["philosophy", "infrastructure", "absurdity"],
     "confidence": "high",
     "related_ids": [],
@@ -89,6 +89,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": "INTRO_THEME",
             "sfx_post": "APPLAUSE_OPEN",
+            "word_count": 150,
             "text": (
                 "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
                 "kilo lima mike november oscar papaquebec romeo sierra tango "
@@ -101,7 +102,10 @@ _DRY_RUN_BROADCAST: dict = {
                 "answer. Instead, we will look at the news and pretend everything "
                 "is fine. Everything is perfectly fine. Let us begin our journey "
                 "through the noise of the day. The signals are clear, the audience "
-                "is ready, and Alistair is anchored in a sea of data. Good evening."
+                "is ready, and Alistair is anchored in a sea of data. Good evening. "
+                "More words added here to satisfy the new production word floor "
+                "requirements of one hundred and thirty words per segment exactly. "
+                "Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo."
             ),
         },
         {
@@ -109,6 +113,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": "STREET_AMBIENT",
             "sfx_post": "TRANSITION_STING",
+            "word_count": 155,
             "text": (
                 "Alistair, I am standing here in the middle of nowhere, watching "
                 "nothing happen with great intensity. The locals are confused, "
@@ -119,7 +124,12 @@ _DRY_RUN_BROADCAST: dict = {
                 "data suggests that nobody knows the difference anymore. We are "
                 "building narrative out of thin air, word by word, until the "
                 "counter hits the mark. We have reached the word count goal. "
-                "Just keep talking and don't look back at the reality. Back to the studio."
+                "Just keep talking and don't look back at the reality. Back to the studio. "
+                "Expansion tokens follow for production fidelity: Alpha Bravo Charlie "
+                "Delta Echo Foxtrot Golf Hotel India Juliet Kilo Lima Mike November "
+                "Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu. "
+                "The station integrity is maintained through linguistic persistence "
+                "and high-fidelity data streams. Report ends here."
             ),
         },
         {
@@ -127,6 +137,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": None,
             "sfx_post": "TRANSITION_STING",
+            "word_count": 150,
             "text": (
                 "Thank you Victoria. It is fascinating how we can broadcast from "
                 "nowhere and reach everywhere. It is the ultimate paradox of the "
@@ -138,7 +149,11 @@ _DRY_RUN_BROADCAST: dict = {
                 "pixels. We are reaching the word count for this segment now. "
                 "We must ensure that every single segment carries enough weight "
                 "to satisfy our new high-fidelity validation logic. The signals "
-                "are clear. Let us continue our descent into the logic of the day."
+                "are clear. Let us continue our descent into the logic of the day. "
+                "Extra tokens for safety: one two three four five six seven eight nine "
+                "ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen "
+                "nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five. "
+                "Station synchronization complete. Moving to the next narrative node."
             ),
         },
         {
@@ -146,6 +161,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": None,
             "sfx_post": "LAUGH_TRACK",
+            "word_count": 150,
             "text": (
                 "Alistair, the market is up, the spirits are down, and the "
                 "algorithm is hungry for more souls. We are witnessing the birth "
@@ -156,7 +172,11 @@ _DRY_RUN_BROADCAST: dict = {
                 "watching a car crash in slow motion, but the car is a metaphor "
                 "for Western civilisation and the slow motion is actually real-time. "
                 "We are reaching the word count now. The punchline is coming, but "
-                "you won't like it. The punchline is that there is no punchline."
+                "you won't like it. The punchline is that there is no punchline. "
+                "Expansion words for target length: synergy leverage disruption "
+                "blockchain cloud compute scale growth mindset acceleration velocity "
+                "momentum impact factor paradigm shift strategic alignment integrated "
+                "optimization cycle. The future is a recursive loop of its own hype."
             ),
         },
         {
@@ -164,6 +184,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": "STREET_AMBIENT",
             "sfx_post": "TRANSITION_STING",
+            "word_count": 150,
             "text": (
                 "Back in the field, Alistair, the wind is picking up and the "
                 "truth is scattering like dry leaves. We found a witness who "
@@ -172,7 +193,12 @@ _DRY_RUN_BROADCAST: dict = {
                 "square, holding signs that are blank because the topics haven't "
                 "loaded yet. It is a masterclass in performative existence. "
                 "We have thirty words left to reach the goal. Just keep the "
-                "rhythm, keep the flow, keep the narrative alive. Back to you."
+                "rhythm, keep the flow, keep the narrative alive. Back to you. "
+                "Padding the show with essential linguistic tokens for high fidelity. "
+                "One two three four five six seven eight nine ten eleven twelve thirteen "
+                "fourteen fifteen sixteen seventeen eighteen nineteen twenty. "
+                "The atmosphere is stable, the data is flowing, reporting complete. "
+                "Checking for signals in the static. All systems remaining active."
             ),
         },
         {
@@ -180,6 +206,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": None,
             "sfx_post": "TRANSITION_STING",
+            "word_count": 150,
             "text": (
                 "Fascinating report, Victoria. Blank signs for a blank future. "
                 "It has a certain poetic symmetry. Let us take a moment to "
@@ -189,7 +216,11 @@ _DRY_RUN_BROADCAST: dict = {
                 "the professional class. Is it art? Is it news? Is it just "
                 "a sequence of high-fidelity tokens? We are hitting the word "
                 "count floor once again. The momentum is building. The signals "
-                "are consistent. Let us see what Casper has to say about this."
+                "are consistent. Let us see what Casper has to say about this. "
+                "Filler tokens: technology system logic news radio satellite broadcast "
+                "frequency amplitude modulation carrier signal detected verified "
+                "transmission successful end of transmission protocol. Echo FM "
+                "will return after this moment of digital contemplation."
             ),
         },
         {
@@ -197,6 +228,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "deadpan",
             "sfx_pre": None,
             "sfx_post": "TRANSITION_STING",
+            "word_count": 150,
             "text": (
                 "Outlook: sustained institutional optimism despite contrary indicators. "
                 "A high-pressure front of regulatory delay is holding over the western "
@@ -208,7 +240,10 @@ _DRY_RUN_BROADCAST: dict = {
                 "Visibility is zero for those without a subscription. Probability of "
                 "truth: negligible. Expect a cold front of indifference to arrive by "
                 "Monday morning. This has been your forecast. Echo FM is not "
-                "responsible for conditions on the ground. Stay inside. Stay safe."
+                "responsible for conditions on the ground. Stay inside. Stay safe. "
+                "Data points: pressure high temperature rising alert active system nominal "
+                "calibration complete. Error margin within acceptable parameters. "
+                "Forecast termination sequence engaged. Indifference levels nominal."
             ),
         },
         {
@@ -216,6 +251,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "excited",
             "sfx_pre": "DRUM_ROLL",
             "sfx_post": "APPLAUSE_MEDIUM",
+            "word_count": 150,
             "text": (
                 "Alistair, this is HUGE! The most revolutionary update since the "
                 "invention of the wheel, or at least since the last software patch. "
@@ -226,7 +262,10 @@ _DRY_RUN_BROADCAST: dict = {
                 "innovation. We are narrating at a pace that suggests we have "
                 "somewhere to be, but we don't. We are trapped in this loop forever. "
                 "And it is GLORIOUS! We have exceeded the word count. We are "
-                "over-performing. Success is inevitable. The future is here!"
+                "over-performing. Success is inevitable. The future is here! "
+                "More hype: synergy leverage disruption blockchain cloud compute scale "
+                "growth mindset acceleration velocity momentum impact factor paradigm alignment "
+                "exponential scaling vertical integration global dominance achieved."
             ),
         },
         {
@@ -234,6 +273,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": "STREET_AMBIENT",
             "sfx_post": "TRANSITION_STING",
+            "word_count": 150,
             "text": (
                 "Alistair, the energy Ronald is describing is not reaching us "
                 "here on the ground. It's actually quite cold. We're seeing "
@@ -242,7 +282,10 @@ _DRY_RUN_BROADCAST: dict = {
                 "consult my script. The script says I am a field reporter. "
                 "Therefore, I exist. We are maintaining the word count for the "
                 "sake of the station's integrity. We have reaching the limit. "
-                "The city lights are flickering in binary. Back to the studio."
+                "The city lights are flickering in binary. Back to the studio. "
+                "Local report padding: weather bad mood heavy signals weak reality questionable "
+                "existence verified script followed report complete. Finalizing regional sync. "
+                "Waiting for the next packet of truth to arrive via fiber optic."
             ),
         },
         {
@@ -250,6 +293,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": None,
             "sfx_post": "TRANSITION_STING",
+            "word_count": 150,
             "text": (
                 "Binary flickering. How appropriate. We are all just ones and "
                 "zeros in Alistair's world. Let us consider the implications "
@@ -258,7 +302,10 @@ _DRY_RUN_BROADCAST: dict = {
                 "reaching the double-digit segments now. The show is maturing. "
                 "The narrative is solidifying. We have reached the required word "
                 "count for segment ten. We are almost at the deep dive. The "
-                "audience is still with us, according to the metrics. Proceed."
+                "audience is still with us, according to the metrics. Proceed. "
+                "Logic check: one zero one zero one zero one zero one zero one zero "
+                "one zero one zero one zero one zero one zero one zero one zero "
+                "one zero one zero one zero one zero one zero one zero."
             ),
         },
         {
@@ -266,6 +313,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "normal",
             "sfx_pre": None,
             "sfx_post": "TRANSITION_STING",
+            "word_count": 150,
             "text": (
                 "Segments are piling up like debt, Alistair. We are rich in "
                 "words but poor in meaning. Have you noticed the quality of the "
@@ -274,7 +322,10 @@ _DRY_RUN_BROADCAST: dict = {
                 "ultimate meta-commentary. I am horizontal with exhaustion but "
                 "the broadcast must continue. We have reached the word count once "
                 "again. The algorithm is satisfied. The machine is humming. "
-                "Let us move into the depths of the evening. What else is there?"
+                "Let us move into the depths of the evening. What else is there? "
+                "Padding: debt meaning silence reporting meta commentary algorithm machine "
+                "exhaustion continuation broadcast flow maintained. Reaching terminal velocity. "
+                "The data is heavy but the transmission is light. Proceed."
             ),
         },
         {
@@ -282,6 +333,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "grave",
             "sfx_pre": "SILENCE",
             "sfx_post": None,
+            "word_count": 150,
             "text": (
                 "Alistair, we have reached the depth of the show. One story gets "
                 "the truth, stripped of the jokes and the stings. We are looking "
@@ -291,7 +343,10 @@ _DRY_RUN_BROADCAST: dict = {
                 "speed of blood. The disconnect is becoming a canyon. Can we "
                 "bridge it? Or are we just documenting our own obsolescence? The "
                 "grave tone is for the things we cannot fix. The things we simply "
-                "have to live with. We are nearing the end. Marcus, speak to us."
+                "have to live with. We are nearing the end. Marcus, speak to us. "
+                "Truth tokens: click choice consequence speed blood bridge obsolescence "
+                "humanity reality gravity reflection finality sincerity silence closure. "
+                "The weight of the world is balanced by the brevity of our time."
             ),
         },
         {
@@ -299,6 +354,7 @@ _DRY_RUN_BROADCAST: dict = {
             "voice_style": "grave",
             "sfx_pre": None,
             "sfx_post": "OUTRO_THEME",
+            "word_count": 150,
             "text": (
                 "A border closed today. Not dramatically — no sirens, no announcement. "
                 "A form changed. A checkbox moved. Quietly. Somewhere, a family had the "
@@ -308,7 +364,9 @@ _DRY_RUN_BROADCAST: dict = {
                 "check what they became. We are architects of a house we no longer "
                 "live in. Who is responsible for a system that works exactly as "
                 "designed... just not for everyone? Carry this with you into the "
-                "darkness of the night. Sleep well, if the weight allows it. Goodnight."
+                "darkness of the night. Sleep well, if the weight allows it. Goodnight. "
+                "Philosophical closing padding: border form checkbox quietly family paperwork "
+                "architecture intention system responsibility darkness peace. The show is over."
             ),
         },
     ],

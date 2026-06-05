@@ -30,7 +30,8 @@ flowchart TD
         subgraph AI ["Smart Router Logic"]
             LLM_Q{"Model Queue"} -->|SDK Dispatch| LLM_CALL["Gemini / Groq SDK"]
             LLM_CALL --> JSON_HEAL{"JSON Healer"}
-            JSON_HEAL -->|Success| VAL{"Quality Validator"}
+            JSON_HEAL -->|Success| EXP["Expansion Layer<br/>(Optional)"]
+            EXP --> VAL{"Quality Validator"}
             JSON_HEAL -->|Fail| LLM_Q
             VAL -->|Fail| LLM_Q
         end
@@ -97,16 +98,25 @@ Echo FM maintains vocal consistency by selecting a **Single Master Engine** per 
 
 ### 2. Resilience & Retry Logic
 The system is designed to "fail forward" through multiple layers:
-- **AI Synthesis Retry:** If the primary LLM fails validation (word count, JSON structure), the system retries once more. If both fail, it moves to the next model in the prioritized **Smart Router** queue.
-- **JSON Healer:** A custom recursive brace-walking algorithm repairs truncated AI responses, ensuring that transient token limits don't break the pipeline.
+- **AI Synthesis Retry:** If the primary LLM fails validation, the system retries once more. If both fail, it moves to the next model in the prioritized **Smart Router** queue.
+- **Recursive Expansion Layer:** If a model returns high-quality content but fails the 100-word floor on the final attempt, the system triggers a targeted expansion pass using the same model to lengthen the segment while preserving tone.
+- **JSON Healer & Anchoring:** A custom brace-walking algorithm repairs truncated JSON. Every segment includes a `word_count` metadata key that the model must self-report, anchoring its attention on length (aiming for 130-160 words) while validating against a 100-word stable floor.
+- **Master Engine Fallback:** To maintain vocal consistency, the station uses a single "Master Engine" (Cartesia → Kokoro → Edge-TTS) per episode. If an engine fails mid-broadcast, the system **wipes all partial audio artifacts** and restarts the entire narration from segment 1 using the next available engine.
 
 ### 3. Audio Engineering (The Mixer)
 The `tts_generator.py` and `main.py` collaborate to produce radio-quality audio:
 - **SFX Priority:** Scripts define `sfx_pre` and `sfx_post` (stings, applause, laugh tracks) which are mixed with precision timing.
 - **Atmospheric Looping:** Field reports automatically trigger a `-22dB STREET_AMBIENT` loop mixed behind the narrator.
 - **Mastering:** The final assembly undergoes a **Loudness Normalization Pass** (Target: -14 LUFS) to ensure professional streaming volume consistency.
+- **Duration Gate:** All broadcasts are capped at **14.8 minutes (888s)** to stay within the 15-minute high-fidelity threshold. FFmpeg uses the `-t` flag for exact millisecond clipping between audio and video.
 
-### 4. Behavioral Divergence (Local vs Production)
+### 4. Identity & State Awareness
+To prevent "Identity Mirroring" (where a character addresses others by their own name), the station uses:
+- **Spatial Grounding:** Personas are assigned physical locations (Studio, Field, Library) to anchor their conversational distance.
+- **Gender Anchoring:** Explicit (Male/Female) markers in the prompt provide a logical mismatch check for the AI's attention mechanism.
+- **Narrative Memory:** The station persists a detailed `summary` of the full narrative arc of each episode, allowing the AI to maintain continuity across production runs.
+
+## 🌐 Behavioral Divergence (Local vs Production)
 
 The system behavior is strictly controlled by the `--env` flag:
 
