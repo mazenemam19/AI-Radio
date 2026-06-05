@@ -1,3 +1,0 @@
-# Implementation Plan: Speed Optimization\n\n## Phase 1: Parallel TTS Generation\n- [x] Implement `ThreadPoolExecutor` (5 workers) in `main.py` for segment narration.\n- [x] Add exception handling to collect thread results and trigger engine fallback on any failure.\n- [x] Update partial audio cleanup for parallel failures.\n\n## Phase 2: FFmpeg Performance\n- [x] Update `_compile_video` to use `-preset veryfast` flag.\n\n## Phase 3: Verification & Docs\n- [x] Run all automated tests (`pytest`).\n- [x] Update `README.md` with performance gains.\n- [x] Update `ARCHITECTURE.md` to reflect parallelism.\n- [x] Run `ruff check .`.\n- [x] Execute local dry-run.\n
-
-
