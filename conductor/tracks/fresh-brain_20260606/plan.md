@@ -1,10 +1,10 @@
 # Implementation Plan: Fresh Brain Update
 
 ## Phase 1: Tag-Aware Deduplication (Technical)
-- [ ] Task: Create TDD suite for tag-aware deduplication in `news_fetcher.py`
-- [ ] Task: Implement subset keyword blocking in `_is_duplicate`
-- [ ] Task: Update `main.py` to extract and pass all recent topic tags to the fetcher
-- [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
+- [x] Task: Create TDD suite for tag-aware deduplication in `news_fetcher.py`
+- [x] Task: Implement subset keyword blocking in `_is_duplicate`
+- [x] Task: Update `main.py` to extract and pass all recent topic tags to the fetcher
+- [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
 
 ## Phase 2: Reactive Social Dynamics (Creative)
 - [ ] Task: Write unit tests for conditional dread and friction logic in `ai_client.py`
@@ -21,3 +21,8 @@
 - [ ] Task: Execute full production-style dry-run to verify variety and social friction
 - [ ] Task: Update project documentation (README/ARCHITECTURE) to reflect the 'Fresh Brain' logic
 - [ ] Task: Conductor - User Manual Verification 'Phase 4' (Protocol in workflow.md)
+
+
+
+
+
