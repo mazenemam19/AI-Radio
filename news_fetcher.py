@@ -18,6 +18,7 @@ import requests
 
 # ── HTML Stripper (module-level singleton pattern) ────────────────────────────
 
+
 class HTMLStripper(HTMLParser):
     """Lightweight HTML-to-text converter."""
 
@@ -50,23 +51,43 @@ def _strip_html(text: str) -> str:
 
 # ── Stop list (exactly 20 words per spec) ─────────────────────────────────────
 
-_STOP_WORDS: frozenset[str] = frozenset({
-    "about", "after", "also", "been", "from",
-    "have", "into", "more", "over", "says",
-    "that", "their", "this", "they", "were",
-    "when", "which", "will", "with", "would",
-})
+_STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "about",
+        "after",
+        "also",
+        "been",
+        "from",
+        "have",
+        "into",
+        "more",
+        "over",
+        "says",
+        "that",
+        "their",
+        "this",
+        "they",
+        "were",
+        "when",
+        "which",
+        "will",
+        "with",
+        "would",
+    }
+)
 
 
 def _significant_words(text: str) -> set[str]:
     """Words with len > 4 that are not in the stop list."""
     return {
-        w for w in re.findall(r"[a-zA-Z]+", text.lower())
+        w
+        for w in re.findall(r"[a-zA-Z]+", text.lower())
         if len(w) > 4 and w not in _STOP_WORDS
     }
 
 
 # ── Deduplication ─────────────────────────────────────────────────────────────
+
 
 def _is_duplicate(headline: str, history: list[str]) -> bool:
     """
@@ -75,7 +96,8 @@ def _is_duplicate(headline: str, history: list[str]) -> bool:
     Criteria (per spec):
       - Exact headline match (case-insensitive, stripped).
       - 3 or more significant keyword overlaps.
-      - NEW: If a history item is a short tag (1-2 words), block if it appears in new sig words.
+      - Tag-Aware: If a history item is a short tag (1-2 words),
+        block if those specific words appear in the new headline.
     """
     norm = headline.strip().lower()
     new_sig = _significant_words(headline)
@@ -84,13 +106,13 @@ def _is_duplicate(headline: str, history: list[str]) -> bool:
         prev_norm = prev.strip().lower()
         if prev_norm == norm:
             return True
-        
+
         prev_sig = _significant_words(prev)
         if not prev_sig:
             continue
 
-        # Tag-Aware Check: If the history item is a short tag (1-2 words),
-        # block if all its words appear in the new headline.
+        # Tag-Aware Logic: If the history item is a short tag/entity (e.g. "NASA", "Ebola")
+        # we treat it as an absolute block if it appears in the new headline.
         if len(prev_sig) <= 2:
             if prev_sig.issubset(new_sig):
                 return True
@@ -98,11 +120,12 @@ def _is_duplicate(headline: str, history: list[str]) -> bool:
         # Standard Headline Overlap (3+ words)
         if len(new_sig & prev_sig) >= 3:
             return True
-            
+
     return False
 
 
 # ── RSS helper ────────────────────────────────────────────────────────────────
+
 
 def _fetch_rss(
     url: str,
@@ -135,12 +158,14 @@ def _fetch_rss(
         if _is_duplicate(headline, history):
             continue
 
-        items.append({
-            "headline": headline,
-            "source": source_name,
-            "url": getattr(entry, "link", ""),
-            "summary": _strip_html(getattr(entry, "summary", ""))[:500],
-        })
+        items.append(
+            {
+                "headline": headline,
+                "source": source_name,
+                "url": getattr(entry, "link", ""),
+                "summary": _strip_html(getattr(entry, "summary", ""))[:500],
+            }
+        )
         history.append(headline)
 
         if len(items) >= limit:
@@ -150,6 +175,7 @@ def _fetch_rss(
 
 
 # ── HackerNews ────────────────────────────────────────────────────────────────
+
 
 def _fetch_hackernews(limit: int, history: list[str]) -> tuple[list[dict], bool]:
     """
@@ -189,15 +215,18 @@ def _fetch_hackernews(limit: int, history: list[str]) -> tuple[list[dict], bool]
         if _is_duplicate(headline, history):
             continue
 
-        items.append({
-            "headline": headline,
-            "source": "HackerNews",
-            "url": item.get("url") or f"https://news.ycombinator.com/item?id={story_id}",
-            "summary": (
-                f"HackerNews — {item.get('score', 0)} points, "
-                f"{item.get('descendants', 0)} comments"
-            ),
-        })
+        items.append(
+            {
+                "headline": headline,
+                "source": "HackerNews",
+                "url": item.get("url")
+                or f"https://news.ycombinator.com/item?id={story_id}",
+                "summary": (
+                    f"HackerNews — {item.get('score', 0)} points, "
+                    f"{item.get('descendants', 0)} comments"
+                ),
+            }
+        )
         history.append(headline)
 
     return items, True
@@ -206,15 +235,16 @@ def _fetch_hackernews(limit: int, history: list[str]) -> tuple[list[dict], bool]
 # ── Source registry ───────────────────────────────────────────────────────────
 
 _RSS_SOURCES: list[tuple[str, str]] = [
-    ("BBC",      "http://feeds.bbci.co.uk/news/rss.xml"),
+    ("BBC", "http://feeds.bbci.co.uk/news/rss.xml"),
     ("Guardian", "https://www.theguardian.com/world/rss"),
-    ("Ars",      "https://feeds.arstechnica.com/arstechnica/index"),
+    ("Ars", "https://feeds.arstechnica.com/arstechnica/index"),
     ("TechCrunch", "https://techcrunch.com/feed/"),
-    ("NASA",     "https://www.nasa.gov/rss/dyn/breaking_news.rss"),
+    ("NASA", "https://www.nasa.gov/rss/dyn/breaking_news.rss"),
 ]
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
+
 
 def fetch_news(history: list[str]) -> list[dict]:
     """
@@ -253,10 +283,7 @@ def fetch_news(history: list[str]) -> list[dict]:
 
     if failed_sources:
         if len(failed_sources) == total_sources:
-            print(
-                "[NEWS] WARNING: All news sources failed. "
-                "Returning empty list."
-            )
+            print("[NEWS] WARNING: All news sources failed. Returning empty list.")
         else:
             print(f"[NEWS] Some sources failed: {', '.join(failed_sources)}")
 

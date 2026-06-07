@@ -25,18 +25,18 @@ from typing import Optional
 # Note: These IDs must match the providers' official model strings.
 
 # Google Gemini series
-GEMINI_3_5_FLASH      = "gemini-3.5-flash"
-GEMINI_3_FLASH_PREV   = "gemini-3-flash-preview"
-GEMINI_2_5_FLASH      = "gemini-2.5-flash"
-GEMINI_3_1_LITE_PREV  = "gemini-3.1-flash-lite-preview"
-GEMINI_2_5_LITE       = "gemini-2.5-flash-lite"
+GEMINI_3_5_FLASH = "gemini-3.5-flash"
+GEMINI_3_FLASH_PREV = "gemini-3-flash-preview"
+GEMINI_2_5_FLASH = "gemini-2.5-flash"
+GEMINI_3_1_LITE_PREV = "gemini-3.1-flash-lite-preview"
+GEMINI_2_5_LITE = "gemini-2.5-flash-lite"
 
 # Meta Llama series (via Groq)
-LLAMA_4_SCOUT         = "meta-llama/llama-4-scout-17b-16e-instruct"
+LLAMA_4_SCOUT = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 # Experimental / Future-ready tiers
-GEMMA_4               = "gemma-4-31b-it"
-GEMMA_4_A4B           = "gemma-4-26b-a4b-it"
+GEMMA_4 = "gemma-4-31b-it"
+GEMMA_4_A4B = "gemma-4-26b-a4b-it"
 
 # ── Model Queues ──────────────────────────────────────────────────────────────
 
@@ -59,6 +59,7 @@ MODEL_SET_B: list[str] = MODEL_SET_A[::-1]
 _PRODUCTION_ENVS: frozenset[str] = frozenset({"production", "prod-models"})
 
 # ── JSON Healer ───────────────────────────────────────────────────────────────
+
 
 def heal_truncated_json(raw: str) -> Optional[dict]:
     """
@@ -103,7 +104,7 @@ def heal_truncated_json(raw: str) -> Optional[dict]:
                 brace_depth += 1
             elif ch == "}":
                 brace_depth -= 1
-                if brace_depth == 1: # Closed a segment inside the "segments" array
+                if brace_depth == 1:  # Closed a segment inside the "segments" array
                     last_valid_end = i
 
     if last_valid_end > 0:
@@ -121,6 +122,7 @@ def heal_truncated_json(raw: str) -> Optional[dict]:
 
 # ── LLM Callers ───────────────────────────────────────────────────────────────
 
+
 def call_groq(prompt: str, model: str) -> Optional[str]:
     """Execute chat completion via Groq SDK."""
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
@@ -130,6 +132,7 @@ def call_groq(prompt: str, model: str) -> Optional[str]:
 
     try:
         from groq import Groq
+
         client = Groq(api_key=api_key)
         response = client.chat.completions.create(
             model=model,
@@ -153,57 +156,74 @@ def call_gemini(prompt: str, model: str) -> Optional[str]:
     try:
         from google import genai
         from google.genai import types
+
         client = genai.Client(api_key=api_key)
 
         # Enable thinking config for reasoning models (e.g. gemma-4)
         is_reasoning = "gemma-4" in model
-        
+
         config = types.GenerateContentConfig(
             max_output_tokens=8192,
-            temperature=0.9 if not is_reasoning else None, # Reasoning models prefer default temp
+            temperature=0.9
+            if not is_reasoning
+            else None,  # Reasoning models prefer default temp
         )
-        
+
         if is_reasoning:
             config.thinking_config = types.ThinkingConfig(include_thoughts=True)
 
         response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=config
+            model=model, contents=prompt, config=config
         )
         return response.text
     except Exception as exc:
         print(f"[AI] Gemini call failed (model={model}): {exc}")
         return None
 
+
 # ── Prompt Engineering ────────────────────────────────────────────────────────
+
 
 def _build_prompt(news: list[dict], memory: list[dict], news_limit: int) -> str:
     """Construct the head-writer prompt for Echo FM."""
     today = datetime.now().strftime("%A, %B %d, %Y")
-    
-    news_block = "\n".join(
-        f"  [{item.get('source', '?')}] {item['headline']} — {item.get('summary', '')}"
-        for item in news[:news_limit]
-    ) or "  (No news items available today.)"
 
-    memory_block = "\n".join(
-        f"  ID: {m.get('id', '?')} | Headline: {m.get('headline', '?')}\n"
-        f"  Detailed Summary: {m.get('summary', 'No detailed summary available.')}\n"
-        f"  (Tags: {m.get('topic_tags', [])})\n"
-        for m in memory[:5]
-    ) or "  No recent episodes on file."
+    news_block = (
+        "\n".join(
+            f"  [{item.get('source', '?')}] {item['headline']} — {item.get('summary', '')}"
+            for item in news[:news_limit]
+        )
+        or "  (No news items available today.)"
+    )
+
+    memory_block = (
+        "\n".join(
+            f"  ID: {m.get('id', '?')} | Headline: {m.get('headline', '?')}\n"
+            f"  Detailed Summary: {m.get('summary', 'No detailed summary available.')}\n"
+            f"  (Tags: {m.get('topic_tags', [])})\n"
+            for m in memory[:5]
+        )
+        or "  No recent episodes on file."
+    )
 
     # ── Stability Strategy Note (DO NOT REMOVE) ──────────────────────────────────
     # Models systematically underperform. We now use explicit word-count enforcement
     # (130-160 word range) and mandatory 'word_count' JSON keys to anchor attention.
     # ──────────────────────────────────────────────────────────────────────────────
 
+    recent_titles = [m.get("headline", "?") for m in memory[:5]]
+    titles_to_avoid = "\n".join([f"  - {t}" for t in recent_titles])
 
     return f"""You are the head writer for "Echo FM" — a late-night satirical radio station
 operated by AI. 
 
 TODAY'S DATE: {today}
+
+TITLE RULES:
+- DO NOT use the template "X, Y, and the Z of Everything".
+- DO NOT use titles similar to these recent ones:
+{titles_to_avoid}
+- Create a UNIQUE, punchy, satirical title (max 10 words).
 
 Your goal is to cover world news: politics, science, culture, business, conflict,
 climate, and the full absurdity of the human condition. You observe the world the way
@@ -452,6 +472,7 @@ SILENCE             → Complete silence — no music, no ambient
 
 # ── Validation Logic ──────────────────────────────────────────────────────────
 
+
 def _jaccard(a: set, b: set) -> float:
     """Calculate Jaccard similarity index."""
     if not a or not b:
@@ -477,8 +498,16 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     """
     if not isinstance(data, dict):
         return False, "Response is not a dict"
-    
-    required_keys = ["title", "summary", "segments", "confidence", "related_ids", "my_take", "post_text"]
+
+    required_keys = [
+        "title",
+        "summary",
+        "segments",
+        "confidence",
+        "related_ids",
+        "my_take",
+        "post_text",
+    ]
     for k in required_keys:
         if k not in data:
             return False, f"Missing '{k}' key"
@@ -501,21 +530,28 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
     has_philosopher = False
 
     valid_speakers = {"ALISTAIR", "VICTORIA", "RONALD", "CASPER", "MARCUS"}
-    valid_styles   = {"normal", "whisper", "grave", "excited", "deadpan"}
+    valid_styles = {"normal", "whisper", "grave", "excited", "deadpan"}
 
     for i, seg in enumerate(segments):
         if not isinstance(seg, dict):
             return False, f"Segment {i} is not a dict"
-        
+
         # 1. Key presence & Schema
-        for k in ["speaker", "text", "voice_style", "sfx_pre", "sfx_post", "word_count"]:
+        for k in [
+            "speaker",
+            "text",
+            "voice_style",
+            "sfx_pre",
+            "sfx_post",
+            "word_count",
+        ]:
             if k not in seg:
                 return False, f"Segment {i} missing '{k}'"
 
         # 2. Content validation
         if seg["speaker"] not in valid_speakers:
             return False, f"Segment {i} has invalid speaker: {seg['speaker']}"
-        
+
         if seg["voice_style"] not in valid_styles:
             return False, f"Segment {i} has invalid voice_style: {seg['voice_style']}"
 
@@ -527,13 +563,16 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
                 return False, "MARCUS must be the final segment."
 
         # 3. Word count verification (Efficiency Patch)
-        # We intentionally 'over-ask' in the prompt (130-160 words) to account for 
+        # We intentionally 'over-ask' in the prompt (130-160 words) to account for
         # model underperformance. We check for a physical floor of 100 words only
         # to match our stability tests and avoid unnecessary retries.
         actual_words = len(seg["text"].split())
-        
+
         if actual_words < 100:
-            return False, f"Segment {i} ({seg['speaker']}) is physically too short ({actual_words} words) — need ≥ 100"
+            return (
+                False,
+                f"Segment {i} ({seg['speaker']}) is physically too short ({actual_words} words) — need ≥ 100",
+            )
 
         # 4. Repetition check (anti-hallucination)
         seg_words = _word_set(seg["text"])
@@ -553,6 +592,7 @@ def validate_broadcast(data: dict, env: str) -> tuple[bool, str]:
 
 # ── Post-Process Expansion Layer ──────────────────────────────────────────────
 
+
 def _expand_segment_via_llm(text: str, speaker: str, model: str) -> str:
     """Ask the model to expand a specific segment to 140+ words."""
     prompt = f"""Expand the following radio script segment for speaker {speaker}.
@@ -565,13 +605,13 @@ def _expand_segment_via_llm(text: str, speaker: str, model: str) -> str:
     """
     is_gemini = model.startswith(("gemini-", "gemma-"))
     is_groq = model.startswith(("openai/", "groq/", "qwen/", "meta-llama/", "llama-"))
-    
+
     expanded = None
     if is_groq:
         expanded = call_groq(prompt, model)
     elif is_gemini:
         expanded = call_gemini(prompt, model)
-    
+
     return expanded.strip() if expanded else text
 
 
@@ -583,11 +623,18 @@ def expand_short_segments(data: dict, model: str) -> dict:
     for i, seg in enumerate(data["segments"]):
         actual_words = len(seg["text"].split())
         if actual_words < 100:
-            print(f"[AI] Segment {i} too short ({actual_words} words). Attempting expansion...")
+            print(
+                f"[AI] Segment {i} too short ({actual_words} words). Attempting expansion..."
+            )
             expanded_text = _expand_segment_via_llm(seg["text"], seg["speaker"], model)
             if expanded_text:
                 # Clean up any "Expanded text:" or "Here is the expanded segment:" prefix
-                cleaned = re.sub(r"^(Expanded text:|Here is the expanded segment:|Segment \d+:)\s*", "", expanded_text, flags=re.I)
+                cleaned = re.sub(
+                    r"^(Expanded text:|Here is the expanded segment:|Segment \d+:)\s*",
+                    "",
+                    expanded_text,
+                    flags=re.I,
+                )
                 seg["text"] = cleaned
                 seg["word_count"] = len(cleaned.split())
                 print(f"  -> Expanded to {seg['word_count']} words.")
@@ -595,6 +642,7 @@ def expand_short_segments(data: dict, model: str) -> dict:
 
 
 # ── Orchestrator ──────────────────────────────────────────────────────────────
+
 
 def generate_broadcast(
     news: list[dict],
@@ -613,14 +661,16 @@ def generate_broadcast(
     for attempt, model in enumerate(model_queue):
         # ── Smart Routing & Payload Calibration ───────────────────────────────
         is_gemini = model.startswith(("gemini-", "gemma-"))
-        is_groq = model.startswith(("openai/", "groq/", "qwen/", "meta-llama/", "llama-"))
-        
+        is_groq = model.startswith(
+            ("openai/", "groq/", "qwen/", "meta-llama/", "llama-")
+        )
+
         # Provider-Aware News Limits (Stability Patch Part 1)
         # Gemini/Gemma: 20 items (~16k tokens). Groq: 6 items (~7.5k tokens).
         news_limit = 20 if is_gemini else 6
-        
+
         prompt = _build_prompt(news, memory, news_limit)
-        
+
         provider_name = "Gemini" if is_gemini else ("Groq" if is_groq else "UNKNOWN")
 
         print(
@@ -663,7 +713,7 @@ def generate_broadcast(
 
         if data is None:
             continue
-            
+
         # ── Step 4.5: Best-Effort Expansion (New) ─────────────────────────────
         # If segments are short, try to expand them on the FINAL attempt only.
         if attempt == len(model_queue) - 1:
