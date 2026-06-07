@@ -78,11 +78,11 @@ _STOP_WORDS: frozenset[str] = frozenset(
 
 
 def _significant_words(text: str) -> set[str]:
-    """Words with len > 4 that are not in the stop list."""
+    """Words with len >= 4 that are not in the stop list."""
     return {
         w
         for w in re.findall(r"[a-zA-Z]+", text.lower())
-        if len(w) > 4 and w not in _STOP_WORDS
+        if len(w) >= 4 and w not in _STOP_WORDS
     }
 
 
