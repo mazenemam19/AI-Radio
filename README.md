@@ -19,6 +19,7 @@ Echo FM operates without a traditional persistent backend. It is an **event-driv
 
 - **Orchestration:** GitHub Actions triggers the Python orchestrator on a 6-hour CRON schedule.
 - **Telemetry Loop:** Every run begins by fetching the latest engagement metrics (Plays, Likes) from the YouTube Data API for all previous episodes. This ensures station-wide stats are updated by the next scheduled run.
+- **Concurrency & Safety:** The pipeline utilizes top-level concurrency groups to cancel overlapping runs and enforces a **14.8-minute (888s)** absolute duration gate to stay within the 15-minute high-fidelity threshold.
 - **Stateless Execution:** Every broadcast is a discrete, atomic transaction. No local state is preserved between production runs in the cloud.
 - **Webhook Synchronization:** Upon a successful broadcast (Step 11), the pipeline triggers a **Netlify Build Hook**. This initiates a static-site rebuild, during which the frontend fetches the latest metadata from Supabase and updates the dashboard instantly.
 
@@ -27,7 +28,7 @@ Echo FM operates without a traditional persistent backend. It is an **event-driv
 ### Prerequisites
 - Python 3.11+
 - FFmpeg in system PATH (`ffmpeg` and `ffprobe`)
-- Node.js (for proxy scripts)
+- Node.js 18+ (for proxy scripts and Husky hooks)
 
 ### Installation
 ```bash
@@ -36,6 +37,10 @@ cd AI-Radio
 pip install -r requirements.txt
 npm install
 ```
+
+### Development Quality Gates
+The project uses **Husky** and **lint-staged** to ensure code quality:
+- **Pre-commit:** Automatically runs `ruff` (linter + formatter) and the full `pytest` suite on every commit.
 
 ### Configuration
 Copy `.env.example` to `.env` and fill the keys.
@@ -53,6 +58,7 @@ Copy `.env.example` to `.env` and fill the keys.
 ## 🚀 Scripts Reference (`package.json`)
 
 - `npm start`: Runs the local pipeline (SQLite + edge-tts).
+- `npm run lint`: Runs `ruff check .` via the Python proxy.
 - `npm run dry-run`: Production-style run with mocked AI responses.
 - `npm run prod`: Full production broadcast (Supabase + Premium TTS + YouTube).
 - `npm run verify`: Health check for APIs, DB, and local binaries.
@@ -62,15 +68,24 @@ Copy `.env.example` to `.env` and fill the keys.
 ## 🚀 Detailed Pipeline Steps
 
 ### Step 1 — News Ingestion (`news_fetcher.py`)
-Fetches up to 5 items from each RSS feed and 10 from HackerNews. Items are **deduplicated** against the last 10 episode headlines using a significance-weighted keyword overlap check (sharing ≥3 keywords).
+Fetches up to 5 items from each RSS feed and 10 from HackerNews.
+- **Tag-Aware Deduplication:** Items are blocked if they match an exact headline in history OR if they contain keywords from the **topic_tags** of the last 10 episodes. This prevents "zombie loops" where topics like 'NASA' or 'Ebola' repeat daily.
 
 ### Step 2b — AI Script Generation (`ai_client.py`)
 Constructs a complex prompt containing the 20-item news feed and station memory. If the LLM returns truncated JSON, a recursive **JSON Healer** salvages completed segments.
-- **Expansion Layer:** If segments are too short (<100 words), the system calls a dedicated expansion loop to lengthen them.
-- **Validation:** Enforces a 100-word physical floor and verified `word_count` metadata (while asking for 130-160 words in the prompt to ensure quality).
+- **Expansion Layer:** If segments are too short (<100 words), the system calls a dedicated expansion loop to lengthen them on the final attempt.
+- **Validation:** Enforces a 100-word physical floor and verified `word_count` metadata (while asking for 130-160 words in the prompt as a soft anchor).
 
 ### Step 3 — TTS Synthesis (`tts_generator.py`)
-Processes segments using a **Unified Master Engine**. It attempts the entire episode with one engine (Cartesia → Kokoro → Edge) to ensure vocal consistency. A **Quality Guard** rejects any audio with a WPM > 300.
+- **Parallel Generation:** Narrates all 13 segments concurrently using a `ThreadPoolExecutor` (5 workers), reducing synthesis time from ~5 minutes to ~60 seconds.
+- **Unified Master Engine:** Attempts the entire episode with one engine (Cartesia → Kokoro → Edge) to ensure vocal consistency. A **Quality Guard** rejects any audio with a WPM > 300.
+
+### Step 4 — Audio Assembly & Mastering
+Concatenates segments using Pydub and applies a **Loudness Normalization Pass** (Target: -14 LUFS) for professional streaming consistency.
+
+### Step 5-7 — Visuals & Packaging
+- **FFmpeg Optimization:** Compiles a pixel-perfect cover PNG and audio into an MP4 using the `veryfast` preset to accelerate compilation by ~60%.
+- **Precision Clipping:** Uses the `-t` flag for exact millisecond alignment between audio and video tracks.
 
 ## 🔊 Sound Effects Reference
 
@@ -101,8 +116,10 @@ Processes segments using a **Unified Master Engine**. It attempts the entire epi
 1. **100-Word Floor:** Every segment must exceed 100 words (the prompt asks for 130-160 to ensure quality).
 2. **Word Count Anchoring:** Every segment JSON must include a `word_count` key that helps anchor the model's focus on length.
 3. **Best-Effort Expansion:** If a model under-delivers on length (<100 words), the system triggers a recursive expansion pass on the final attempt.
-4. **20 News Items:** Production runs ingest 20 news items to provide sufficient creative fuel.
-5. **13 Segments:** Fixed show arc (Intro -> Main(9) -> Weatherbot -> Main -> Deep Dive -> Philosopher).
+4. **Clash Protocol:** Characters are explicitly prompted to challenge each other's interpretations, breaking the "agreement loop" and ensuring adversarial social dynamics.
+5. **Semantic Refresh:** Explicit ban on overused AI metaphors ("recursive loop", "deck chairs", "sinking ship", "void", "static").
+6. **20 News Items:** Production runs ingest 20 news items to provide sufficient creative fuel.
+7. **13 Segments:** Fixed show arc (Intro -> Main(9) -> Weatherbot -> Main -> Deep Dive -> Philosopher).
 
 ---
 For a deep dive into the technical implementation, see [ARCHITECTURE.md](./ARCHITECTURE.md).
